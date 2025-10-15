@@ -1,0 +1,137 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  height: 100vh;
+  width: 100vw;
+  background: #1e1e1e;
+  color: #eee;
+  overflow: hidden;
+}
+
+#toolbar {
+  position: fixed;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  align-items: stretch;
+}
+
+#toolbar .toolbar-top,
+#toolbar .toolbar-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+#toolbar .spacer { 
+  flex: 1 1 auto; 
+}
+
+/* Boutons compacts icône-only */
+button {
+  background: #3a3a3a;
+  border: none;
+  color: #eee;
+  min-width: 20px;
+  width: fit-content;
+  height: 40px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+  transition: background 0.2s;
+}
+
+button:hover { 
+  background: #555; 
+}
+
+/* Désactiver l'ancien tooltip ::after */
+#toolbar button::after { 
+  content: none !important; 
+}
+
+/* Wrapper de label qui s'élargit au hover */
+#toolbar .label-wrap {
+  display: none;
+  overflow: hidden;
+  max-width: 0;
+  transition: max-width 180ms ease;
+}
+
+/* Label inline qui se déploie */
+#toolbar .btn-label {
+  transform: scaleX(0);
+  transform-origin: left center;
+  opacity: 0;
+  transition: transform 180ms ease, opacity 180ms ease;
+  font-size: 13px;
+  color: #eee;
+}
+
+#toolbar button:hover .label-wrap { 
+  max-width: 220px; 
+  display: flex; 
+}
+
+#toolbar button:hover .btn-label { 
+  transform: scaleX(1); 
+  opacity: 1; 
+}
+
+/* Sauvegarder reste vert */
+#saveData { 
+  background: #1a7f1a !important; 
+}
+
+#saveData:hover { 
+  background: #228b22 !important; 
+}
+
+#canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+canvas { 
+  display: block; 
+}
+
+/* Sélecteur d'images en bas de page */
+#roomSelectContainer { 
+  position: absolute; 
+  left: 50%; 
+  bottom: 12px; 
+  transform: translateX(-50%); 
+  z-index: 1200; 
+}
+
+#roomSelector { 
+  background: #3a3a3a; 
+  color: #eee; 
+  border: 1px solid #555; 
+  border-radius: 8px; 
+  padding: 6px 10px; 
+}
+
