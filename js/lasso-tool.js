@@ -1,5 +1,83 @@
 // ========== OUTIL LASSO ==========
 
+// Variables pour l'auto-pan
+let autoPanAnimationId = null;
+let lastAutoPanMousePos = { x: 0, y: 0 };
+
+// Configuration de l'auto-pan
+const AUTO_PAN_EDGE_SIZE = 50; // Taille de la zone de déclenchement en pixels depuis le bord
+const AUTO_PAN_SPEED = 8; // Vitesse maximale du pan
+
+// Fonction d'auto-pan
+function checkAndApplyAutoPan() {
+  // Arrêter l'auto-pan si on n'est plus en mode lasso ou si on n'a pas encore commencé à tracer
+  if (!isLassoMode || (points.length === 0 && !polygonClosed)) {
+    if (autoPanAnimationId) {
+      cancelAnimationFrame(autoPanAnimationId);
+      autoPanAnimationId = null;
+    }
+    return;
+  }
+
+  const mouseX = lastAutoPanMousePos.x;
+  const mouseY = lastAutoPanMousePos.y;
+  const canvasWidth = window.innerWidth;
+  const canvasHeight = window.innerHeight;
+
+  let panX = 0;
+  let panY = 0;
+
+  // Calculer le déplacement en fonction de la proximité des bords
+  if (mouseX < AUTO_PAN_EDGE_SIZE) {
+    // Bord gauche
+    panX = AUTO_PAN_SPEED * (1 - mouseX / AUTO_PAN_EDGE_SIZE);
+  } else if (mouseX > canvasWidth - AUTO_PAN_EDGE_SIZE) {
+    // Bord droit
+    panX = -AUTO_PAN_SPEED * (1 - (canvasWidth - mouseX) / AUTO_PAN_EDGE_SIZE);
+  }
+
+  if (mouseY < AUTO_PAN_EDGE_SIZE) {
+    // Bord haut
+    panY = AUTO_PAN_SPEED * (1 - mouseY / AUTO_PAN_EDGE_SIZE);
+  } else if (mouseY > canvasHeight - AUTO_PAN_EDGE_SIZE) {
+    // Bord bas
+    panY = -AUTO_PAN_SPEED * (1 - (canvasHeight - mouseY) / AUTO_PAN_EDGE_SIZE);
+  }
+
+  // Appliquer le pan si nécessaire
+  if (panX !== 0 || panY !== 0) {
+    const vpt = canvas.viewportTransform;
+    vpt[4] += panX;
+    vpt[5] += panY;
+    canvas.requestRenderAll();
+    isAtBaseZoom = false;
+  }
+
+  // Continuer l'animation
+  autoPanAnimationId = requestAnimationFrame(checkAndApplyAutoPan);
+}
+
+// Démarrer l'auto-pan
+function startAutoPan() {
+  if (!autoPanAnimationId) {
+    autoPanAnimationId = requestAnimationFrame(checkAndApplyAutoPan);
+  }
+}
+
+// Arrêter l'auto-pan
+function stopAutoPan() {
+  if (autoPanAnimationId) {
+    cancelAnimationFrame(autoPanAnimationId);
+    autoPanAnimationId = null;
+  }
+}
+
+// Mettre à jour la position de la souris pour l'auto-pan
+window.addEventListener('mousemove', (e) => {
+  lastAutoPanMousePos.x = e.clientX;
+  lastAutoPanMousePos.y = e.clientY;
+});
+
 // Fonction pour définir la couleur de bordure d'un masque
 function setMaskBorderColor(group, color) {
   if (!group || !group._objects || group._objects.length < 2) return;
@@ -8,19 +86,24 @@ function setMaskBorderColor(group, color) {
 }
 
 // Toggle du mode lasso
-document.getElementById("toggleLasso").onclick = () => {
+document.getElementById("toggleLasso").onclick = function() {
+  // Vérifier si le bouton est désactivé
+  if (this.classList.contains('disabled')) return;
+  
+  // Si on désactive le lasso en mode édition, valider les changements
+  if (isLassoMode && isEditingMode && points.length >= 3) {
+    console.log("💾 Validation des modifications (désactivation du lasso)...");
+    createCutout();
+    return;
+  }
+  
   if (isLassoMode && editingMask) {
     canvas.add(editingMask);
     editingMask = null;
   }
   
   isLassoMode = !isLassoMode;
-  
-  if (isLassoMode && isPanMode) {
-    isPanMode = false;
-    document.getElementById("togglePan").style.background = "#3a3a3a";
-    canvas.defaultCursor = 'default';
-  }
+  isEditingMode = false; // Réinitialiser le mode édition
   
   points = [];
   curveHandles = {};
@@ -35,40 +118,65 @@ document.getElementById("toggleLasso").onclick = () => {
     canvas.remove(previewLine);
     previewLine = null;
   }
-  document.getElementById("validateMask").style.display = "none";
   
   canvas.selection = !isLassoMode;
   canvas.discardActiveObject();
   canvas.renderAll();
   
   document.getElementById("toggleLasso").style.background = isLassoMode ? "#1a7f1a" : "#3a3a3a";
-};
-
-// Validation du masque
-document.getElementById("validateMask").onclick = () => {
-  if (points.length < 3) return;
+  document.getElementById("editMask").style.background = "#3a3a3a"; // Réinitialiser le bouton édition
   
-  if (editingMask) {
-    canvas.remove(editingMask);
-    editingMask = null;
+  // Arrêter l'auto-pan si on désactive le mode lasso
+  if (!isLassoMode) {
+    stopAutoPan();
   }
   
-  createCutout();
-  
-  points = [];
-  curveHandles = {};
-  polygonClosed = false;
-  tempLines.forEach(line => canvas.remove(line));
-  tempLines = [];
-  tempCircles.forEach(circle => canvas.remove(circle));
-  tempCircles = [];
-  handleCircles.forEach(handle => canvas.remove(handle));
-  handleCircles = [];
-  document.getElementById("validateMask").style.display = "none";
+  // Mettre à jour l'état des boutons
+  if (typeof updateButtonStates !== 'undefined') {
+    updateButtonStates();
+  }
 };
 
 // Modification du tracé
-document.getElementById("editMask").onclick = () => {
+document.getElementById("editMask").onclick = function() {
+  // Vérifier si le bouton est désactivé (sauf en mode édition où il sert à valider)
+  if (!isEditingMode && this.classList.contains('disabled')) return;
+  
+  // Si on est déjà en mode édition, sortir du mode et valider les changements
+  if (isEditingMode) {
+    console.log("💾 Finalisation du mode édition...");
+    if (points.length >= 3) {
+      createCutout();
+    } else {
+      // Annuler si pas assez de points
+      if (editingMask) {
+        canvas.add(editingMask);
+        editingMask = null;
+      }
+      points = [];
+      curveHandles = {};
+      polygonClosed = false;
+      tempLines.forEach(line => canvas.remove(line));
+      tempLines = [];
+      tempCircles.forEach(circle => canvas.remove(circle));
+      tempCircles = [];
+      handleCircles.forEach(handle => canvas.remove(handle));
+      handleCircles = [];
+      
+      isLassoMode = false;
+      isEditingMode = false;
+      document.getElementById("editMask").style.background = "#3a3a3a";
+      canvas.selection = true;
+      canvas.renderAll();
+      
+      // Mettre à jour l'état des boutons
+      if (typeof updateButtonStates !== 'undefined') {
+        updateButtonStates();
+      }
+    }
+    return;
+  }
+  
   const activeObject = canvas.getActiveObject();
   
   if (!activeObject) {
@@ -90,15 +198,11 @@ document.getElementById("editMask").onclick = () => {
   canvas.remove(editingMask);
   
   isLassoMode = true;
+  isEditingMode = true; // Activer le mode édition
   polygonClosed = true;
-  document.getElementById("toggleLasso").style.background = "#1a7f1a";
   
-  if (isPanMode) {
-    isPanMode = false;
-    document.getElementById("togglePan").style.background = "#3a3a3a";
-  }
-  
-  document.getElementById("validateMask").style.display = "flex";
+  // Mettre le bouton "Modifier le tracé" en vert au lieu du lasso
+  document.getElementById("editMask").style.background = "#1a7f1a";
   
   canvas.discardActiveObject();
   canvas.selection = false;
@@ -106,7 +210,12 @@ document.getElementById("editMask").onclick = () => {
   
   updatePolygonPreview();
   
-  console.log("✅ Vous pouvez maintenant modifier les points et courbes. Cliquez sur 'Valider' quand c'est terminé.");
+  // Mettre à jour l'état des boutons
+  if (typeof updateButtonStates !== 'undefined') {
+    updateButtonStates();
+  }
+  
+  console.log("✅ Vous pouvez maintenant modifier les points et courbes. Cliquez à nouveau sur 'Modifier le tracé' pour finaliser.");
 };
 
 // Gestion des clics pour dessiner le lasso
@@ -122,12 +231,15 @@ canvas.on("mouse:down", (opt) => {
       left: pointer.x - 4,
       top: pointer.y - 4,
       radius: 4,
-      fill: 'lime',
+      fill: '#00ff00',
       selectable: false,
       evented: false
     });
     canvas.add(circle);
     tempCircles.push(circle);
+    
+    // Démarrer l'auto-pan maintenant qu'on a commencé à tracer
+    startAutoPan();
     
     console.log("Premier point placé");
     return;
@@ -145,6 +257,8 @@ canvas.on("mouse:down", (opt) => {
       if (distToPoint < 12) {
         isDraggingPoint = true;
         draggingPointIndex = i;
+        // Démarrer l'auto-pan quand on commence à glisser un point
+        startAutoPan();
         console.log(`Glissement du point ${i}`);
         return;
       }
@@ -168,6 +282,8 @@ canvas.on("mouse:down", (opt) => {
       if (distToHandle < 10) {
         isDraggingHandle = true;
         draggingSegmentIndex = i;
+        // Démarrer l'auto-pan quand on commence à glisser une poignée
+        startAutoPan();
         console.log(`Glissement de la poignée du segment ${i}`);
         return;
       }
@@ -183,16 +299,15 @@ canvas.on("mouse:down", (opt) => {
   );
   
   if (distToFirst < 10 && points.length >= 3) {
-    console.log("Polygone fermé. Cliquez sur les points ou lignes pour les arrondir. Puis cliquez sur 'Valider le masque'.");
-    polygonClosed = true;
+    console.log("Polygone fermé. Création du masque...");
     
     if (previewLine) {
       canvas.remove(previewLine);
       previewLine = null;
     }
     
-    document.getElementById("validateMask").style.display = "flex";
-    updatePolygonPreview();
+    // Créer le masque automatiquement
+    createCutout();
     return;
   }
   
@@ -202,7 +317,7 @@ canvas.on("mouse:down", (opt) => {
   const line = new fabric.Line(
     [lastPoint.x, lastPoint.y, pointer.x, pointer.y],
     {
-      stroke: 'lime',
+      stroke: '#00ff00',
       strokeWidth: 2,
       selectable: false,
       evented: false
@@ -229,16 +344,15 @@ canvas.on("mouse:down", (opt) => {
 // Double-clic pour fermer le polygone
 canvas.on("mouse:dblclick", (opt) => {
   if (!isLassoMode || points.length < 3 || polygonClosed) return;
-  console.log("Polygone fermé. Cliquez sur les points ou lignes pour les arrondir. Puis cliquez sur 'Valider le masque'.");
-  polygonClosed = true;
+  console.log("Polygone fermé. Création du masque...");
   
   if (previewLine) {
     canvas.remove(previewLine);
     previewLine = null;
   }
   
-  document.getElementById("validateMask").style.display = "flex";
-  updatePolygonPreview();
+  // Créer le masque automatiquement
+  createCutout();
 });
 
 // Mise à jour de la prévisualisation du polygone
@@ -281,69 +395,72 @@ function updatePolygonPreview() {
   canvas.add(path);
   tempLines.push(path);
   
-  // Dessiner les points
-  points.forEach((point, idx) => {
-    const circle = new fabric.Circle({
-      left: point.x - 6,
-      top: point.y - 6,
-      radius: 6,
-      fill: 'lime',
-      stroke: 'white',
-      strokeWidth: 2,
-      selectable: false,
-      evented: false
-    });
-    canvas.add(circle);
-    tempCircles.push(circle);
-  });
-  
-  // Dessiner les poignées de courbe
-  for (let i = 0; i < points.length; i++) {
-    const p1 = points[i];
-    const p2 = points[(i + 1) % points.length];
-    
-    const handlePos = curveHandles[i] || {
-      x: (p1.x + p2.x) / 2,
-      y: (p1.y + p2.y) / 2
-    };
-    
-    const isCurved = curveHandles[i] !== undefined;
-    
-    const handle = new fabric.Rect({
-      left: handlePos.x - 4,
-      top: handlePos.y - 4,
-      width: 8,
-      height: 8,
-      fill: isCurved ? 'cyan' : 'rgba(0, 255, 255, 0.3)',
-      stroke: 'cyan',
-      strokeWidth: 1,
-      selectable: false,
-      evented: false
-    });
-    canvas.add(handle);
-    handleCircles.push(handle);
-    
-    if (isCurved) {
-      const guideLines = [
-        new fabric.Line([p1.x, p1.y, handlePos.x, handlePos.y], {
-          stroke: 'rgba(0, 255, 255, 0.5)',
-          strokeWidth: 1,
-          strokeDashArray: [3, 3],
-          selectable: false,
-          evented: false
-        }),
-        new fabric.Line([p2.x, p2.y, handlePos.x, handlePos.y], {
-          stroke: 'rgba(0, 255, 255, 0.5)',
-          strokeWidth: 1,
-          strokeDashArray: [3, 3],
-          selectable: false,
-          evented: false
-        })
-      ];
-      guideLines.forEach(line => {
-        canvas.add(line);
-        tempLines.push(line);
+  // Dessiner les points et poignées uniquement en mode édition
+  if (isEditingMode) {
+    // Dessiner les points
+    points.forEach((point, idx) => {
+      const circle = new fabric.Circle({
+        left: point.x - 8,
+        top: point.y - 8,
+        radius: 8,
+        fill: '#00ff00',
+        stroke: 'white',
+        strokeWidth: 3,
+        selectable: false,
+        evented: false
       });
+      canvas.add(circle);
+      tempCircles.push(circle);
+    });
+    
+    // Dessiner les poignées de courbe
+    for (let i = 0; i < points.length; i++) {
+      const p1 = points[i];
+      const p2 = points[(i + 1) % points.length];
+      
+      const handlePos = curveHandles[i] || {
+        x: (p1.x + p2.x) / 2,
+        y: (p1.y + p2.y) / 2
+      };
+      
+      const isCurved = curveHandles[i] !== undefined;
+      
+      const handle = new fabric.Rect({
+        left: handlePos.x - 6,
+        top: handlePos.y - 6,
+        width: 12,
+        height: 12,
+        fill: isCurved ? '#00ffff' : 'rgba(0, 255, 255, 0.4)',
+        stroke: '#00ffff',
+        strokeWidth: 2,
+        selectable: false,
+        evented: false
+      });
+      canvas.add(handle);
+      handleCircles.push(handle);
+      
+      if (isCurved) {
+        const guideLines = [
+          new fabric.Line([p1.x, p1.y, handlePos.x, handlePos.y], {
+            stroke: 'rgba(0, 255, 255, 0.8)',
+            strokeWidth: 2,
+            strokeDashArray: [6, 4],
+            selectable: false,
+            evented: false
+          }),
+          new fabric.Line([p2.x, p2.y, handlePos.x, handlePos.y], {
+            stroke: 'rgba(0, 255, 255, 0.8)',
+            strokeWidth: 2,
+            strokeDashArray: [6, 4],
+            selectable: false,
+            evented: false
+          })
+        ];
+        guideLines.forEach(line => {
+          canvas.add(line);
+          tempLines.push(line);
+        });
+      }
     }
   }
   
@@ -356,6 +473,8 @@ function createCutout() {
   tempLines = [];
   tempCircles.forEach(circle => canvas.remove(circle));
   tempCircles = [];
+  handleCircles.forEach(handle => canvas.remove(handle));
+  handleCircles = [];
   if (previewLine) {
     canvas.remove(previewLine);
     previewLine = null;
@@ -435,8 +554,8 @@ function createCutout() {
     cutoutImg.set({
       left: bounds.left,
       top: bounds.top,
-      selectable: false,
-      evented: false,
+      selectable: true,
+      evented: true,
       originX: 'left',
       originY: 'top'
     });
@@ -447,9 +566,9 @@ function createCutout() {
         left: bounds.left,
         top: bounds.top,
         fill: 'transparent',
-        stroke: 'lime',
-        strokeWidth: 2,
-        strokeDashArray: [5, 5],
+        stroke: '#00ff00',
+        strokeWidth: 3,
+        strokeDashArray: [8, 4],
         selectable: false,
         evented: false,
         originX: 'left',
@@ -470,7 +589,9 @@ function createCutout() {
       lockScalingY: true,
       hasControls: false,
       hasBorders: false,
-      subTargetCheck: false,
+      subTargetCheck: true, // Activer la détection des sous-objets
+      perPixelTargetFind: true, // Détection pixel par pixel pour l'image
+      targetFindTolerance: 0, // Pas de tolérance - clic exact requis
       maskData: {
         originalPoints: JSON.parse(JSON.stringify(savedPoints)),
         curveHandles: JSON.parse(JSON.stringify(savedHandles)),
@@ -481,16 +602,30 @@ function createCutout() {
     canvas.add(maskGroup);
     
     isLassoMode = false;
+    isEditingMode = false; // Réinitialiser le mode édition
     document.getElementById("toggleLasso").style.background = "#3a3a3a";
+    document.getElementById("editMask").style.background = "#3a3a3a"; // Réinitialiser le bouton édition
     canvas.selection = true;
     canvas.setActiveObject(maskGroup);
     canvas.renderAll();
+    
+    // Arrêter l'auto-pan après création du masque
+    stopAutoPan();
+    
+    // Mettre à jour l'état des boutons
+    if (typeof updateButtonStates !== 'undefined') {
+      updateButtonStates();
+    }
     
     console.log("✅ Masque créé !");
     saveCanvasState();
   });
   
+  // Nettoyer toutes les variables de tracé
   points = [];
+  curveHandles = {};
+  polygonClosed = false;
+  editingMask = null;
 }
 
 // Fonction pour recréer un masque (utilisée au chargement)
@@ -558,8 +693,8 @@ function recreateMask(maskData, callback) {
     cutoutImg.set({
       left: bounds.left,
       top: bounds.top,
-      selectable: false,
-      evented: false,
+      selectable: true,
+      evented: true,
       originX: 'left',
       originY: 'top'
     });
@@ -570,9 +705,9 @@ function recreateMask(maskData, callback) {
         left: bounds.left,
         top: bounds.top,
         fill: 'transparent',
-        stroke: 'lime',
-        strokeWidth: 2,
-        strokeDashArray: [5, 5],
+        stroke: '#00ff00',
+        strokeWidth: 3,
+        strokeDashArray: [8, 4],
         selectable: false,
         evented: false,
         originX: 'left',
@@ -593,7 +728,9 @@ function recreateMask(maskData, callback) {
       lockScalingY: true,
       hasControls: false,
       hasBorders: false,
-      subTargetCheck: false,
+      subTargetCheck: true, // Activer la détection des sous-objets
+      perPixelTargetFind: true, // Détection pixel par pixel pour l'image
+      targetFindTolerance: 0, // Pas de tolérance - clic exact requis
       maskData: {
         originalPoints: savedPoints,
         curveHandles: savedHandles,

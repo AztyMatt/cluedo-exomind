@@ -7,30 +7,78 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   
-  // Echap pour annuler le tracé
+  // Echap pour annuler le tracé ou valider l'édition
   if (e.key === 'Escape' && isLassoMode && points.length > 0) {
-    console.log("Tracé annulé");
-    
-    if (editingMask) {
-      canvas.add(editingMask);
-      editingMask = null;
+    // En mode édition, valider les changements
+    if (isEditingMode) {
+      console.log("💾 Validation des modifications (Échap)...");
+      if (points.length >= 3 && typeof createCutout !== 'undefined') {
+        createCutout();
+      } else {
+        // Pas assez de points, annuler
+        if (editingMask) {
+          canvas.add(editingMask);
+          editingMask = null;
+        }
+        points = [];
+        curveHandles = {};
+        polygonClosed = false;
+        tempLines.forEach(line => canvas.remove(line));
+        tempLines = [];
+        tempCircles.forEach(circle => canvas.remove(circle));
+        tempCircles = [];
+        handleCircles.forEach(handle => canvas.remove(handle));
+        handleCircles = [];
+        
+        isLassoMode = false;
+        isEditingMode = false;
+        document.getElementById("toggleLasso").style.background = "#3a3a3a";
+        document.getElementById("editMask").style.background = "#3a3a3a";
+        canvas.selection = true;
+        canvas.renderAll();
+      }
+    } else {
+      // En mode traçage normal, annuler
+      console.log("Tracé annulé");
+      
+      if (editingMask) {
+        canvas.add(editingMask);
+        editingMask = null;
+      }
+      
+      points = [];
+      curveHandles = {};
+      polygonClosed = false;
+      tempLines.forEach(line => canvas.remove(line));
+      tempLines = [];
+      tempCircles.forEach(circle => canvas.remove(circle));
+      tempCircles = [];
+      handleCircles.forEach(handle => canvas.remove(handle));
+      handleCircles = [];
+      if (previewLine) {
+        canvas.remove(previewLine);
+        previewLine = null;
+      }
+      
+      // Réinitialiser les modes et boutons
+      isLassoMode = false;
+      isEditingMode = false;
+      document.getElementById("toggleLasso").style.background = "#3a3a3a";
+      document.getElementById("editMask").style.background = "#3a3a3a";
+      canvas.selection = true;
+      canvas.renderAll();
     }
     
-    points = [];
-    curveHandles = {};
-    polygonClosed = false;
-    tempLines.forEach(line => canvas.remove(line));
-    tempLines = [];
-    tempCircles.forEach(circle => canvas.remove(circle));
-    tempCircles = [];
-    handleCircles.forEach(handle => canvas.remove(handle));
-    handleCircles = [];
-    if (previewLine) {
-      canvas.remove(previewLine);
-      previewLine = null;
+    // Arrêter l'auto-pan lors de l'annulation
+    if (typeof stopAutoPan !== 'undefined') {
+      stopAutoPan();
     }
-    document.getElementById("validateMask").style.display = "none";
-    canvas.renderAll();
+    
+    // Mettre à jour l'état des boutons
+    if (typeof updateButtonStates !== 'undefined') {
+      updateButtonStates();
+    }
+    
     return;
   }
   

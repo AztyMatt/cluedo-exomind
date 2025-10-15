@@ -28,14 +28,13 @@ document.getElementById("modeToggle").onclick = () => {
   const toolbarTop = document.querySelector('#toolbar .toolbar-top');
   
   if (isPlayerMode) {
-    // Mode Player
-    icon.textContent = "🎮";
-    label.textContent = "Player Mode";
+    // On est en mode Player, afficher "Editor Mode" pour indiquer qu'on peut revenir en mode Editor
+    icon.textContent = "🛠️";
+    label.textContent = "Editor Mode";
     btn.style.background = "#1a7f1a";
     if (toolbarTop) toolbarTop.style.display = 'none';
     document.getElementById("saveData").style.display = "inline-flex";
     isLassoMode = false;
-    isPanMode = false;
     canvas.selection = false;
     canvas.discardActiveObject();
     canvas.getObjects().forEach(obj => { 
@@ -47,9 +46,9 @@ document.getElementById("modeToggle").onclick = () => {
     
     console.log("🎮 Mode Player activé - Bordures masquées, édition désactivée, zoom réinitialisé");
   } else {
-    // Mode Editor
-    icon.textContent = "🛠️";
-    label.textContent = "Editor Mode";
+    // On est en mode Editor, afficher "Player Mode" pour indiquer qu'on peut basculer en mode Player
+    icon.textContent = "🎮";
+    label.textContent = "Player Mode";
     btn.style.background = "#3a3a3a";
     if (toolbarTop) toolbarTop.style.display = 'flex';
     document.getElementById("saveData").style.display = "inline-flex";
@@ -59,8 +58,8 @@ document.getElementById("modeToggle").onclick = () => {
       if (obj !== backgroundImage) obj.set({ selectable: true, evented: true }); 
     });
     
-    canvas.defaultCursor = isPanMode ? 'grab' : 'default';
-    canvas.hoverCursor = isPanMode ? 'grab' : 'move';
+    canvas.defaultCursor = 'default';
+    canvas.hoverCursor = 'move';
     
     console.log("🛠️ Mode Editor activé - Bordures visibles, édition activée");
   }

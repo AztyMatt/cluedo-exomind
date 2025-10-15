@@ -1,31 +1,4 @@
-// ========== OUTIL PAN (MODE MAIN) ==========
-
-document.getElementById("togglePan").onclick = () => {
-  isPanMode = !isPanMode;
-  
-  if (isPanMode && isLassoMode) {
-    isLassoMode = false;
-    document.getElementById("toggleLasso").style.background = "#3a3a3a";
-    points = [];
-    tempLines.forEach(line => canvas.remove(line));
-    tempLines = [];
-    tempCircles.forEach(circle => canvas.remove(circle));
-    tempCircles = [];
-    if (previewLine) {
-      canvas.remove(previewLine);
-      previewLine = null;
-    }
-    document.getElementById("validateMask").style.display = "none";
-  }
-  
-  canvas.selection = true;
-  canvas.discardActiveObject();
-  canvas.defaultCursor = isPanMode ? 'grab' : 'default';
-  canvas.hoverCursor = isPanMode ? 'grab' : 'move';
-  canvas.renderAll();
-  
-  document.getElementById("togglePan").style.background = isPanMode ? "#1a7f1a" : "#3a3a3a";
-};
+// ========== GESTION DU PAN PAR CLIC-GLISSER ET ÉVÉNEMENTS DE SÉLECTION ==========
 
 // Gestion du pan/drag
 canvas.on("mouse:down", (opt) => {
@@ -33,7 +6,9 @@ canvas.on("mouse:down", (opt) => {
     finalizePaperPlacement(opt);
     return;
   }
-  if ((opt.e.altKey || isPanMode) && !opt.target && !isPlayerMode) {
+  
+  // Pan avec Alt ou clic-glisser sur espace vide
+  if (!opt.target && !isPlayerMode && (!isLassoMode || opt.e.altKey)) {
     isDragging = true;
     lastPosX = opt.e.clientX;
     lastPosY = opt.e.clientY;
@@ -104,9 +79,9 @@ canvas.on("mouse:move", (opt) => {
     previewLine = new fabric.Line(
       [lastPoint.x, lastPoint.y, pointer.x, pointer.y],
       {
-        stroke: 'yellow',
-        strokeWidth: 1,
-        strokeDashArray: [5, 5],
+        stroke: '#ffff00',
+        strokeWidth: 2,
+        strokeDashArray: [8, 4],
         selectable: false,
         evented: false
       }
@@ -117,33 +92,33 @@ canvas.on("mouse:move", (opt) => {
 });
 
 canvas.on("mouse:up", () => {
+  // Arrêter l'auto-pan si on était en train de glisser un point ou une poignée
+  if (isDraggingPoint || isDraggingHandle) {
+    if (typeof stopAutoPan !== 'undefined') {
+      stopAutoPan();
+    }
+  }
+  
   isDragging = false;
   isDraggingHandle = false;
   draggingSegmentIndex = -1;
   isDraggingPoint = false;
   draggingPointIndex = -1;
-  canvas.defaultCursor = isPanMode ? 'grab' : 'default';
+  canvas.defaultCursor = 'default';
 });
 
 // Gestion de la sélection des masques
 canvas.on("selection:created", (e) => {
   const selectedObj = e.selected[0];
-  if (isPanMode && selectedObj && selectedObj.maskData && selectedObj.maskData.isMask) {
-    isPanMode = false;
-    document.getElementById("togglePan").style.background = "#3a3a3a";
-    canvas.defaultCursor = 'default';
-    canvas.hoverCursor = 'move';
-    console.log("⚠️ Mode Main désactivé (masque sélectionné)");
-  }
   if (selectedObj && selectedObj.maskData && selectedObj.maskData.isMask) {
     if (lastSelectedMask && lastSelectedMask !== selectedObj) {
-      setMaskBorderColor(lastSelectedMask, 'lime');
+      setMaskBorderColor(lastSelectedMask, '#00ff00');
     }
-    setMaskBorderColor(selectedObj, 'purple');
+    setMaskBorderColor(selectedObj, '#ff00ff');
     lastSelectedMask = selectedObj;
     canvas.requestRenderAll();
   } else if (lastSelectedMask) {
-    setMaskBorderColor(lastSelectedMask, 'lime');
+    setMaskBorderColor(lastSelectedMask, '#00ff00');
     lastSelectedMask = null;
     canvas.requestRenderAll();
   }
@@ -151,22 +126,15 @@ canvas.on("selection:created", (e) => {
 
 canvas.on("selection:updated", (e) => {
   const selectedObj = e.selected[0];
-  if (isPanMode && selectedObj && selectedObj.maskData && selectedObj.maskData.isMask) {
-    isPanMode = false;
-    document.getElementById("togglePan").style.background = "#3a3a3a";
-    canvas.defaultCursor = 'default';
-    canvas.hoverCursor = 'move';
-    console.log("⚠️ Mode Main désactivé (masque sélectionné)");
-  }
   if (selectedObj && selectedObj.maskData && selectedObj.maskData.isMask) {
     if (lastSelectedMask && lastSelectedMask !== selectedObj) {
-      setMaskBorderColor(lastSelectedMask, 'lime');
+      setMaskBorderColor(lastSelectedMask, '#00ff00');
     }
-    setMaskBorderColor(selectedObj, 'purple');
+    setMaskBorderColor(selectedObj, '#ff00ff');
     lastSelectedMask = selectedObj;
     canvas.requestRenderAll();
   } else if (lastSelectedMask) {
-    setMaskBorderColor(lastSelectedMask, 'lime');
+    setMaskBorderColor(lastSelectedMask, '#00ff00');
     lastSelectedMask = null;
     canvas.requestRenderAll();
   }
@@ -174,7 +142,7 @@ canvas.on("selection:updated", (e) => {
 
 canvas.on("selection:cleared", () => {
   if (lastSelectedMask) {
-    setMaskBorderColor(lastSelectedMask, 'lime');
+    setMaskBorderColor(lastSelectedMask, '#00ff00');
     lastSelectedMask = null;
     canvas.requestRenderAll();
   }

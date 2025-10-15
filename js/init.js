@@ -7,6 +7,3 @@
 // Initialiser le sélecteur d'images
 initRoomSelector();
 
-// Initialiser le bouton Mode Main comme inactif
-document.getElementById("togglePan").style.background = "#3a3a3a";
-

@@ -90,16 +90,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="toolbar-top">
       <button id="addPaper"><span class="icon">📄</span><span class="label-wrap"><span class="btn-label">Ajouter Papier</span></span></button>
       <button id="toggleLasso"><span class="icon">🖊️</span><span class="label-wrap"><span class="btn-label">Mode Lasso</span></span></button>
-      <button id="validateMask" style="display: none;"><span class="icon">✅</span><span class="label-wrap"><span class="btn-label">Valider le masque</span></span></button>
       <button id="editMask"><span class="icon">✏️</span><span class="label-wrap"><span class="btn-label">Modifier le tracé</span></span></button>
-      <button id="togglePan"><span class="icon">✋</span><span class="label-wrap"><span class="btn-label">Mode Main</span></span></button>
       <button id="bringForward"><span class="icon">⬆️</span><span class="label-wrap"><span class="btn-label">Premier plan</span></span></button>
       <button id="sendBackward"><span class="icon">⬇️</span><span class="label-wrap"><span class="btn-label">Arrière plan</span></span></button>
     </div>
     <div class="spacer"></div>
     <div class="toolbar-bottom">
       <button id="saveData"><span class="icon">💾</span><span class="label-wrap"><span class="btn-label">Sauvegarder</span></span></button>
-      <button id="modeToggle"><span class="icon">🛠️</span><span class="label-wrap"><span class="btn-label">Editor Mode</span></span></button>
+      <button id="modeToggle"><span class="icon">🎮</span><span class="label-wrap"><span class="btn-label">Player Mode</span></span></button>
     </div>
   </div>
   
@@ -131,6 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script src="js/room-selector.js"></script>
   <script src="js/save-load.js"></script>
   <script src="js/keyboard.js"></script>
+  <script src="js/button-state.js"></script>
   <script src="js/init.js"></script>
 </body>
 </html>

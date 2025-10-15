@@ -63,6 +63,13 @@ button:hover {
   background: #555; 
 }
 
+/* Boutons désactivés */
+button.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
 /* Désactiver l'ancien tooltip ::after */
 #toolbar button::after { 
   content: none !important; 

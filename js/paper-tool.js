@@ -39,9 +39,9 @@ function cancelPaperPlacement() {
   paperPreviewSize = null;
   isPlacingPaper = false;
   canvas.skipTargetFind = false;
-  canvas.selection = !isPanMode;
-  canvas.defaultCursor = isPanMode ? 'grab' : 'default';
-  canvas.hoverCursor = isPanMode ? 'grab' : 'move';
+  canvas.selection = true;
+  canvas.defaultCursor = 'default';
+  canvas.hoverCursor = 'move';
   document.getElementById("addPaper").style.background = "#3a3a3a";
   canvas.requestRenderAll();
 }
@@ -82,9 +82,9 @@ function finalizePaperPlacement(opt) {
       width: savedW,
       height: savedH,
       fill: 'transparent',
-      stroke: 'cyan',
-      strokeWidth: 2,
-      strokeDashArray: [5, 5],
+      stroke: '#00ffff',
+      strokeWidth: 3,
+      strokeDashArray: [8, 4],
       selectable: false,
       evented: false,
       originX: 'left',
@@ -113,7 +113,10 @@ function finalizePaperPlacement(opt) {
 }
 
 // Bouton Ajouter Papier
-document.getElementById("addPaper").onclick = () => {
+document.getElementById("addPaper").onclick = function() {
+  // Vérifier si le bouton est désactivé
+  if (this.classList.contains('disabled')) return;
+  
   if (!paperDataUrl) {
     alert("L'image papier.png n'a été trouvée !");
     return;
@@ -183,9 +186,9 @@ function recreatePaper(paperData, callback) {
       width: paperWidth,
       height: paperHeight,
       fill: 'transparent',
-      stroke: 'cyan',
-      strokeWidth: 2,
-      strokeDashArray: [5, 5],
+      stroke: '#00ffff',
+      strokeWidth: 3,
+      strokeDashArray: [8, 4],
       selectable: false,
       evented: false,
       originX: 'left',

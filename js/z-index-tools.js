@@ -1,6 +1,9 @@
 // ========== OUTILS Z-INDEX (PREMIER PLAN / ARRIÈRE PLAN) ==========
 
-document.getElementById("bringForward").onclick = () => {
+document.getElementById("bringForward").onclick = function() {
+  // Vérifier si le bouton est désactivé
+  if (this.classList.contains('disabled')) return;
+  
   const activeObject = canvas.getActiveObject();
   if (!activeObject) {
     console.log("❌ Aucun objet sélectionné");
@@ -45,7 +48,10 @@ document.getElementById("bringForward").onclick = () => {
   console.log("✅ Objet mis au premier plan");
 };
 
-document.getElementById("sendBackward").onclick = () => {
+document.getElementById("sendBackward").onclick = function() {
+  // Vérifier si le bouton est désactivé
+  if (this.classList.contains('disabled')) return;
+  
   const activeObject = canvas.getActiveObject();
   if (!activeObject) {
     console.log("❌ Aucun objet sélectionné");

@@ -14,7 +14,7 @@ canvas.hoverCursor = 'move';
 let backgroundImage;
 let isPlayerMode = false;
 let isLassoMode = false;
-let isPanMode = false;
+let isEditingMode = false; // Nouveau: distinguer le mode édition du mode traçage
 let isPlacingPaper = false;
 let currentBackgroundKey = '';
 
