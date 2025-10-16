@@ -65,6 +65,12 @@ function finalizePaperPlacement(opt) {
   canvas.skipTargetFind = false;
   document.getElementById("addPaper").style.background = "#3a3a3a";
   
+  // Calculer le z-index pour le nouveau paper
+  let newZIndex = 0;
+  canvas.getObjects().forEach(obj => {
+    if (obj !== backgroundImage) newZIndex++;
+  });
+  
   fabric.Image.fromURL(paperDataUrl, (paperImg) => {
     paperImg.set({
       left: paperLeft,
@@ -100,7 +106,8 @@ function finalizePaperPlacement(opt) {
       hasBorders: false,
       cornerColor: 'cyan',
       cornerStyle: 'circle',
-      subTargetCheck: false
+      subTargetCheck: false,
+      zIndex: newZIndex // Attribuer le z-index au nouveau paper
     });
     canvas.add(paperGroup);
     canvas.selection = true;
@@ -208,7 +215,9 @@ function recreatePaper(paperData, callback) {
       hasBorders: false,
       cornerColor: 'cyan',
       cornerStyle: 'circle',
-      subTargetCheck: false
+      subTargetCheck: false,
+      dbId: paperData.id || null, // Conserver l'ID de la BDD
+      zIndex: paperData.zIndex || 0 // Conserver le z-index de la BDD
     });
     
     canvas.add(paperGroup);

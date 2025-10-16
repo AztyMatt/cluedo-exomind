@@ -1,0 +1,38 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: hall0w33n
+      MYSQL_DATABASE: cluedo
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: hall0w33n
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db:/var/lib/mysql
+    ports:
+      - 3333:3306
+  
+  php:
+    build:
+      context: ./docker/php
+    volumes:
+      - .:/var/www/html
+      - ./apache/limits.conf:/etc/apache2/conf-enabled/limits.conf:ro
+      - ./apache/servername.conf:/etc/apache2/conf-enabled/servername.conf:ro
+      - ./apache/app.conf:/etc/apache2/conf-enabled/app.conf:ro
+    ports:
+      - 8088:80
+    depends_on:
+      - db
+  
+  adminer:
+    image: adminer:latest
+    ports:
+      - 8089:8080
+    depends_on:
+      - db
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+
+volumes:
+  db:

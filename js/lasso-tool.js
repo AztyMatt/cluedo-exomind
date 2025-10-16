@@ -577,6 +577,20 @@ function createCutout() {
       }
     );
     
+    // Conserver l'ID et le z-index du mask édité s'il existe
+    const existingDbId = (editingMask && editingMask.maskData && editingMask.maskData.dbId) ? editingMask.maskData.dbId : null;
+    const existingZIndex = (editingMask && editingMask.maskData && editingMask.maskData.zIndex !== undefined) ? editingMask.maskData.zIndex : null;
+    
+    // Si c'est un nouveau mask, calculer le z-index
+    let newZIndex = existingZIndex;
+    if (newZIndex === null) {
+      // Compter le nombre d'objets (hors background) pour déterminer le z-index
+      newZIndex = 0;
+      canvas.getObjects().forEach(obj => {
+        if (obj !== backgroundImage) newZIndex++;
+      });
+    }
+    
     const maskGroup = new fabric.Group([cutoutImg, borderPolygon], {
       left: bounds.left,
       top: bounds.top,
@@ -595,7 +609,9 @@ function createCutout() {
       maskData: {
         originalPoints: JSON.parse(JSON.stringify(savedPoints)),
         curveHandles: JSON.parse(JSON.stringify(savedHandles)),
-        isMask: true
+        isMask: true,
+        dbId: existingDbId, // Conserver l'ID de la BDD
+        zIndex: newZIndex // Conserver ou attribuer le z-index
       }
     });
     
@@ -734,7 +750,9 @@ function recreateMask(maskData, callback) {
       maskData: {
         originalPoints: savedPoints,
         curveHandles: savedHandles,
-        isMask: true
+        isMask: true,
+        dbId: maskData.id || null, // Conserver l'ID de la BDD
+        zIndex: maskData.zIndex || 0 // Conserver le z-index de la BDD
       }
     });
     
