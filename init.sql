@@ -5,6 +5,9 @@
 CREATE TABLE IF NOT EXISTS `groups` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
+    pole_name VARCHAR(255) NOT NULL,
+    color VARCHAR(7),
+    img_path VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -13,9 +16,12 @@ CREATE TABLE IF NOT EXISTS `groups` (
 CREATE TABLE IF NOT EXISTS `users` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     group_id INT NOT NULL,
+    firstname VARCHAR(255) NOT NULL,
+    lastname VARCHAR(255) NOT NULL,
     username VARCHAR(255) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
+    activation_code VARCHAR(10) NOT NULL UNIQUE,
+    has_activated BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE
@@ -74,9 +80,11 @@ CREATE TABLE IF NOT EXISTS `masks` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Index pour optimiser les performances
-CREATE INDEX idx_users_group ON `users`(group_id);
-CREATE INDEX idx_rooms_group ON `rooms`(group_id);
-CREATE INDEX idx_photos_room ON `photos`(room_id);
-CREATE INDEX idx_papers_photo ON `papers`(photo_id);
-CREATE INDEX idx_masks_photo ON `masks`(photo_id);
+-- Note: MySQL crée automatiquement des index pour toutes les clés étrangères (FOREIGN KEY)
+-- Les index suivants sont donc déjà créés automatiquement :
+-- - idx sur users(group_id) via la FK vers groups
+-- - idx sur rooms(group_id) via la FK vers groups
+-- - idx sur photos(room_id) via la FK vers rooms
+-- - idx sur papers(photo_id) via la FK vers photos
+-- - idx sur masks(photo_id) via la FK vers photos
 
