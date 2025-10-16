@@ -1,11 +1,55 @@
 // ========== SAUVEGARDE / CHARGEMENT ==========
 
-function saveCanvasState() {
-  // La sauvegarde automatique est désactivée
-  // Utiliser le bouton "💾 Sauvegarder" pour sauvegarder manuellement
+// Variables pour la sauvegarde automatique
+let autoSaveTimeout = null;
+const AUTO_SAVE_DELAY = 1000; // 1 seconde de délai après la dernière modification
+let isLoadingFromServer = false; // Flag pour désactiver la sauvegarde pendant le chargement
+
+// Fonction pour afficher l'indicateur de sauvegarde
+function showAutoSaveIndicator() {
+  const indicator = document.getElementById('autoSaveIndicator');
+  if (indicator) {
+    indicator.style.display = 'block';
+    indicator.style.opacity = '1';
+  }
 }
 
-function saveToServer() {
+// Fonction pour masquer l'indicateur de sauvegarde
+function hideAutoSaveIndicator() {
+  const indicator = document.getElementById('autoSaveIndicator');
+  if (indicator) {
+    indicator.style.opacity = '0';
+    setTimeout(() => {
+      indicator.style.display = 'none';
+    }, 300);
+  }
+}
+
+function triggerAutoSave() {
+  // Ne pas sauvegarder si on est en train de charger depuis le serveur
+  if (isLoadingFromServer) {
+    return;
+  }
+  
+  // Annuler le timer précédent s'il existe
+  if (autoSaveTimeout) {
+    clearTimeout(autoSaveTimeout);
+  }
+  
+  // Programmer une nouvelle sauvegarde
+  autoSaveTimeout = setTimeout(() => {
+    console.log('💾 Sauvegarde automatique...');
+    showAutoSaveIndicator();
+    saveToServer(true); // true = mode silencieux (pas d'alert)
+  }, AUTO_SAVE_DELAY);
+}
+
+function saveCanvasState() {
+  // Déclencher la sauvegarde automatique
+  triggerAutoSave();
+}
+
+function saveToServer(silent = false) {
   const objectsToSave = [];
   let zIndex = 0; // Compteur pour le z-index basé sur l'ordre du canvas
   
@@ -22,6 +66,19 @@ function saveToServer() {
         left: obj.left,
         top: obj.top,
         zIndex: zIndex++
+      });
+    } else if (obj.isArrow) {
+      // Flèche - toujours avec z-index 1000
+      obj.zIndex = 1000;
+      objectsToSave.push({
+        type: 'arrow',
+        id: obj.dbId || null, // Garder l'ID de la BDD
+        left: obj.left,
+        top: obj.top,
+        angle: obj.angle,
+        targetPhotoName: obj.targetPhotoName || null,
+        freePlacement: obj.freePlacement || false, // Indique si la flèche est en mode libre
+        zIndex: 1000 // Z-index fixe pour toutes les flèches
       });
     } else if (obj._objects && obj._objects.length >= 2) {
       // Stocker le z-index dans l'objet pour la prochaine sauvegarde
@@ -92,6 +149,10 @@ function saveToServer() {
               obj.maskData.dbId = idInfo.id;
               // Le z-index a déjà été mis à jour avant la sauvegarde
               console.log('🔄 Mask mis à jour - ID:', idInfo.id, 'z-index:', obj.maskData.zIndex);
+            } else if (idInfo.type === 'arrow' && obj.isArrow) {
+              obj.dbId = idInfo.id;
+              // Le z-index a déjà été mis à jour avant la sauvegarde
+              console.log('🔄 Arrow mis à jour - ID:', idInfo.id, 'z-index:', obj.zIndex);
             } else if (idInfo.type === 'paper' && obj._objects && obj._objects.length >= 2) {
               obj.dbId = idInfo.id;
               // Le z-index a déjà été mis à jour avant la sauvegarde
@@ -102,18 +163,36 @@ function saveToServer() {
         });
       }
       
-      alert('✅ Données sauvegardées avec succès !');
+      // Masquer l'indicateur de sauvegarde automatique après succès
+      if (silent) {
+        setTimeout(() => hideAutoSaveIndicator(), 1000);
+      }
+      
+      // N'afficher l'alert que si ce n'est pas une sauvegarde automatique silencieuse
+      if (!silent) {
+        alert('✅ Données sauvegardées avec succès !');
+      }
     } else {
       console.error('❌ Erreur de sauvegarde');
+      hideAutoSaveIndicator();
+      if (!silent) {
+        alert('❌ Erreur de sauvegarde');
+      }
     }
   })
   .catch(error => {
     console.error('❌ Erreur:', error);
-    alert('❌ Erreur lors de la sauvegarde');
+    hideAutoSaveIndicator();
+    if (!silent) {
+      alert('❌ Erreur lors de la sauvegarde');
+    }
   });
 }
 
 function loadFromServer() {
+  // Activer le flag pour désactiver la sauvegarde automatique pendant le chargement
+  isLoadingFromServer = true;
+  
   canvas.getObjects().slice().forEach(o => { if (o !== backgroundImage) canvas.remove(o); });
   fetch(window.location.href, {
     method: 'POST',
@@ -127,6 +206,8 @@ function loadFromServer() {
     
     if (!dataStr) {
       console.log('ℹ️ Rien à charger pour', currentBackgroundKey);
+      // Réactiver la sauvegarde automatique
+      isLoadingFromServer = false;
       return;
     }
     let savedObjects = [];
@@ -134,6 +215,8 @@ function loadFromServer() {
     if (!Array.isArray(savedObjects) || savedObjects.length === 0) {
       console.log('ℹ️ Aucune entrée pour', currentBackgroundKey, '(source:', source + ')');
       canvas.renderAll();
+      // Réactiver la sauvegarde automatique
+      isLoadingFromServer = false;
       return;
     }
     
@@ -142,29 +225,72 @@ function loadFromServer() {
     console.log(`📂 ${sourceEmoji} Chargement de ${savedObjects.length} objets pour ${currentBackgroundKey} depuis ${source.toUpperCase()}`);
     
     let loaded = 0;
+    const totalObjects = savedObjects.length;
+    
     savedObjects.forEach(objData => {
       if (objData.type === 'mask') {
         recreateMask(objData, () => { 
           loaded++; 
-          if (loaded === savedObjects.length) console.log('✅ Tous les objets chargés !'); 
+          if (loaded === totalObjects) {
+            console.log('✅ Tous les objets chargés !');
+            // Réactiver la sauvegarde automatique une fois tous les objets chargés
+            isLoadingFromServer = false;
+          }
+        });
+      } else if (objData.type === 'arrow') {
+        recreateArrow(objData, () => { 
+          loaded++; 
+          if (loaded === totalObjects) {
+            console.log('✅ Tous les objets chargés !');
+            // Réactiver la sauvegarde automatique une fois tous les objets chargés
+            isLoadingFromServer = false;
+          }
         });
       } else if (objData.type === 'paper') {
         recreatePaper(objData, () => { 
           loaded++; 
-          if (loaded === savedObjects.length) console.log('✅ Tous les objets chargés !'); 
+          if (loaded === totalObjects) {
+            console.log('✅ Tous les objets chargés !');
+            // Réactiver la sauvegarde automatique une fois tous les objets chargés
+            isLoadingFromServer = false;
+          }
         });
       }
     });
   })
   .catch(error => {
     console.error('❌ Erreur de chargement:', error);
+    // Réactiver la sauvegarde automatique même en cas d'erreur
+    isLoadingFromServer = false;
   });
 }
 
-// Bouton de sauvegarde
-document.getElementById("saveData").onclick = () => {
-  saveToServer();
-};
+// Le bouton de sauvegarde a été supprimé car la sauvegarde est désormais entièrement automatique
+// Toutes les modifications sont sauvegardées automatiquement après 1 seconde d'inactivité
+
+// ========== ÉVÉNEMENTS POUR SAUVEGARDE AUTOMATIQUE ==========
+
+// Déclencher la sauvegarde après modification d'objets
+canvas.on('object:modified', function(e) {
+  console.log('📝 Objet modifié, déclenchement de la sauvegarde automatique');
+  triggerAutoSave();
+});
+
+// Déclencher la sauvegarde après ajout d'objets
+canvas.on('object:added', function(e) {
+  // Ne pas sauvegarder lors du chargement initial (backgroundImage)
+  if (e.target === backgroundImage) return;
+  console.log('➕ Objet ajouté, déclenchement de la sauvegarde automatique');
+  triggerAutoSave();
+});
+
+// Déclencher la sauvegarde après suppression d'objets
+canvas.on('object:removed', function(e) {
+  // Ne pas sauvegarder lors du nettoyage (changement de pièce)
+  if (e.target === backgroundImage) return;
+  console.log('➖ Objet supprimé, déclenchement de la sauvegarde automatique');
+  triggerAutoSave();
+});
 
 // Nettoyer l'ancien cache localStorage
 localStorage.removeItem("fabricCanvas");

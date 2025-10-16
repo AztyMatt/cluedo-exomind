@@ -53,3 +53,52 @@ window.addEventListener('mousemove', (e) => {
   lastMousePos.y = e.clientY;
 });
 
+// Contraindre le mouvement des flèches
+canvas.on('object:moving', function(e) {
+  const obj = e.target;
+  
+  // Si c'est une flèche
+  if (obj && obj.isArrow && backgroundImage) {
+    const ARROW_SIDE_OFFSET = 150; // Même valeur que dans arrow-tool.js
+    const imgWidth = backgroundImage.width * backgroundImage.scaleX;
+    const minX = ARROW_SIDE_OFFSET;
+    const maxX = imgWidth - ARROW_SIDE_OFFSET;
+    
+    // Contraindre la position horizontale
+    if (obj.left < minX) {
+      obj.left = minX;
+    } else if (obj.left > maxX) {
+      obj.left = maxX;
+    }
+    
+    // S'assurer que la position Y reste fixe (lockMovementY devrait déjà gérer ça)
+    obj.setCoords();
+  }
+});
+
+// Gestionnaire de clic global pour les flèches en mode player
+canvas.on('mouse:down', function(opt) {
+  if (!opt.target) return;
+  
+  const obj = opt.target;
+  
+  // Si c'est une flèche et qu'on est en mode player
+  if (obj.isArrow && isPlayerMode && !opt.e.shiftKey) {
+    // Navigation vers la photo cible
+    if (obj.targetPhotoName && typeof setBackgroundImage === 'function') {
+      const targetPath = roomImages.find(path => {
+        const filename = path.split('/').pop();
+        const photoName = filename.replace(/\.[^/.]+$/, '');
+        return photoName === obj.targetPhotoName;
+      });
+      
+      if (targetPath) {
+        console.log('🎯 Navigation globale vers:', obj.targetPhotoName, '(mode player)');
+        setBackgroundImage(targetPath);
+      } else {
+        console.warn('⚠️ Photo cible non trouvée:', obj.targetPhotoName);
+      }
+    }
+  }
+});
+

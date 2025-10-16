@@ -7,3 +7,7 @@
 // Initialiser le sélecteur d'images
 initRoomSelector();
 
+// Afficher le bouton de changement de pièce au démarrage (mode editor par défaut)
+const changeRoomBtn = document.getElementById('changeRoomBtn');
+if (changeRoomBtn) changeRoomBtn.style.display = 'block';
+
