@@ -27,27 +27,13 @@ CREATE TABLE IF NOT EXISTS `users` (
     FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Table des pièces/rooms
-CREATE TABLE IF NOT EXISTS `rooms` (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    group_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_room_per_group (group_id, name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Table des photos
+-- Table des photos (entité principale indépendante)
 CREATE TABLE IF NOT EXISTS `photos` (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    room_id INT NOT NULL,
-    filename VARCHAR(255) NOT NULL,
+    filename VARCHAR(255) NOT NULL UNIQUE,
     file_path VARCHAR(500) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (room_id) REFERENCES `rooms`(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_filename_per_room (room_id, filename)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table des papers (papiers/notes placés sur une photo)
@@ -79,12 +65,25 @@ CREATE TABLE IF NOT EXISTS `masks` (
     FOREIGN KEY (photo_id) REFERENCES `photos`(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Table des flèches (navigation entre les photos)
+CREATE TABLE IF NOT EXISTS `arrows` (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    photo_id INT NOT NULL,
+    target_photo_id INT NULL,
+    position_left DECIMAL(15, 10) NOT NULL,
+    position_top DECIMAL(15, 10) NOT NULL,
+    angle DECIMAL(10, 6) DEFAULT 0.000000,
+    active BOOLEAN DEFAULT TRUE,
+    free_placement BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (photo_id) REFERENCES `photos`(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_photo_id) REFERENCES `photos`(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Index pour optimiser les performances
--- Note: MySQL crée automatiquement des index pour toutes les clés étrangères (FOREIGN KEY)
--- Les index suivants sont donc déjà créés automatiquement :
--- - idx sur users(group_id) via la FK vers groups
--- - idx sur rooms(group_id) via la FK vers groups
--- - idx sur photos(room_id) via la FK vers rooms
--- - idx sur papers(photo_id) via la FK vers photos
--- - idx sur masks(photo_id) via la FK vers photos
+CREATE INDEX idx_users_group ON `users`(group_id);
+CREATE INDEX idx_papers_photo ON `papers`(photo_id);
+CREATE INDEX idx_masks_photo ON `masks`(photo_id);
+CREATE INDEX idx_arrows_photo ON `arrows`(photo_id);
 

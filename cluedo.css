@@ -119,6 +119,8 @@ button.disabled {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.3s ease-out;
 }
 
 canvas { 

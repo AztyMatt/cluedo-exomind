@@ -15,10 +15,13 @@ function updateButtonStates() {
     editMaskBtn.classList.add('disabled');
   }
   
-  // Boutons "Premier plan" et "Arrière plan" : disponibles si masque ou papier sélectionné
+  // Vérifier si une flèche est sélectionnée
+  const isArrowSelected = hasSelection && activeObject.isArrow;
+  
+  // Boutons "Premier plan" et "Arrière plan" : disponibles si masque, papier ou flèche sélectionné
   const bringForwardBtn = document.getElementById("bringForward");
   const sendBackwardBtn = document.getElementById("sendBackward");
-  if ((isMaskSelected || isPaperSelected) && !isLassoMode) {
+  if ((isMaskSelected || isPaperSelected || isArrowSelected) && !isLassoMode) {
     bringForwardBtn.classList.remove('disabled');
     sendBackwardBtn.classList.remove('disabled');
   } else {
@@ -28,17 +31,20 @@ function updateButtonStates() {
   
   // En mode Lasso (traçage) : désactiver tous les boutons sauf Sauvegarder et Mode Toggle
   const addPaperBtn = document.getElementById("addPaper");
+  const addArrowBtn = document.getElementById("addArrow");
   const toggleLassoBtn = document.getElementById("toggleLasso");
   
   if (isLassoMode && !isEditingMode) {
     // Désactiver les boutons en mode Lasso (traçage)
     addPaperBtn.classList.add('disabled');
+    addArrowBtn.classList.add('disabled');
     editMaskBtn.classList.add('disabled');
     bringForwardBtn.classList.add('disabled');
     sendBackwardBtn.classList.add('disabled');
   } else if (isEditingMode) {
     // En mode édition : désactiver tout sauf "Modifier le tracé" (qui sert à sortir)
     addPaperBtn.classList.add('disabled');
+    addArrowBtn.classList.add('disabled');
     toggleLassoBtn.classList.add('disabled');
     bringForwardBtn.classList.add('disabled');
     sendBackwardBtn.classList.add('disabled');
@@ -47,6 +53,7 @@ function updateButtonStates() {
   } else if (!isLassoMode) {
     // Réactiver les boutons en mode normal (sauf ceux qui dépendent de la sélection)
     addPaperBtn.classList.remove('disabled');
+    addArrowBtn.classList.remove('disabled');
     toggleLassoBtn.classList.remove('disabled');
     // editMask, bringForward et sendBackward gérés ci-dessus selon la sélection
   }

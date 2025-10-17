@@ -7,6 +7,11 @@ canvas.on("mouse:down", (opt) => {
     return;
   }
   
+  if (isPlacingArrow) {
+    finalizeArrowPlacement(opt);
+    return;
+  }
+  
   // Pan avec Alt ou clic-glisser sur espace vide
   if (!opt.target && !isPlayerMode && (!isLassoMode || opt.e.altKey)) {
     isDragging = true;

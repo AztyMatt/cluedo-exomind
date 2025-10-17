@@ -34,17 +34,29 @@ document.getElementById("modeToggle").onclick = () => {
     btn.style.background = "#1a7f1a";
     if (toolbarTop) toolbarTop.style.display = 'none';
     document.getElementById("saveData").style.display = "inline-flex";
+    
+    // Cacher le bouton de changement de pièce en mode player
+    const changeRoomBtn = document.getElementById('changeRoomBtn');
+    if (changeRoomBtn) changeRoomBtn.style.display = 'none';
+    
     isLassoMode = false;
     canvas.selection = false;
     canvas.discardActiveObject();
     canvas.getObjects().forEach(obj => { 
-      if (obj !== backgroundImage) obj.set({ selectable: false, evented: false }); 
+      if (obj !== backgroundImage) {
+        // Les flèches doivent rester cliquables en mode player pour la navigation
+        if (obj.isArrow) {
+          obj.set({ selectable: false, evented: true });
+        } else {
+          obj.set({ selectable: false, evented: false });
+        }
+      }
     });
     resetZoomAndPan();
     canvas.defaultCursor = 'default';
-    canvas.hoverCursor = 'default';
+    canvas.hoverCursor = 'default'; // Le curseur changera en pointer au survol des flèches
     
-    console.log("🎮 Mode Player activé - Bordures masquées, édition désactivée, zoom réinitialisé");
+    console.log("🎮 Mode Player activé - Bordures masquées, édition désactivée, zoom réinitialisé, flèches cliquables");
   } else {
     // On est en mode Editor, afficher "Player Mode" pour indiquer qu'on peut basculer en mode Player
     icon.textContent = "🎮";
@@ -52,6 +64,10 @@ document.getElementById("modeToggle").onclick = () => {
     btn.style.background = "#3a3a3a";
     if (toolbarTop) toolbarTop.style.display = 'flex';
     document.getElementById("saveData").style.display = "inline-flex";
+    
+    // Afficher le bouton de changement de pièce en mode editor
+    const changeRoomBtn = document.getElementById('changeRoomBtn');
+    if (changeRoomBtn) changeRoomBtn.style.display = 'block';
     
     canvas.selection = true;
     canvas.getObjects().forEach(obj => { 
