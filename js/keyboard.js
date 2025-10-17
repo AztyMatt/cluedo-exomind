@@ -116,6 +116,24 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   
+  // Touche M pour centrer une flèche au milieu de la ligne
+  if ((e.key === 'm' || e.key === 'M') && activeObject.isArrow && !isPlayerMode) {
+    if (typeof backgroundImage !== 'undefined' && backgroundImage) {
+      const imgWidth = backgroundImage.width * backgroundImage.scaleX;
+      const centerX = imgWidth / 2;
+      activeObject.set({ left: centerX });
+      canvas.renderAll();
+      console.log('🎯 Flèche centrée au milieu de la ligne');
+      
+      // Déclencher une sauvegarde automatique
+      if (typeof saveCanvasState === 'function') {
+        saveCanvasState();
+      }
+    }
+    e.preventDefault();
+    return;
+  }
+  
   // Touche X pour activer/désactiver le déplacement libre d'une flèche
   if ((e.key === 'x' || e.key === 'X') && activeObject.isArrow && !isPlayerMode) {
     if (typeof arrowFreeMoveMode !== 'undefined') {

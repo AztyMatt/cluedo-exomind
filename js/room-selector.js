@@ -7,7 +7,7 @@ function pathToKey(p) {
 
 function initRoomSelector() {
   // Charger l'image par défaut au démarrage
-  const defaultPath = 'rooms/P1080918.JPG';
+  const defaultPath = 'rooms/P1080905.JPG';
   const initialImage = roomImages.includes(defaultPath) ? defaultPath : (roomImages[0] || null);
   if (initialImage) {
     setBackgroundImage(initialImage);
@@ -28,10 +28,13 @@ function setBackgroundImage(src) {
   const canvasContainer = document.getElementById('canvas-container');
   const newKey = pathToKey(src);
   
+  console.log('🔄 setBackgroundImage - src:', src, 'newKey:', newKey, 'oldKey:', currentBackgroundKey);
+  
   // Vérifier si c'est un changement de photo (pas le chargement initial)
   const isChanging = currentBackgroundKey && currentBackgroundKey !== newKey;
   
   currentBackgroundKey = newKey;
+  console.log('✅ currentBackgroundKey mis à jour à:', currentBackgroundKey);
   
   // Si on change de photo, appliquer une transition
   if (isChanging && canvasContainer) {
@@ -50,6 +53,14 @@ function setBackgroundImage(src) {
 }
 
 function loadNewImage(src, canvasContainer) {
+  // IMPORTANT: Annuler toute sauvegarde automatique en attente avant de changer de photo
+  // Cela évite de sauvegarder les objets de l'ancienne photo avec la clé de la nouvelle photo
+  if (window.autoSaveTimeout) {
+    clearTimeout(window.autoSaveTimeout);
+    window.autoSaveTimeout = null;
+    console.log('⏹️ Timer de sauvegarde automatique annulé (changement de photo)');
+  }
+  
   canvas.getObjects().slice().forEach(o => canvas.remove(o));
   
   fabric.Image.fromURL(

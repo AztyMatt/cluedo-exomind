@@ -1,7 +1,7 @@
 // ========== SAUVEGARDE / CHARGEMENT ==========
 
-// Variables pour la sauvegarde automatique
-let autoSaveTimeout = null;
+// Variables pour la sauvegarde automatique (globales pour être accessibles depuis d'autres fichiers)
+window.autoSaveTimeout = null;
 const AUTO_SAVE_DELAY = 1000; // 1 seconde de délai après la dernière modification
 let isLoadingFromServer = false; // Flag pour désactiver la sauvegarde pendant le chargement
 
@@ -32,12 +32,12 @@ function triggerAutoSave() {
   }
   
   // Annuler le timer précédent s'il existe
-  if (autoSaveTimeout) {
-    clearTimeout(autoSaveTimeout);
+  if (window.autoSaveTimeout) {
+    clearTimeout(window.autoSaveTimeout);
   }
   
   // Programmer une nouvelle sauvegarde
-  autoSaveTimeout = setTimeout(() => {
+  window.autoSaveTimeout = setTimeout(() => {
     console.log('💾 Sauvegarde automatique...');
     showAutoSaveIndicator();
     saveToServer(true); // true = mode silencieux (pas d'alert)
@@ -50,6 +50,15 @@ function saveCanvasState() {
 }
 
 function saveToServer(silent = false) {
+  console.log('💾 saveToServer appelé avec currentBackgroundKey:', currentBackgroundKey);
+  
+  // IMPORTANT: Ne pas sauvegarder si on est en train de charger depuis le serveur
+  // Cela évite de sauvegarder avec le mauvais currentBackgroundKey pendant un changement de photo
+  if (isLoadingFromServer) {
+    console.log('⚠️ Sauvegarde annulée car chargement en cours');
+    return;
+  }
+  
   const objectsToSave = [];
   let zIndex = 0; // Compteur pour le z-index basé sur l'ordre du canvas
   
@@ -190,6 +199,15 @@ function saveToServer(silent = false) {
 }
 
 function loadFromServer() {
+  console.log('📂 loadFromServer appelé avec currentBackgroundKey:', currentBackgroundKey);
+  
+  // Annuler toute sauvegarde automatique en attente
+  if (window.autoSaveTimeout) {
+    clearTimeout(window.autoSaveTimeout);
+    window.autoSaveTimeout = null;
+    console.log('⏹️ Timer de sauvegarde automatique annulé (loadFromServer)');
+  }
+  
   // Activer le flag pour désactiver la sauvegarde automatique pendant le chargement
   isLoadingFromServer = true;
   
@@ -206,8 +224,11 @@ function loadFromServer() {
     
     if (!dataStr) {
       console.log('ℹ️ Rien à charger pour', currentBackgroundKey);
-      // Réactiver la sauvegarde automatique
-      isLoadingFromServer = false;
+      // Réactiver la sauvegarde automatique avec un délai
+      setTimeout(() => {
+        isLoadingFromServer = false;
+        console.log('🔓 Sauvegarde automatique réactivée (pas de données)');
+      }, 100);
       return;
     }
     let savedObjects = [];
@@ -215,8 +236,11 @@ function loadFromServer() {
     if (!Array.isArray(savedObjects) || savedObjects.length === 0) {
       console.log('ℹ️ Aucune entrée pour', currentBackgroundKey, '(source:', source + ')');
       canvas.renderAll();
-      // Réactiver la sauvegarde automatique
-      isLoadingFromServer = false;
+      // Réactiver la sauvegarde automatique avec un délai
+      setTimeout(() => {
+        isLoadingFromServer = false;
+        console.log('🔓 Sauvegarde automatique réactivée (tableau vide)');
+      }, 100);
       return;
     }
     
@@ -233,8 +257,12 @@ function loadFromServer() {
           loaded++; 
           if (loaded === totalObjects) {
             console.log('✅ Tous les objets chargés !');
-            // Réactiver la sauvegarde automatique une fois tous les objets chargés
-            isLoadingFromServer = false;
+            // Réactiver la sauvegarde automatique avec un délai pour laisser les événements se terminer
+            // Cela évite qu'un événement object:added déclenche une sauvegarde juste après le chargement
+            setTimeout(() => {
+              isLoadingFromServer = false;
+              console.log('🔓 Sauvegarde automatique réactivée');
+            }, 100);
           }
         });
       } else if (objData.type === 'arrow') {
@@ -242,8 +270,11 @@ function loadFromServer() {
           loaded++; 
           if (loaded === totalObjects) {
             console.log('✅ Tous les objets chargés !');
-            // Réactiver la sauvegarde automatique une fois tous les objets chargés
-            isLoadingFromServer = false;
+            // Réactiver la sauvegarde automatique avec un délai pour laisser les événements se terminer
+            setTimeout(() => {
+              isLoadingFromServer = false;
+              console.log('🔓 Sauvegarde automatique réactivée');
+            }, 100);
           }
         });
       } else if (objData.type === 'paper') {
@@ -251,8 +282,11 @@ function loadFromServer() {
           loaded++; 
           if (loaded === totalObjects) {
             console.log('✅ Tous les objets chargés !');
-            // Réactiver la sauvegarde automatique une fois tous les objets chargés
-            isLoadingFromServer = false;
+            // Réactiver la sauvegarde automatique avec un délai pour laisser les événements se terminer
+            setTimeout(() => {
+              isLoadingFromServer = false;
+              console.log('🔓 Sauvegarde automatique réactivée');
+            }, 100);
           }
         });
       }
@@ -260,8 +294,11 @@ function loadFromServer() {
   })
   .catch(error => {
     console.error('❌ Erreur de chargement:', error);
-    // Réactiver la sauvegarde automatique même en cas d'erreur
-    isLoadingFromServer = false;
+    // Réactiver la sauvegarde automatique même en cas d'erreur, avec un délai
+    setTimeout(() => {
+      isLoadingFromServer = false;
+      console.log('🔓 Sauvegarde automatique réactivée (après erreur)');
+    }, 100);
   });
 }
 

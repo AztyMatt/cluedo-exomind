@@ -10,7 +10,7 @@ $dbConnection = getDBConnection();
 // return;
 
 // Charger l'image de fond et la convertir en base64
-$imagePath = 'rooms/P1080918.JPG';
+$imagePath = 'rooms/P1080905.JPG';
 $imageData = '';
 if (file_exists($imagePath)) {
     // Déterminer le type MIME automatiquement
