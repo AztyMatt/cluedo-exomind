@@ -275,11 +275,32 @@ function recreateArrow(arrowData, callback) {
       const isPlayerMode = typeof window.isPlayerMode !== 'undefined' && window.isPlayerMode;
       const shiftPressed = opt.e.shiftKey; // Touche Shift
       
-      // En mode player : clic simple navigue (sans shift)
-      // En mode editor : Shift+clic navigue
-      const shouldNavigate = (isPlayerMode && !shiftPressed) || (!isPlayerMode && shiftPressed);
+      // En mode player : empêcher complètement la sélection
+      if (isPlayerMode) {
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
+        
+        // Navigation uniquement avec un clic simple (sans shift)
+        if (!shiftPressed && this.targetPhotoName) {
+          // Trouver le chemin complet de la photo cible
+          const targetPath = roomImages.find(path => {
+            const filename = path.split('/').pop();
+            const photoName = filename.replace(/\.[^/.]+$/, '');
+            return photoName === this.targetPhotoName;
+          });
+          
+          if (targetPath) {
+            console.log('🎯 Navigation vers:', this.targetPhotoName);
+            setBackgroundImage(targetPath);
+          } else {
+            console.warn('⚠️ Photo cible non trouvée:', this.targetPhotoName);
+          }
+        }
+        return false; // Empêcher tout traitement supplémentaire
+      }
       
-      if (shouldNavigate && this.targetPhotoName) {
+      // En mode editor : Shift+clic navigue
+      if (shiftPressed && this.targetPhotoName) {
         // Trouver le chemin complet de la photo cible
         const targetPath = roomImages.find(path => {
           const filename = path.split('/').pop();
@@ -288,7 +309,7 @@ function recreateArrow(arrowData, callback) {
         });
         
         if (targetPath) {
-          console.log('🎯 Navigation vers:', this.targetPhotoName, '(mode player:', isPlayerMode, ', shift:', shiftPressed + ')');
+          console.log('🎯 Navigation vers:', this.targetPhotoName, '(shift+clic)');
           setBackgroundImage(targetPath);
         } else {
           console.warn('⚠️ Photo cible non trouvée:', this.targetPhotoName);
@@ -296,6 +317,7 @@ function recreateArrow(arrowData, callback) {
         
         opt.e.preventDefault();
         opt.e.stopPropagation();
+        return false;
       }
     });
     
@@ -557,11 +579,32 @@ function createArrowWithTarget(targetPhotoName) {
       const isPlayerMode = typeof window.isPlayerMode !== 'undefined' && window.isPlayerMode;
       const shiftPressed = opt.e.shiftKey; // Touche Shift
       
-      // En mode player : clic simple navigue (sans shift)
-      // En mode editor : Shift+clic navigue
-      const shouldNavigate = (isPlayerMode && !shiftPressed) || (!isPlayerMode && shiftPressed);
+      // En mode player : empêcher complètement la sélection
+      if (isPlayerMode) {
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
+        
+        // Navigation uniquement avec un clic simple (sans shift)
+        if (!shiftPressed && this.targetPhotoName) {
+          // Trouver le chemin complet de la photo cible
+          const targetPath = roomImages.find(path => {
+            const filename = path.split('/').pop();
+            const photoName = filename.replace(/\.[^/.]+$/, '');
+            return photoName === this.targetPhotoName;
+          });
+          
+          if (targetPath) {
+            console.log('🎯 Navigation vers:', this.targetPhotoName);
+            setBackgroundImage(targetPath);
+          } else {
+            console.warn('⚠️ Photo cible non trouvée:', this.targetPhotoName);
+          }
+        }
+        return false; // Empêcher tout traitement supplémentaire
+      }
       
-      if (shouldNavigate && this.targetPhotoName) {
+      // En mode editor : Shift+clic navigue
+      if (shiftPressed && this.targetPhotoName) {
         // Trouver le chemin complet de la photo cible
         const targetPath = roomImages.find(path => {
           const filename = path.split('/').pop();
@@ -570,7 +613,7 @@ function createArrowWithTarget(targetPhotoName) {
         });
         
         if (targetPath) {
-          console.log('🎯 Navigation vers:', this.targetPhotoName, '(mode player:', isPlayerMode, ', shift:', shiftPressed + ')');
+          console.log('🎯 Navigation vers:', this.targetPhotoName, '(shift+clic)');
           setBackgroundImage(targetPath);
         } else {
           console.warn('⚠️ Photo cible non trouvée:', this.targetPhotoName);
@@ -578,6 +621,7 @@ function createArrowWithTarget(targetPhotoName) {
         
         opt.e.preventDefault();
         opt.e.stopPropagation();
+        return false;
       }
     });
     
