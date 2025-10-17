@@ -76,6 +76,43 @@ canvas.on('object:moving', function(e) {
   }
 });
 
+// Empêcher la sélection des flèches en mode player
+canvas.on('before:selection:created', function(e) {
+  const target = e.target;
+  
+  // Si on essaie de sélectionner une flèche en mode player, on annule
+  if (target && target.isArrow && isPlayerMode) {
+    e.e.preventDefault();
+    e.e.stopPropagation();
+    canvas.discardActiveObject();
+    return false;
+  }
+});
+
+canvas.on('selection:created', function(e) {
+  const target = e.selected && e.selected[0];
+  
+  // Si une flèche a été sélectionnée en mode player, on la désélectionne immédiatement
+  if (target && target.isArrow && isPlayerMode) {
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+  }
+});
+
+// Gestionnaire de curseur pour les flèches en mode player
+canvas.on('mouse:move', function(opt) {
+  if (isPlayerMode) {
+    const obj = canvas.findTarget(opt.e, false);
+    if (obj && obj.isArrow) {
+      canvas.defaultCursor = 'pointer';
+      canvas.setCursor('pointer');
+    } else {
+      canvas.defaultCursor = 'default';
+      canvas.setCursor('default');
+    }
+  }
+});
+
 // Gestionnaire de clic global pour les flèches en mode player
 canvas.on('mouse:down', function(opt) {
   if (!opt.target) return;
@@ -84,6 +121,11 @@ canvas.on('mouse:down', function(opt) {
   
   // Si c'est une flèche et qu'on est en mode player
   if (obj.isArrow && isPlayerMode && !opt.e.shiftKey) {
+    // Empêcher la sélection
+    opt.e.preventDefault();
+    opt.e.stopPropagation();
+    canvas.discardActiveObject();
+    
     // Navigation vers la photo cible
     if (obj.targetPhotoName && typeof setBackgroundImage === 'function') {
       const targetPath = roomImages.find(path => {
@@ -95,10 +137,22 @@ canvas.on('mouse:down', function(opt) {
       if (targetPath) {
         console.log('🎯 Navigation globale vers:', obj.targetPhotoName, '(mode player)');
         setBackgroundImage(targetPath);
+        
+        // Réinitialiser le curseur après le changement de photo
+        setTimeout(() => {
+          if (isPlayerMode) {
+            canvas.defaultCursor = 'default';
+            canvas.hoverCursor = 'default';
+            canvas.setCursor('default');
+          }
+        }, 50);
       } else {
         console.warn('⚠️ Photo cible non trouvée:', obj.targetPhotoName);
       }
     }
+    
+    canvas.requestRenderAll();
+    return false;
   }
 });
 

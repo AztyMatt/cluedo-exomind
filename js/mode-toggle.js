@@ -45,8 +45,15 @@ document.getElementById("modeToggle").onclick = () => {
     canvas.getObjects().forEach(obj => { 
       if (obj !== backgroundImage) {
         // Les flèches doivent rester cliquables en mode player pour la navigation
+        // mais sans être sélectionnables ou éditables
         if (obj.isArrow) {
-          obj.set({ selectable: false, evented: true });
+          obj.set({ 
+            selectable: false, 
+            evented: true,
+            hasControls: false,
+            hasBorders: false,
+            hoverCursor: 'pointer'
+          });
         } else {
           obj.set({ selectable: false, evented: false });
         }
@@ -71,7 +78,17 @@ document.getElementById("modeToggle").onclick = () => {
     
     canvas.selection = true;
     canvas.getObjects().forEach(obj => { 
-      if (obj !== backgroundImage) obj.set({ selectable: true, evented: true }); 
+      if (obj !== backgroundImage) {
+        obj.set({ selectable: true, evented: true });
+        // Restaurer les contrôles pour les flèches
+        if (obj.isArrow) {
+          obj.set({
+            hasControls: true,
+            hasBorders: true,
+            hoverCursor: 'move'
+          });
+        }
+      }
     });
     
     canvas.defaultCursor = 'default';
