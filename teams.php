@@ -12,6 +12,34 @@ function formatUserName($firstname, $lastname) {
     return $formattedFirstName . ' ' . $formattedLastName;
 }
 
+// Vérifier si l'utilisateur est activé via le cookie
+$userActivated = false;
+$userTeam = null;
+$enigmaStatus = null;
+
+$activation_code_cookie = $_COOKIE['cluedo_activation'] ?? null;
+
+if ($activation_code_cookie && $dbConnection) {
+    try {
+        // Vérifier si le code du cookie existe en base et si l'utilisateur est activé
+        $stmt = $dbConnection->prepare("SELECT u.*, g.name as team_name, g.pole_name, g.color as team_color, g.img_path as team_img FROM `users` u LEFT JOIN `groups` g ON u.group_id = g.id WHERE u.activation_code = ? AND u.has_activated = 1");
+        $stmt->execute([$activation_code_cookie]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user) {
+            $userActivated = true;
+            $userTeam = $user;
+            
+            // TODO: Récupérer le statut réel de l'énigme depuis la BDD
+            // Pour l'instant, on simule : énigme déverrouillée si au moins 5 papiers trouvés
+            // À adapter selon votre logique métier
+            $enigmaStatus = 'unlocked'; // ou 'locked' selon vos critères
+        }
+    } catch (PDOException $e) {
+        error_log("Erreur lors de la vérification du cookie: " . $e->getMessage());
+    }
+}
+
 // Récupérer tous les groupes avec leurs utilisateurs depuis la base de données
 $teams = [];
 if ($dbConnection) {
@@ -268,26 +296,137 @@ if ($dbConnection) {
             top: 20px;
             right: 20px;
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 240, 250, 0.95) 100%);
-            padding: 20px 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            z-index: 100;
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+            z-index: 999999;
             border: 2px solid rgba(150, 150, 150, 0.5);
             backdrop-filter: blur(10px);
             text-align: center;
+            width: 200px;
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .day-indicator:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
+        }
+
+        .day-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 240, 250, 0.98) 100%);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(150, 150, 150, 0.5);
+            backdrop-filter: blur(10px);
+            margin-top: 10px;
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .day-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .day-option {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            border-bottom: 1px solid rgba(150, 150, 150, 0.2);
+        }
+
+        .day-option:last-child {
+            border-bottom: none;
+        }
+
+        .day-option:hover {
+            background: rgba(150, 150, 150, 0.1);
+        }
+
+        .day-option.active {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .day-arrow {
+            display: inline-block;
+            margin-left: 8px;
+            transition: transform 0.3s ease;
+        }
+
+        .day-indicator.active .day-arrow {
+            transform: rotate(180deg);
+        }
+
+        .header {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(42, 42, 42, 0.95);
+            border-radius: 12px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, <?= htmlspecialchars($userTeam['team_color'] ?? '#888') ?>, rgba(255,255,255,0.3));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            border: 2px solid <?= htmlspecialchars($userTeam['team_color'] ?? '#888') ?>;
+            flex-shrink: 0;
+        }
+
+        .user-details h2 {
+            font-size: 0.95rem;
+            color: #fff;
+            margin-bottom: 3px;
+            white-space: nowrap;
+        }
+
+        .user-team {
+            font-size: 0.8rem;
+            color: <?= htmlspecialchars($userTeam['team_color'] ?? '#888') ?>;
+            font-weight: bold;
         }
 
         .day-number {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             font-weight: bold;
             color: #2a2a2a;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 5px;
+            letter-spacing: 1px;
+            margin-bottom: 3px;
         }
 
         .day-objective {
-            font-size: 1.1rem;
+            font-size: 0.9rem;
             color: #3a3a3a;
             font-weight: 600;
         }
@@ -657,10 +796,55 @@ if ($dbConnection) {
 </head>
 <body>
     <!-- Indicateur du jour -->
-    <div class="day-indicator">
-        <div class="day-number">Jour 1</div>
+    <div class="day-indicator" id="dayIndicator">
+        <div class="day-number">Jour 1 <span class="day-arrow">▼</span></div>
         <div class="day-objective">🏛️ Scène du crime</div>
+        
+        <div class="day-dropdown" id="dayDropdown">
+            <div class="day-option active" data-day="1">
+                <div style="font-weight: bold; color: #2a2a2a;">Jour 1</div>
+                <div style="font-size: 0.9rem; color: #666;">🏛️ Scène du crime</div>
+            </div>
+            <div class="day-option" data-day="2">
+                <div style="font-weight: bold; color: #2a2a2a;">Jour 2</div>
+                <div style="font-size: 0.9rem; color: #666;">🔪 Arme du crime</div>
+            </div>
+            <div class="day-option" data-day="3">
+                <div style="font-weight: bold; color: #2a2a2a;">Jour 3</div>
+                <div style="font-size: 0.9rem; color: #666;">🎭 Auteur du crime</div>
+            </div>
+        </div>
     </div>
+
+    <!-- Statut de l'énigme (uniquement si activé) -->
+    <?php if ($userActivated && $enigmaStatus): ?>
+        <div class="enigma-status-indicator" style="position: fixed; top: 130px; right: 20px; background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 240, 250, 0.95) 100%); padding: 15px 20px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5); z-index: 100; border: 2px solid rgba(150, 150, 150, 0.5); backdrop-filter: blur(10px); text-align: center; width: 200px; box-sizing: border-box;">
+            <?php if ($enigmaStatus === 'unlocked'): ?>
+                <span style="font-size: 0.9rem; color: #11998e; font-weight: 600;">🔓 Énigme déverrouillée</span>
+            <?php else: ?>
+                <span style="font-size: 0.9rem; color: #eb3349; font-weight: 600;">🔒 Énigme verrouillée</span>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- Informations utilisateur connecté (uniquement si activé) -->
+    <?php if ($userActivated && $userTeam): ?>
+        <div class="header" style="top: 20px; right: 240px;">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <?php if (!empty($userTeam['team_img']) && file_exists($userTeam['team_img'])): ?>
+                        <img src="<?= htmlspecialchars($userTeam['team_img']) ?>" alt="<?= htmlspecialchars($userTeam['team_name']) ?>" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;">
+                    <?php else: ?>
+                        🎮
+                    <?php endif; ?>
+                </div>
+                <div class="user-details">
+                    <h2><?= htmlspecialchars(formatUserName($userTeam['firstname'], $userTeam['lastname'])) ?></h2>
+                    <div class="user-team"><?= htmlspecialchars($userTeam['pole_name'] ?? 'Non assigné') ?></div>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <div class="container">
         <div class="logos-container">
@@ -670,7 +854,7 @@ if ($dbConnection) {
 
         <div class="buttons-container">
             <button id="rulesBtn" class="game-button btn-rules">📖 Règles du jeu</button>
-            <a href="index.php" class="game-button btn-play">🎮 Jouer</a>
+            <a href="game.php" class="game-button btn-play">🎮 Jouer</a>
         </div>
 
         <!-- Modale des règles -->
@@ -901,6 +1085,54 @@ if ($dbConnection) {
             if (e.key === 'Escape' && rulesModal.classList.contains('active')) {
                 rulesModal.classList.remove('active');
             }
+        });
+
+        // Gestion du menu déroulant des jours
+        const dayIndicator = document.getElementById('dayIndicator');
+        const dayDropdown = document.getElementById('dayDropdown');
+        const dayOptions = document.querySelectorAll('.day-option');
+
+        // Ouvrir/fermer le menu déroulant
+        dayIndicator.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dayIndicator.classList.toggle('active');
+            dayDropdown.classList.toggle('active');
+        });
+
+        // Sélectionner un jour
+        dayOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Retirer la classe active de toutes les options
+                dayOptions.forEach(opt => opt.classList.remove('active'));
+                
+                // Ajouter la classe active à l'option sélectionnée
+                option.classList.add('active');
+                
+                // Mettre à jour l'affichage principal
+                const dayNumber = option.querySelector('div:first-child').textContent;
+                const dayObjective = option.querySelector('div:last-child').textContent;
+                
+                const mainDayNumber = dayIndicator.querySelector('.day-number');
+                const mainDayObjective = dayIndicator.querySelector('.day-objective');
+                
+                mainDayNumber.innerHTML = dayNumber + ' <span class="day-arrow">▼</span>';
+                mainDayObjective.textContent = dayObjective;
+                
+                // Fermer le menu
+                dayIndicator.classList.remove('active');
+                dayDropdown.classList.remove('active');
+                
+                // TODO: Ici vous pouvez ajouter la logique pour changer les données selon le jour sélectionné
+                console.log('Jour sélectionné:', option.dataset.day);
+            });
+        });
+
+        // Fermer le menu en cliquant ailleurs
+        document.addEventListener('click', () => {
+            dayIndicator.classList.remove('active');
+            dayDropdown.classList.remove('active');
         });
     </script>
 </body>
