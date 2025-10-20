@@ -37,7 +37,7 @@ let paperPreviewGroup = null;
 let paperPreviewSize = null;
 let paperPlaceholderImg = null;
 let paperPlaceholderMoveHandler = null;
-const paperPlaceholderScale = 0.5;
+const paperPlaceholderScale = 0.25;
 let lastMousePos = { x: null, y: null };
 
 // Variables pour le pan
@@ -101,14 +101,14 @@ canvas.on('selection:created', function(e) {
 
 // Gestionnaire de curseur pour les flèches en mode player
 canvas.on('mouse:move', function(opt) {
-  if (isPlayerMode) {
+  if (isPlayerMode && !isDragging) {
     const obj = canvas.findTarget(opt.e, false);
     if (obj && obj.isArrow) {
       canvas.defaultCursor = 'pointer';
       canvas.setCursor('pointer');
     } else {
-      canvas.defaultCursor = 'default';
-      canvas.setCursor('default');
+      canvas.defaultCursor = 'grab';
+      canvas.setCursor('grab');
     }
   }
 });
@@ -141,9 +141,9 @@ canvas.on('mouse:down', function(opt) {
         // Réinitialiser le curseur après le changement de photo
         setTimeout(() => {
           if (isPlayerMode) {
-            canvas.defaultCursor = 'default';
-            canvas.hoverCursor = 'default';
-            canvas.setCursor('default');
+            canvas.defaultCursor = 'grab';
+            canvas.hoverCursor = 'grab';
+            canvas.setCursor('grab');
           }
         }, 50);
       } else {

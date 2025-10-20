@@ -49,8 +49,9 @@ function cancelPaperPlacement() {
 function finalizePaperPlacement(opt) {
   if (!isPlacingPaper || !paperPreviewSize) return;
   const p = canvas.getPointer(opt.e);
-  const paperLeft = p.x - paperPreviewSize.w / 2;
-  const paperTop = p.y - paperPreviewSize.h / 2;
+  // Position du centre du papier
+  const paperCenterX = p.x;
+  const paperCenterY = p.y;
   
   removePaperPlaceholder();
   if (paperPreviewGroup) {
@@ -73,18 +74,18 @@ function finalizePaperPlacement(opt) {
   
   fabric.Image.fromURL(paperDataUrl, (paperImg) => {
     paperImg.set({
-      left: paperLeft,
-      top: paperTop,
+      left: 0,
+      top: 0,
       scaleX: savedScale,
       scaleY: savedScale,
       selectable: false,
       evented: false,
-      originX: 'left',
-      originY: 'top'
+      originX: 'center',
+      originY: 'center'
     });
     const paperBorder = new fabric.Rect({
-      left: paperLeft,
-      top: paperTop,
+      left: 0,
+      top: 0,
       width: savedW,
       height: savedH,
       fill: 'transparent',
@@ -93,13 +94,15 @@ function finalizePaperPlacement(opt) {
       strokeDashArray: [8, 4],
       selectable: false,
       evented: false,
-      originX: 'left',
-      originY: 'top',
+      originX: 'center',
+      originY: 'center',
       visible: !isPlayerMode
     });
     const paperGroup = new fabric.Group([paperImg, paperBorder], {
-      left: paperLeft,
-      top: paperTop,
+      left: paperCenterX,
+      top: paperCenterY,
+      originX: 'center',
+      originY: 'center',
       selectable: true,
       evented: true,
       hasControls: true,
@@ -176,16 +179,16 @@ function recreatePaper(paperData, callback) {
     paperImg.set({
       left: 0,
       top: 0,
-      scaleX: 0.5,
-      scaleY: 0.5,
+      scaleX: 0.25,
+      scaleY: 0.25,
       selectable: false,
       evented: false,
-      originX: 'left',
-      originY: 'top'
+      originX: 'center',
+      originY: 'center'
     });
     
-    const paperWidth = paperImg.width * 0.5;
-    const paperHeight = paperImg.height * 0.5;
+    const paperWidth = paperImg.width * 0.25;
+    const paperHeight = paperImg.height * 0.25;
     
     const paperBorder = new fabric.Rect({
       left: 0,
@@ -198,14 +201,16 @@ function recreatePaper(paperData, callback) {
       strokeDashArray: [8, 4],
       selectable: false,
       evented: false,
-      originX: 'left',
-      originY: 'top',
+      originX: 'center',
+      originY: 'center',
       visible: !isPlayerMode
     });
     
     const paperGroup = new fabric.Group([paperImg, paperBorder], {
       left: paperData.left,
       top: paperData.top,
+      originX: 'center',
+      originY: 'center',
       scaleX: paperData.scaleX || 1,
       scaleY: paperData.scaleY || 1,
       angle: paperData.angle || 0,

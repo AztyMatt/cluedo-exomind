@@ -13,7 +13,8 @@ canvas.on("mouse:down", (opt) => {
   }
   
   // Pan avec Alt ou clic-glisser sur espace vide
-  if (!opt.target && !isPlayerMode && (!isLassoMode || opt.e.altKey)) {
+  // En mode player, permet le pan uniquement sur l'espace vide (pas sur les objets)
+  if (!opt.target && (isPlayerMode || (!isLassoMode || opt.e.altKey))) {
     isDragging = true;
     lastPosX = opt.e.clientX;
     lastPosY = opt.e.clientY;
@@ -37,7 +38,14 @@ canvas.on("mouse:move", (opt) => {
     const vpt = canvas.viewportTransform;
     vpt[4] += e.clientX - lastPosX;
     vpt[5] += e.clientY - lastPosY;
-    canvas.requestRenderAll();
+    
+    // Contraindre le viewport en mode player pour ne jamais voir en dehors de l'image
+    if (isPlayerMode) {
+      constrainViewportToImage();
+    } else {
+      canvas.requestRenderAll();
+    }
+    
     lastPosX = e.clientX;
     lastPosY = e.clientY;
   } else if (isDraggingPoint && draggingPointIndex >= 0) {
@@ -109,7 +117,7 @@ canvas.on("mouse:up", () => {
   draggingSegmentIndex = -1;
   isDraggingPoint = false;
   draggingPointIndex = -1;
-  canvas.defaultCursor = 'default';
+  canvas.defaultCursor = isPlayerMode ? 'grab' : 'default';
 });
 
 // Gestion de la sélection des masques

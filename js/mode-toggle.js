@@ -33,7 +33,9 @@ document.getElementById("modeToggle").onclick = () => {
     label.textContent = "Editor Mode";
     btn.style.background = "#1a7f1a";
     if (toolbarTop) toolbarTop.style.display = 'none';
-    document.getElementById("saveData").style.display = "inline-flex";
+    
+    const saveDataBtn = document.getElementById("saveData");
+    if (saveDataBtn) saveDataBtn.style.display = "inline-flex";
     
     // Cacher le bouton de changement de pièce en mode player
     const changeRoomBtn = document.getElementById('changeRoomBtn');
@@ -60,17 +62,19 @@ document.getElementById("modeToggle").onclick = () => {
       }
     });
     resetZoomAndPan();
-    canvas.defaultCursor = 'default';
-    canvas.hoverCursor = 'default'; // Le curseur changera en pointer au survol des flèches
+    canvas.defaultCursor = 'grab';
+    canvas.hoverCursor = 'grab'; // Le curseur changera en pointer au survol des flèches
     
-    console.log("🎮 Mode Player activé - Bordures masquées, édition désactivée, zoom réinitialisé, flèches cliquables");
+    console.log("🎮 Mode Player activé - Bordures masquées, édition désactivée, zoom réinitialisé, flèches cliquables, zoom/pan activés");
   } else {
     // On est en mode Editor, afficher "Player Mode" pour indiquer qu'on peut basculer en mode Player
     icon.textContent = "🎮";
     label.textContent = "Player Mode";
     btn.style.background = "#3a3a3a";
     if (toolbarTop) toolbarTop.style.display = 'flex';
-    document.getElementById("saveData").style.display = "inline-flex";
+    
+    const saveDataBtn = document.getElementById("saveData");
+    if (saveDataBtn) saveDataBtn.style.display = "inline-flex";
     
     // Afficher le bouton de changement de pièce en mode editor
     const changeRoomBtn = document.getElementById('changeRoomBtn');
