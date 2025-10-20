@@ -47,6 +47,9 @@ let lastPosX, lastPosY;
 // Variable pour la sélection de masque
 let lastSelectedMask = null;
 
+// Variable pour empêcher la sauvegarde lors de suppression en mode player
+let isRemovingPaperInPlayerMode = false;
+
 // Suivre la position de la souris
 window.addEventListener('mousemove', (e) => {
   lastMousePos.x = e.clientX;
@@ -99,13 +102,25 @@ canvas.on('selection:created', function(e) {
   }
 });
 
-// Gestionnaire de curseur pour les flèches en mode player
+// Gestionnaire de curseur pour les flèches et papiers en mode player
 canvas.on('mouse:move', function(opt) {
   if (isPlayerMode && !isDragging) {
     const obj = canvas.findTarget(opt.e, false);
     if (obj && obj.isArrow) {
       canvas.defaultCursor = 'pointer';
       canvas.setCursor('pointer');
+    } else if (obj && obj._objects && obj._objects.length >= 2) {
+      // Vérifier si c'est un groupe de papier (contient une image et une bordure)
+      const hasImage = obj._objects.some(subObj => subObj.type === 'image');
+      const hasBorder = obj._objects.some(subObj => subObj.type === 'rect' && subObj.stroke);
+      
+      if (hasImage && hasBorder) {
+        canvas.defaultCursor = 'pointer';
+        canvas.setCursor('pointer');
+      } else {
+        canvas.defaultCursor = 'grab';
+        canvas.setCursor('grab');
+      }
     } else {
       canvas.defaultCursor = 'grab';
       canvas.setCursor('grab');
@@ -113,7 +128,7 @@ canvas.on('mouse:move', function(opt) {
   }
 });
 
-// Gestionnaire de clic global pour les flèches en mode player
+// Gestionnaire de clic global pour les flèches et papiers en mode player
 canvas.on('mouse:down', function(opt) {
   if (!opt.target) return;
   
@@ -153,6 +168,37 @@ canvas.on('mouse:down', function(opt) {
     
     canvas.requestRenderAll();
     return false;
+  }
+  
+  // Si c'est un papier et qu'on est en mode player
+  if (isPlayerMode && obj._objects && obj._objects.length >= 2) {
+    // Vérifier si c'est un groupe de papier (contient une image et une bordure)
+    const hasImage = obj._objects.some(subObj => subObj.type === 'image');
+    const hasBorder = obj._objects.some(subObj => subObj.type === 'rect' && subObj.stroke);
+    
+    if (hasImage && hasBorder) {
+      // Empêcher la sélection
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+      canvas.discardActiveObject();
+      
+      // Console.log temporaire pour préparer le terrain pour le comptage
+      console.log('📄 Papier cliqué en mode player - ID:', obj.id || 'sans ID', 'Position:', { left: obj.left, top: obj.top });
+      
+      // Supprimer le papier du canvas (pas de la BDD)
+      // Activer le flag pour empêcher la sauvegarde automatique
+      isRemovingPaperInPlayerMode = true;
+      canvas.remove(obj);
+      canvas.requestRenderAll();
+      // Réinitialiser le flag après un court délai
+      setTimeout(() => {
+        isRemovingPaperInPlayerMode = false;
+      }, 10);
+      
+      console.log('🗑️ Papier supprimé du canvas (pas de la BDD)');
+      
+      return false;
+    }
   }
 });
 

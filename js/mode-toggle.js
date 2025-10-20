@@ -56,6 +56,32 @@ document.getElementById("modeToggle").onclick = () => {
             hasBorders: false,
             hoverCursor: 'pointer'
           });
+        } else if (obj.maskData && obj.maskData.isMask) {
+          // Les masks doivent bloquer les clics sur les papiers en dessous
+          obj.set({ 
+            selectable: false, 
+            evented: true, // Activer pour bloquer les clics
+            hasControls: false,
+            hasBorders: false,
+            hoverCursor: 'grab' // Curseur grab sur les masks
+          });
+        } else if (obj._objects && obj._objects.length >= 2) {
+          // Vérifier si c'est un groupe de papier (contient une image et une bordure)
+          const hasImage = obj._objects.some(subObj => subObj.type === 'image');
+          const hasBorder = obj._objects.some(subObj => subObj.type === 'rect' && subObj.stroke);
+          
+          if (hasImage && hasBorder) {
+            // Les papiers doivent être cliquables en mode player pour la suppression
+            obj.set({ 
+              selectable: false, 
+              evented: true,
+              hasControls: false,
+              hasBorders: false,
+              hoverCursor: 'pointer'
+            });
+          } else {
+            obj.set({ selectable: false, evented: false });
+          }
         } else {
           obj.set({ selectable: false, evented: false });
         }
@@ -65,7 +91,7 @@ document.getElementById("modeToggle").onclick = () => {
     canvas.defaultCursor = 'grab';
     canvas.hoverCursor = 'grab'; // Le curseur changera en pointer au survol des flèches
     
-    console.log("🎮 Mode Player activé - Bordures masquées, édition désactivée, zoom réinitialisé, flèches cliquables, zoom/pan activés");
+    console.log("🎮 Mode Player activé - Bordures masquées, édition désactivée, zoom réinitialisé, flèches et papiers cliquables, zoom/pan activés");
   } else {
     // On est en mode Editor, afficher "Player Mode" pour indiquer qu'on peut basculer en mode Player
     icon.textContent = "🎮";
@@ -83,6 +109,7 @@ document.getElementById("modeToggle").onclick = () => {
     canvas.selection = true;
     canvas.getObjects().forEach(obj => { 
       if (obj !== backgroundImage) {
+        // Restaurer les événements pour tous les objets en mode éditeur
         obj.set({ selectable: true, evented: true });
         // Restaurer les contrôles pour les flèches
         if (obj.isArrow) {
@@ -90,6 +117,15 @@ document.getElementById("modeToggle").onclick = () => {
             hasControls: true,
             hasBorders: true,
             hoverCursor: 'move'
+          });
+        }
+        // Les masks doivent aussi pouvoir être sélectionnés en mode éditeur
+        if (obj.maskData && obj.maskData.isMask) {
+          obj.set({
+            selectable: true,
+            evented: true,
+            hasControls: false,
+            hasBorders: false
           });
         }
       }

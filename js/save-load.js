@@ -325,6 +325,13 @@ canvas.on('object:added', function(e) {
 canvas.on('object:removed', function(e) {
   // Ne pas sauvegarder lors du nettoyage (changement de pièce)
   if (e.target === backgroundImage) return;
+  
+  // Ne pas sauvegarder si on supprime un papier en mode player (suppression temporaire pour comptage)
+  if (typeof isRemovingPaperInPlayerMode !== 'undefined' && isRemovingPaperInPlayerMode) {
+    console.log('➖ Papier supprimé en mode player - PAS de sauvegarde en BDD');
+    return;
+  }
+  
   console.log('➖ Objet supprimé, déclenchement de la sauvegarde automatique');
   triggerAutoSave();
 });

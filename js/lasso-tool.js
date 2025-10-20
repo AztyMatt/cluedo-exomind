@@ -595,7 +595,7 @@ function createCutout() {
       left: bounds.left,
       top: bounds.top,
       selectable: true,
-      evented: true,
+      evented: true, // Activer pour bloquer les clics sur les papiers en dessous
       lockMovementX: true,
       lockMovementY: true,
       lockRotation: true,
@@ -736,7 +736,7 @@ function recreateMask(maskData, callback) {
       left: bounds.left,
       top: bounds.top,
       selectable: true,
-      evented: true,
+      evented: true, // Activer pour bloquer les clics sur les papiers en dessous
       lockMovementX: true,
       lockMovementY: true,
       lockRotation: true,
