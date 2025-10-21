@@ -40,6 +40,10 @@ if ($activation_code_cookie && $dbConnection) {
     }
 }
 
+// Récupérer le jour sélectionné (par défaut jour 1)
+$selectedDay = isset($_GET['day']) ? (int)$_GET['day'] : 1;
+$selectedDay = max(1, min(3, $selectedDay)); // Limiter entre 1 et 3
+
 // Récupérer tous les groupes avec leurs utilisateurs depuis la base de données
 $teams = [];
 if ($dbConnection) {
@@ -51,22 +55,59 @@ if ($dbConnection) {
         // Récupérer les utilisateurs pour chaque groupe
         $teamsWithUsers = [];
         foreach ($teams as $team) {
-            $stmt = $dbConnection->prepare("SELECT firstname, lastname, username, email, has_activated FROM `users` WHERE group_id = ? ORDER BY lastname ASC, firstname ASC");
+            $stmt = $dbConnection->prepare("SELECT id, firstname, lastname, username, email, has_activated FROM `users` WHERE group_id = ? ORDER BY lastname ASC, firstname ASC");
             $stmt->execute([$team['id']]);
             $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            // Ajouter le nombre de papiers trouvés pour chaque utilisateur (simulation)
+            // Ajouter le nombre de papiers trouvés pour chaque utilisateur
             foreach ($users as &$user) {
-                $user['papers_found'] = rand(0, 5); // Simulation : 0 à 5 papiers par utilisateur
+                // Récupérer le vrai nombre de papiers trouvés depuis papers_found_user
+                $stmt = $dbConnection->prepare("SELECT COUNT(*) as count FROM `papers_found_user` WHERE id_player = ? AND id_day = ?");
+                $stmt->execute([$user['id'], $selectedDay]);
+                $papersCount = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                $user['papers_found'] = $papersCount ? (int)$papersCount['count'] : 0;
             }
+            
+            // Trier les utilisateurs : actifs avec le plus de papiers d'abord, puis inactifs
+            usort($users, function($a, $b) {
+                // Si l'un est actif et l'autre non, l'actif vient en premier
+                if ($a['has_activated'] != $b['has_activated']) {
+                    return $b['has_activated'] - $a['has_activated']; // Actifs en premier
+                }
+                // Si les deux ont le même statut d'activation, trier par nombre de papiers (décroissant)
+                return $b['papers_found'] - $a['papers_found'];
+            });
+            
             $team['users'] = $users;
             
-            // Compter les papiers trouvés (simulation pour l'exemple) - valeur fixe basée sur l'ID
-            $team['papers_found'] = ($team['id'] * 2) % 10;
+            // Récupérer les infos de papiers depuis total_papers_found_group
+            $stmt = $dbConnection->prepare("SELECT total_to_found, total_founded, complete FROM `total_papers_found_group` WHERE id_group = ? AND id_day = ?");
+            $stmt->execute([$team['id'], $selectedDay]);
+            $paperStats = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            // Statut de l'énigme (simulation)
-            $team['enigma_unlocked'] = $team['papers_found'] >= 5; // Énigme débloquée si au moins 5 papiers
-            $team['enigma_solved'] = $team['papers_found'] >= 8; // Énigme résolue si au moins 8 papiers
+            if ($paperStats) {
+                $team['total_to_found'] = $paperStats['total_to_found'];
+                $team['papers_found'] = $paperStats['total_founded'];
+                $team['complete'] = $paperStats['complete'];
+            } else {
+                // Valeurs par défaut si pas de données
+                $team['total_to_found'] = 10;
+                $team['papers_found'] = 0;
+                $team['complete'] = false;
+            }
+            
+            // Récupérer le statut de l'énigme depuis la table enigmes
+            $stmt = $dbConnection->prepare("SELECT status FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+            $stmt->execute([$team['id'], $selectedDay]);
+            $enigmaData = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($enigmaData) {
+                $team['enigma_status'] = (int)$enigmaData['status']; // 0 = à reconstituer, 1 = en cours, 2 = résolue
+            } else {
+                // Valeur par défaut si pas d'énigme
+                $team['enigma_status'] = 0;
+            }
             
             $teamsWithUsers[] = $team;
         }
@@ -367,6 +408,43 @@ if ($dbConnection) {
 
         .day-indicator.active .day-arrow {
             transform: rotate(180deg);
+        }
+        
+        /* Indicateur de mise à jour en temps réel */
+        .live-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(42, 42, 42, 0.95);
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #fff;
+            border: 2px solid rgba(76, 175, 80, 0.5);
+        }
+        
+        .live-pulse {
+            width: 8px;
+            height: 8px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: pulse-live 2s infinite;
+        }
+        
+        @keyframes pulse-live {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
         }
 
         .header {
@@ -740,6 +818,10 @@ if ($dbConnection) {
             background: linear-gradient(135deg, #f2994a, #f2c94c);
             color: #000;
         }
+        
+        .status-badge:hover {
+            transform: scale(1.05);
+        }
 
         .color-indicator {
             position: absolute;
@@ -796,20 +878,28 @@ if ($dbConnection) {
 </head>
 <body>
     <!-- Indicateur du jour -->
+    <?php 
+    $dayLabels = [
+        1 => ['number' => 'Jour 1', 'objective' => '🏛️ Scène du crime'],
+        2 => ['number' => 'Jour 2', 'objective' => '🔪 Arme du crime'],
+        3 => ['number' => 'Jour 3', 'objective' => '🎭 Auteur du crime']
+    ];
+    $currentDay = $dayLabels[$selectedDay];
+    ?>
     <div class="day-indicator" id="dayIndicator">
-        <div class="day-number">Jour 1 <span class="day-arrow">▼</span></div>
-        <div class="day-objective">🏛️ Scène du crime</div>
+        <div class="day-number"><?= $currentDay['number'] ?> <span class="day-arrow">▼</span></div>
+        <div class="day-objective"><?= $currentDay['objective'] ?></div>
         
         <div class="day-dropdown" id="dayDropdown">
-            <div class="day-option active" data-day="1">
+            <div class="day-option <?= $selectedDay == 1 ? 'active' : '' ?>" data-day="1">
                 <div style="font-weight: bold; color: #2a2a2a;">Jour 1</div>
                 <div style="font-size: 0.9rem; color: #666;">🏛️ Scène du crime</div>
             </div>
-            <div class="day-option" data-day="2">
+            <div class="day-option <?= $selectedDay == 2 ? 'active' : '' ?>" data-day="2">
                 <div style="font-weight: bold; color: #2a2a2a;">Jour 2</div>
                 <div style="font-size: 0.9rem; color: #666;">🔪 Arme du crime</div>
             </div>
-            <div class="day-option" data-day="3">
+            <div class="day-option <?= $selectedDay == 3 ? 'active' : '' ?>" data-day="3">
                 <div style="font-weight: bold; color: #2a2a2a;">Jour 3</div>
                 <div style="font-size: 0.9rem; color: #666;">🎭 Auteur du crime</div>
             </div>
@@ -846,6 +936,12 @@ if ($dbConnection) {
         </div>
     <?php endif; ?>
 
+    <!-- Indicateur de mise à jour en temps réel -->
+    <div class="live-indicator">
+        <div class="live-pulse"></div>
+        <span>Mise à jour automatique</span>
+    </div>
+    
     <div class="container">
         <div class="logos-container">
             <img src="assets/img/exomind_logo_blanc.png" alt="Exomind Logo" class="logo logo-exomind">
@@ -950,22 +1046,16 @@ if ($dbConnection) {
                             <div class="team-status">
                                 <div class="status-item">
                                     <span class="status-label">Papiers</span>
-                                    <span class="status-value">📄 <?= $team['papers_found'] ?> / 10</span>
+                                    <span class="status-value">📄 <?= $team['papers_found'] ?> / <?= $team['total_to_found'] ?></span>
                                 </div>
                                 <div class="status-item">
                                     <span class="status-label">Énigme</span>
-                                    <?php if ($team['enigma_unlocked']): ?>
-                                        <span class="status-badge badge-success">🔓 Débloquée</span>
+                                    <?php if ($team['enigma_status'] == 0): ?>
+                                        <span class="status-badge badge-danger">🔒 À reconstituer</span>
+                                    <?php elseif ($team['enigma_status'] == 1): ?>
+                                        <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>
                                     <?php else: ?>
-                                        <span class="status-badge badge-danger">🔒 Verrouillée</span>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="status-item">
-                                    <span class="status-label">Résolution</span>
-                                    <?php if ($team['enigma_solved']): ?>
-                                        <span class="status-badge badge-success">✅ Résolue</span>
-                                    <?php else: ?>
-                                        <span class="status-badge badge-warning">⏳ En cours</span>
+                                        <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue</a>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -1029,22 +1119,16 @@ if ($dbConnection) {
                                 <div class="team-status">
                                     <div class="status-item">
                                         <span class="status-label">Papiers</span>
-                                        <span class="status-value">📄 <?= $team['papers_found'] ?> / 10</span>
+                                        <span class="status-value">📄 <?= $team['papers_found'] ?> / <?= $team['total_to_found'] ?></span>
                                     </div>
                                     <div class="status-item">
                                         <span class="status-label">Énigme</span>
-                                        <?php if ($team['enigma_unlocked']): ?>
-                                            <span class="status-badge badge-success">🔓 Débloquée</span>
+                                        <?php if ($team['enigma_status'] == 0): ?>
+                                            <span class="status-badge badge-danger">🔒 À reconstituer</span>
+                                        <?php elseif ($team['enigma_status'] == 1): ?>
+                                            <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>
                                         <?php else: ?>
-                                            <span class="status-badge badge-danger">🔒 Verrouillée</span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="status-item">
-                                        <span class="status-label">Résolution</span>
-                                        <?php if ($team['enigma_solved']): ?>
-                                            <span class="status-badge badge-success">✅ Résolue</span>
-                                        <?php else: ?>
-                                            <span class="status-badge badge-warning">⏳ En cours</span>
+                                            <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue</a>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -1124,8 +1208,16 @@ if ($dbConnection) {
                 dayIndicator.classList.remove('active');
                 dayDropdown.classList.remove('active');
                 
-                // TODO: Ici vous pouvez ajouter la logique pour changer les données selon le jour sélectionné
-                console.log('Jour sélectionné:', option.dataset.day);
+                // Mettre à jour le jour actuel et récupérer les nouvelles données
+                currentDay = parseInt(option.dataset.day);
+                
+                // Mettre à jour l'URL sans recharger la page
+                const newUrl = window.location.pathname + '?day=' + currentDay;
+                window.history.pushState({day: currentDay}, '', newUrl);
+                
+                // Mettre à jour les données immédiatement
+                console.log('🔄 Changement de jour:', currentDay);
+                updateTeamsData();
             });
         });
 
@@ -1134,6 +1226,144 @@ if ($dbConnection) {
             dayIndicator.classList.remove('active');
             dayDropdown.classList.remove('active');
         });
+        
+        // ========== MISE À JOUR EN TEMPS RÉEL AVEC AJAX ==========
+        
+        // Récupérer le jour actuel depuis l'URL ou utiliser 1 par défaut
+        const urlParams = new URLSearchParams(window.location.search);
+        let currentDay = parseInt(urlParams.get('day')) || 1;
+        
+        function formatUserName(firstname, lastname) {
+            const formattedFirst = firstname.charAt(0).toUpperCase() + firstname.slice(1).toLowerCase();
+            const formattedLast = lastname.toUpperCase();
+            return formattedFirst + ' ' + formattedLast;
+        }
+        
+        function updateTeamsData() {
+            fetch('teams_data_real_time.php?day=' + currentDay)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success || !data.teams) {
+                        console.error('Erreur lors de la récupération des données');
+                        return;
+                    }
+                    
+                    console.log('📊 Données mises à jour:', data.teams.length, 'équipes');
+                    
+                    // Mettre à jour chaque équipe
+                    data.teams.forEach((team, index) => {
+                        updateTeamCard(team, index);
+                    });
+                })
+                .catch(error => {
+                    console.error('Erreur AJAX:', error);
+                });
+        }
+        
+        function updateTeamCard(team, index) {
+            // Trouver toutes les cartes d'équipe (il y en a 2 instances par équipe - ligne 1 et ligne 2)
+            const teamCards = document.querySelectorAll('.team-card');
+            const teamCard = teamCards[index];
+            
+            if (!teamCard) return;
+            
+            // Mettre à jour les utilisateurs
+            const userList = teamCard.querySelector('.team-scrollable');
+            if (userList && team.users) {
+                let usersHTML = '';
+                team.users.forEach(user => {
+                    const isActive = user.has_activated == 1;
+                    const statusClass = isActive ? 'active' : 'inactive';
+                    const statusIcon = isActive ? 'activated' : 'unactivated';
+                    
+                    usersHTML += `
+                        <div class="user-item ${statusClass}">
+                            <img src="assets/img/${statusIcon}.svg" 
+                                 alt="${isActive ? 'Actif' : 'Inactif'}" 
+                                 class="user-status-icon">
+                            <div class="user-name">
+                                <span>${formatUserName(user.firstname, user.lastname)}</span>
+                                <span class="user-papers-count">${user.papers_found}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                if (usersHTML === '') {
+                    usersHTML = '<div class="user-item"><div class="user-name">Aucun utilisateur</div></div>';
+                }
+                
+                userList.innerHTML = usersHTML;
+            }
+            
+            // Mettre à jour le nombre de papiers
+            const papersValue = teamCard.querySelector('.team-status .status-value');
+            if (papersValue) {
+                papersValue.innerHTML = `📄 ${team.papers_found} / ${team.total_to_found}`;
+            }
+            
+            // Mettre à jour le statut de l'énigme
+            const enigmaStatusContainer = teamCard.querySelectorAll('.status-item')[1];
+            if (enigmaStatusContainer) {
+                const enigmaBadge = enigmaStatusContainer.querySelector('.status-badge');
+                if (enigmaBadge) {
+                    // Déterminer le badge en fonction du statut
+                    let badgeClass = '';
+                    let badgeText = '';
+                    
+                    if (team.enigma_status == 0) {
+                        badgeClass = 'badge-danger';
+                        badgeText = '🔒 À reconstituer';
+                    } else if (team.enigma_status == 1) {
+                        badgeClass = 'badge-warning';
+                        badgeText = '⏳ Reconstituée/à résoudre';
+                    } else {
+                        badgeClass = 'badge-success';
+                        badgeText = '✅ Résolue';
+                    }
+                    
+                    // Supprimer toutes les classes de badge
+                    enigmaBadge.className = 'status-badge ' + badgeClass;
+                    enigmaBadge.innerHTML = badgeText;
+                }
+            }
+        }
+        
+        // Gérer le bouton retour du navigateur
+        window.addEventListener('popstate', (event) => {
+            if (event.state && event.state.day) {
+                currentDay = event.state.day;
+                console.log('⬅️ Navigation arrière vers jour:', currentDay);
+                
+                // Mettre à jour l'affichage du sélecteur de jour
+                dayOptions.forEach(opt => {
+                    if (parseInt(opt.dataset.day) === currentDay) {
+                        opt.classList.add('active');
+                        const dayNumber = opt.querySelector('div:first-child').textContent;
+                        const dayObjective = opt.querySelector('div:last-child').textContent;
+                        
+                        const mainDayNumber = dayIndicator.querySelector('.day-number');
+                        const mainDayObjective = dayIndicator.querySelector('.day-objective');
+                        
+                        mainDayNumber.innerHTML = dayNumber + ' <span class="day-arrow">▼</span>';
+                        mainDayObjective.textContent = dayObjective;
+                    } else {
+                        opt.classList.remove('active');
+                    }
+                });
+                
+                // Mettre à jour les données
+                updateTeamsData();
+            }
+        });
+        
+        // Lancer la première mise à jour immédiatement
+        updateTeamsData();
+        
+        // Puis mettre à jour toutes les 10 secondes
+        setInterval(updateTeamsData, 10000);
+        
+        console.log('🔄 Mise à jour automatique activée (toutes les 10 secondes)');
     </script>
 </body>
 </html>
