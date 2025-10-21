@@ -93,6 +93,18 @@ canvas.on("mouse:wheel", function (opt) {
   
   isAtBaseZoom = Math.abs(canvas.getZoom() - baseZoom) < 1e-6;
   if (isPlacingPaper) updatePaperPlaceholderSize();
+  
+  // Redessiner les points en mode lasso
+  if (isLassoMode) {
+    if (polygonClosed && isEditingMode && typeof updatePolygonPreview !== 'undefined') {
+      // Mode édition : polygone fermé
+      updatePolygonPreview();
+    } else if (!polygonClosed && points.length > 0 && typeof redrawTemporaryPoints !== 'undefined') {
+      // Mode tracé : polygone en cours de création
+      redrawTemporaryPoints();
+    }
+  }
+  
   opt.e.preventDefault();
   opt.e.stopPropagation();
 });

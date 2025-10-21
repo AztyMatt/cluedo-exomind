@@ -120,13 +120,28 @@ document.getElementById("modeToggle").onclick = () => {
           });
         }
         // Les masks doivent aussi pouvoir être sélectionnés en mode éditeur
-        if (obj.maskData && obj.maskData.isMask) {
+        else if (obj.maskData && obj.maskData.isMask) {
           obj.set({
             selectable: true,
             evented: true,
             hasControls: false,
             hasBorders: false
           });
+        }
+        // Restaurer les contrôles pour les papiers (groupes avec image et bordure)
+        else if (obj._objects && obj._objects.length >= 2) {
+          const hasImage = obj._objects.some(subObj => subObj.type === 'image');
+          const hasBorder = obj._objects.some(subObj => subObj.type === 'rect' && subObj.stroke);
+          
+          if (hasImage && hasBorder) {
+            obj.set({
+              selectable: true,
+              evented: true,
+              hasControls: true,
+              hasBorders: false,
+              hoverCursor: 'move'
+            });
+          }
         }
       }
     });

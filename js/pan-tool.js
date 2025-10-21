@@ -89,12 +89,15 @@ canvas.on("mouse:move", (opt) => {
       canvas.remove(previewLine);
     }
     
+    const strokeWidth = typeof getStrokeWidth !== 'undefined' ? getStrokeWidth() : 2 / canvas.getZoom();
+    const zoom = canvas.getZoom();
+    
     previewLine = new fabric.Line(
       [lastPoint.x, lastPoint.y, pointer.x, pointer.y],
       {
         stroke: '#ffff00',
-        strokeWidth: 2,
-        strokeDashArray: [8, 4],
+        strokeWidth: strokeWidth,
+        strokeDashArray: [8 / zoom, 4 / zoom],
         selectable: false,
         evented: false
       }

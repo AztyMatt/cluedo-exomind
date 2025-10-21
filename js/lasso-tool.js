@@ -8,6 +8,27 @@ let lastAutoPanMousePos = { x: 0, y: 0 };
 const AUTO_PAN_EDGE_SIZE = 50; // Taille de la zone de déclenchement en pixels depuis le bord
 const AUTO_PAN_SPEED = 8; // Vitesse maximale du pan
 
+// Fonction pour obtenir la taille des points en fonction du zoom
+function getPointSize() {
+  const zoom = canvas.getZoom();
+  return 4 / zoom; // Taille de base 4px divisée par le zoom pour garder une taille constante à l'écran
+}
+
+function getEditPointSize() {
+  const zoom = canvas.getZoom();
+  return 8 / zoom; // Taille de base 8px pour les points en mode édition
+}
+
+function getHandleSize() {
+  const zoom = canvas.getZoom();
+  return 6 / zoom; // Taille de base 6px pour les poignées
+}
+
+function getStrokeWidth() {
+  const zoom = canvas.getZoom();
+  return 2 / zoom; // Largeur de trait de base 2px
+}
+
 // Fonction d'auto-pan
 function checkAndApplyAutoPan() {
   // Arrêter l'auto-pan si on n'est plus en mode lasso ou si on n'a pas encore commencé à tracer
@@ -227,10 +248,11 @@ canvas.on("mouse:down", (opt) => {
   if (points.length === 0) {
     points.push({ x: pointer.x, y: pointer.y });
     
+    const pointSize = getPointSize();
     const circle = new fabric.Circle({
-      left: pointer.x - 4,
-      top: pointer.y - 4,
-      radius: 4,
+      left: pointer.x - pointSize,
+      top: pointer.y - pointSize,
+      radius: pointSize,
       fill: '#00ff00',
       selectable: false,
       evented: false
@@ -246,6 +268,8 @@ canvas.on("mouse:down", (opt) => {
   }
   
   if (polygonClosed) {
+    const clickTolerance = 12 / canvas.getZoom(); // Zone de détection adaptée au zoom
+    
     // Mode édition: glisser un point
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
@@ -254,7 +278,7 @@ canvas.on("mouse:down", (opt) => {
         Math.pow(pointer.y - p.y, 2)
       );
       
-      if (distToPoint < 12) {
+      if (distToPoint < clickTolerance) {
         isDraggingPoint = true;
         draggingPointIndex = i;
         // Démarrer l'auto-pan quand on commence à glisser un point
@@ -263,6 +287,8 @@ canvas.on("mouse:down", (opt) => {
         return;
       }
     }
+    
+    const handleTolerance = 10 / canvas.getZoom(); // Zone de détection pour les poignées
     
     // Glisser une poignée de courbe
     for (let i = 0; i < points.length; i++) {
@@ -279,7 +305,7 @@ canvas.on("mouse:down", (opt) => {
         Math.pow(pointer.y - handlePos.y, 2)
       );
       
-      if (distToHandle < 10) {
+      if (distToHandle < handleTolerance) {
         isDraggingHandle = true;
         draggingSegmentIndex = i;
         // Démarrer l'auto-pan quand on commence à glisser une poignée
@@ -293,12 +319,13 @@ canvas.on("mouse:down", (opt) => {
   
   // Fermer le polygone si on clique près du premier point
   const firstPoint = points[0];
+  const closeTolerance = 10 / canvas.getZoom(); // Zone de détection pour fermer le polygone
   const distToFirst = Math.sqrt(
     Math.pow(pointer.x - firstPoint.x, 2) + 
     Math.pow(pointer.y - firstPoint.y, 2)
   );
   
-  if (distToFirst < 10 && points.length >= 3) {
+  if (distToFirst < closeTolerance && points.length >= 3) {
     console.log("Polygone fermé. Création du masque...");
     
     if (previewLine) {
@@ -314,11 +341,12 @@ canvas.on("mouse:down", (opt) => {
   // Ajouter un nouveau point
   const lastPoint = points[points.length - 1];
   
+  const strokeWidth = getStrokeWidth();
   const line = new fabric.Line(
     [lastPoint.x, lastPoint.y, pointer.x, pointer.y],
     {
       stroke: '#00ff00',
-      strokeWidth: 2,
+      strokeWidth: strokeWidth,
       selectable: false,
       evented: false
     }
@@ -326,10 +354,11 @@ canvas.on("mouse:down", (opt) => {
   canvas.add(line);
   tempLines.push(line);
   
+  const pointSize = getPointSize();
   const circle = new fabric.Circle({
-    left: pointer.x - 4,
-    top: pointer.y - 4,
-    radius: 4,
+    left: pointer.x - pointSize,
+    top: pointer.y - pointSize,
+    radius: pointSize,
     fill: 'lime',
     selectable: false,
     evented: false
@@ -354,6 +383,52 @@ canvas.on("mouse:dblclick", (opt) => {
   // Créer le masque automatiquement
   createCutout();
 });
+
+// Fonction pour redessiner les points temporaires en mode tracé (polygone non fermé)
+function redrawTemporaryPoints() {
+  // Supprimer les cercles existants
+  tempCircles.forEach(circle => canvas.remove(circle));
+  tempCircles = [];
+  
+  const pointSize = getPointSize();
+  
+  // Redessiner les points avec la bonne taille
+  points.forEach((point, idx) => {
+    const circle = new fabric.Circle({
+      left: point.x - pointSize,
+      top: point.y - pointSize,
+      radius: pointSize,
+      fill: idx === 0 ? '#00ff00' : 'lime',
+      selectable: false,
+      evented: false
+    });
+    canvas.add(circle);
+    tempCircles.push(circle);
+  });
+  
+  // Redessiner les lignes avec la bonne épaisseur
+  tempLines.forEach(line => canvas.remove(line));
+  tempLines = [];
+  
+  const strokeWidth = getStrokeWidth();
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const line = new fabric.Line(
+      [p1.x, p1.y, p2.x, p2.y],
+      {
+        stroke: '#00ff00',
+        strokeWidth: strokeWidth,
+        selectable: false,
+        evented: false
+      }
+    );
+    canvas.add(line);
+    tempLines.push(line);
+  }
+  
+  canvas.renderAll();
+}
 
 // Mise à jour de la prévisualisation du polygone
 function updatePolygonPreview() {
@@ -385,10 +460,11 @@ function updatePolygonPreview() {
   
   pathString += ' Z';
   
+  const strokeWidth = getStrokeWidth();
   const path = new fabric.Path(pathString, {
     fill: 'transparent',
     stroke: 'lime',
-    strokeWidth: 2,
+    strokeWidth: strokeWidth,
     selectable: false,
     evented: false
   });
@@ -397,21 +473,27 @@ function updatePolygonPreview() {
   
   // Dessiner les points et poignées uniquement en mode édition
   if (isEditingMode) {
+    const editPointSize = getEditPointSize();
+    const pointStrokeWidth = 3 / canvas.getZoom();
+    
     // Dessiner les points
     points.forEach((point, idx) => {
       const circle = new fabric.Circle({
-        left: point.x - 8,
-        top: point.y - 8,
-        radius: 8,
+        left: point.x - editPointSize,
+        top: point.y - editPointSize,
+        radius: editPointSize,
         fill: '#00ff00',
         stroke: 'white',
-        strokeWidth: 3,
+        strokeWidth: pointStrokeWidth,
         selectable: false,
         evented: false
       });
       canvas.add(circle);
       tempCircles.push(circle);
     });
+    
+    const handleSize = getHandleSize();
+    const handleStrokeWidth = 2 / canvas.getZoom();
     
     // Dessiner les poignées de courbe
     for (let i = 0; i < points.length; i++) {
@@ -426,13 +508,13 @@ function updatePolygonPreview() {
       const isCurved = curveHandles[i] !== undefined;
       
       const handle = new fabric.Rect({
-        left: handlePos.x - 6,
-        top: handlePos.y - 6,
-        width: 12,
-        height: 12,
+        left: handlePos.x - handleSize,
+        top: handlePos.y - handleSize,
+        width: handleSize * 2,
+        height: handleSize * 2,
         fill: isCurved ? '#00ffff' : 'rgba(0, 255, 255, 0.4)',
         stroke: '#00ffff',
-        strokeWidth: 2,
+        strokeWidth: handleStrokeWidth,
         selectable: false,
         evented: false
       });
@@ -443,15 +525,15 @@ function updatePolygonPreview() {
         const guideLines = [
           new fabric.Line([p1.x, p1.y, handlePos.x, handlePos.y], {
             stroke: 'rgba(0, 255, 255, 0.8)',
-            strokeWidth: 2,
-            strokeDashArray: [6, 4],
+            strokeWidth: strokeWidth,
+            strokeDashArray: [6 / canvas.getZoom(), 4 / canvas.getZoom()],
             selectable: false,
             evented: false
           }),
           new fabric.Line([p2.x, p2.y, handlePos.x, handlePos.y], {
             stroke: 'rgba(0, 255, 255, 0.8)',
-            strokeWidth: 2,
-            strokeDashArray: [6, 4],
+            strokeWidth: strokeWidth,
+            strokeDashArray: [6 / canvas.getZoom(), 4 / canvas.getZoom()],
             selectable: false,
             evented: false
           })
