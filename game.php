@@ -11,6 +11,53 @@ session_start([
 require_once __DIR__ . '/db-connection.php';
 $dbConnection = getDBConnection();
 
+// Fonction pour calculer le jour du jeu basé sur la date courante
+function getGameDay($dbConnection) {
+    try {
+        // Récupérer la date courante de la base de données
+        $query = "SELECT `date` FROM `current_date` WHERE `id` = 1";
+        $stmt = $dbConnection->prepare($query);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result && isset($result['date'])) {
+            $currentDate = new DateTime($result['date']);
+        } else {
+            // Si pas de date en base, utiliser la date actuelle
+            $currentDate = new DateTime();
+        }
+        
+        // Date de référence : 27 octobre 2025 = Jour 1
+        $referenceDate = new DateTime('2025-10-27');
+        
+        // Calculer la différence en jours
+        $diff = $currentDate->diff($referenceDate);
+        $daysDiff = $diff->days;
+        
+        // Si la date courante est avant le 27/10/2025, retourner jour 1
+        if ($currentDate < $referenceDate) {
+            return 1;
+        }
+        
+        // Calculer le jour : 27/10 = jour 1, 28/10 = jour 2, 29/10 = jour 3
+        $gameDay = $daysDiff + 1;
+        
+        // Limiter à jour 3 maximum, sinon retourner jour 1
+        if ($gameDay > 3) {
+            return 1;
+        }
+        
+        return $gameDay;
+        
+    } catch (Exception $e) {
+        // En cas d'erreur, retourner jour 1 par défaut
+        return 1;
+    }
+}
+
+// Calculer le jour du jeu une seule fois
+$currentGameDay = getGameDay($dbConnection);
+
 // Charger l'image papier et la convertir en base64
 $paperPath = 'papier.png';
 $paperData = '';
@@ -45,7 +92,7 @@ if (is_dir($roomsDir)) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'paper_found') {
     $paperId = $_POST['paper_id'] ?? null;
     $playerId = $_SESSION['user_id'] ?? null;
-    $dayId = $_POST['day_id'] ?? 1;
+    $dayId = $_POST['day_id'] ?? $currentGameDay;
     
     if (!$paperId || !$playerId) {
         echo json_encode(['success' => false, 'message' => 'Paramètres manquants']);
@@ -492,7 +539,7 @@ if ($show_activation_form) {
             top: 0;
             left: 0;
             width: 100vw;
-            height: 85vh;
+            height: 88vh;
             overflow: hidden;
             background: #1e1e1e;
         }
@@ -820,13 +867,14 @@ if ($show_activation_form) {
             bottom: 0;
             left: 0;
             width: 100vw;
-            height: 15vh;
+            height: 12vh;
             background: rgba(42, 42, 42, 0.98);
             border-top: 2px solid rgba(255, 255, 255, 0.1);
             display: flex;
-            align-items: center;
+            align-items: stretch;
             justify-content: space-around;
-            padding: 0 30px;
+            padding: 15px 30px;
+            box-sizing: border-box;
             box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
             z-index: 1000;
         }
@@ -834,6 +882,7 @@ if ($show_activation_form) {
         .bar-section {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 15px;
         }
         
@@ -841,6 +890,16 @@ if ($show_activation_form) {
             display: flex;
             align-items: center;
             gap: 12px;
+            background: <?= htmlspecialchars($user['team_color'] ?? '#2a2a2a') ?>cc;
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+        }
+        
+        .user-info-compact * {
+            color: white !important;
         }
         
         .user-avatar-small {
@@ -1061,20 +1120,21 @@ if ($show_activation_form) {
                         <div class="stat-icon">📅</div>
                         <div class="stat-content">
                             <div class="stat-label">Jour</div>
-                            <div class="stat-value">Jour 1</div>
+                            <div class="stat-value">Jour <?php echo $currentGameDay; ?></div>
+                            <!-- Debug: Date courante = <?php echo $currentGameDay; ?> -->
                         </div>
                     </div>
                 </div>
                 
                 <div class="bar-section">
-                    <a href="enigme.php?day=1" class="btn-back" id="enigma-btn" style="background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%); display: none;">
+                    <a href="enigme.php?day=<?php echo $currentGameDay; ?>" class="btn-back" id="enigma-btn" style="background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%); display: none;">
                         🎭 Résoudre l'énigme
                     </a>
                 </div>
                 
                 <div class="bar-section">
-                    <a href="teams.php" class="btn-back">
-                        ← Retour aux équipes
+                    <a href="teams.php" class="btn-back" style="background: #667eea;">
+                        🏆 ÉQUIPES
                     </a>
                 </div>
             </div>
@@ -1094,7 +1154,7 @@ if ($show_activation_form) {
         const canvasElement = document.getElementById('c');
         const gameContainer = document.getElementById('game-canvas-container');
         canvasElement.width = window.innerWidth;
-        canvasElement.height = window.innerHeight * 0.85; // 85% de hauteur
+        canvasElement.height = window.innerHeight * 0.88; // 88% de hauteur
         
         const canvas = new fabric.Canvas("c", {
             selection: false, // Désactiver la sélection en mode jeu
@@ -1174,8 +1234,8 @@ if ($show_activation_form) {
         // Redimensionnement de la fenêtre
         window.addEventListener('resize', () => {
             canvasElement.width = window.innerWidth;
-            canvasElement.height = window.innerHeight * 0.85;
-            canvas.setDimensions({ width: window.innerWidth, height: window.innerHeight * 0.85 });
+            canvasElement.height = window.innerHeight * 0.88;
+            canvas.setDimensions({ width: window.innerWidth, height: window.innerHeight * 0.88 });
             if (isAtBaseZoom) {
                 applyBaseViewport();
             } else {
@@ -1339,7 +1399,7 @@ if ($show_activation_form) {
                 fetch(window.location.href, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'action=paper_found&paper_id=' + paperId + '&day_id=1' // TODO: Récupérer le vrai jour actuel
+                    body: 'action=paper_found&paper_id=' + paperId + '&day_id=' + <?php echo $currentGameDay; ?>
                 })
                 .then(response => response.json())
                 .then(result => {
@@ -1507,7 +1567,7 @@ if ($show_activation_form) {
         
         // Vérifier quels papiers ont été trouvés et appliquer le style
         function checkFoundPapers() {
-            fetch('game_check_found_papers.php?day=1', { // TODO: Récupérer le vrai jour
+            fetch('game_check_found_papers.php?day=' + <?php echo $currentGameDay; ?>, {
                 method: 'GET'
             })
             .then(response => response.json())
@@ -1960,7 +2020,7 @@ if ($show_activation_form) {
         
         // ========== MISE À JOUR EN TEMPS RÉEL DES PAPIERS ÉQUIPE ==========
         function updateGameData() {
-            fetch('game_data_real_time.php?day=1') // TODO: Récupérer le vrai jour actuel
+            fetch('game_data_real_time.php?day=' + <?php echo $currentGameDay; ?>)
                 .then(response => response.json())
                 .then(data => {
                     if (!data.success) {
@@ -2039,7 +2099,7 @@ if ($show_activation_form) {
         const shownNotifications = new Set();
         
         function checkRecentPapers() {
-            fetch('game_recent_papers.php?day=1') // TODO: Récupérer le vrai jour
+            fetch('game_recent_papers.php?day=' + <?php echo $currentGameDay; ?>)
                 .then(response => response.json())
                 .then(data => {
                     if (!data.success || !data.recent_papers) {

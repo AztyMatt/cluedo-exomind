@@ -5,13 +5,61 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/db-connection.php';
 $dbConnection = getDBConnection();
 
-// Récupérer le jour sélectionné
+// Fonction pour calculer le jour du jeu basé sur la date courante
+function getGameDay($dbConnection) {
+    try {
+        // Récupérer la date courante de la base de données
+        $query = "SELECT `date` FROM `current_date` WHERE `id` = 1";
+        $stmt = $dbConnection->prepare($query);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result && isset($result['date'])) {
+            $currentDate = new DateTime($result['date']);
+        } else {
+            // Si pas de date en base, utiliser la date actuelle
+            $currentDate = new DateTime();
+        }
+        
+        // Date de référence : 27 octobre 2025 = Jour 1
+        $referenceDate = new DateTime('2025-10-27');
+        
+        // Calculer la différence en jours
+        $diff = $currentDate->diff($referenceDate);
+        $daysDiff = $diff->days;
+        
+        // Si la date courante est avant le 27/10/2025, retourner jour 1
+        if ($currentDate < $referenceDate) {
+            return 1;
+        }
+        
+        // Calculer le jour : 27/10 = jour 1, 28/10 = jour 2, 29/10 = jour 3
+        $gameDay = $daysDiff + 1;
+        
+        // Limiter à jour 3 maximum, sinon retourner jour 1
+        if ($gameDay > 3) {
+            return 1;
+        }
+        
+        return $gameDay;
+        
+    } catch (Exception $e) {
+        // En cas d'erreur, retourner jour 1 par défaut
+        return 1;
+    }
+}
+
+// Calculer le jour du jeu
+$gameDay = getGameDay($dbConnection);
+
+// Récupérer le jour sélectionné depuis l'URL (par défaut jour 1)
 $selectedDay = isset($_GET['day']) ? (int)$_GET['day'] : 1;
 $selectedDay = max(1, min(3, $selectedDay)); // Limiter entre 1 et 3
 
 $response = [
     'success' => false,
-    'day' => $selectedDay,
+    'day' => $gameDay,
+    'selectedDay' => $selectedDay,
     'teams' => []
 ];
 
@@ -70,16 +118,54 @@ try {
         }
         
         // Récupérer le statut de l'énigme depuis la table enigmes
-        $stmt = $dbConnection->prepare("SELECT status FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+        $stmt = $dbConnection->prepare("SELECT status, datetime_solved, enigm_solution FROM `enigmes` WHERE id_group = ? AND id_day = ?");
         $stmt->execute([$team['id'], $selectedDay]);
         $enigmaData = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($enigmaData) {
             $team['enigma_status'] = (int)$enigmaData['status'];
+            $team['datetime_solved'] = $enigmaData['datetime_solved'];
+            $team['enigma_solution'] = $enigmaData['enigm_solution'];
         } else {
             $team['enigma_status'] = 0;
+            $team['datetime_solved'] = null;
+            $team['enigma_solution'] = '';
         }
     }
+    
+    // Calculer le classement des équipes basé sur datetime_solved
+    $solvedTeams = [];
+    $unsolvedTeams = [];
+    
+    foreach ($teams as $team) {
+        if ($team['enigma_status'] == 2 && $team['datetime_solved']) {
+            // Équipe qui a résolu l'énigme
+            $solvedTeams[] = $team;
+        } else {
+            // Équipe qui n'a pas résolu l'énigme
+            $unsolvedTeams[] = $team;
+        }
+    }
+    
+    // Trier les équipes résolues par datetime_solved (le plus tôt en premier)
+    usort($solvedTeams, function($a, $b) {
+        return strtotime($a['datetime_solved']) - strtotime($b['datetime_solved']);
+    });
+    
+    // Assigner les rangs (1, 2, 3, 4, 5, 6)
+    $rank = 1;
+    foreach ($solvedTeams as &$team) {
+        $team['ranking'] = $rank;
+        $rank++;
+    }
+    
+    // Les équipes non résolues n'ont pas de rang
+    foreach ($unsolvedTeams as &$team) {
+        $team['ranking'] = null;
+    }
+    
+    // Reconstituer la liste des équipes : résolues d'abord (par ordre de résolution), puis non résolues
+    $teams = array_merge($solvedTeams, $unsolvedTeams);
     
     $response['success'] = true;
     $response['teams'] = $teams;

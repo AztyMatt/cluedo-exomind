@@ -3,6 +3,53 @@
 require_once __DIR__ . '/db-connection.php';
 $dbConnection = getDBConnection();
 
+// Calculer le jour du jeu le plus tôt possible pour l'utiliser partout
+$gameDay = getGameDay($dbConnection);
+
+// Fonction pour calculer le jour du jeu basé sur la date courante
+function getGameDay($dbConnection) {
+    try {
+        // Récupérer la date courante de la base de données
+        $query = "SELECT `date` FROM `current_date` WHERE `id` = 1";
+        $stmt = $dbConnection->prepare($query);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result && isset($result['date'])) {
+            $currentDate = new DateTime($result['date']);
+        } else {
+            // Si pas de date en base, utiliser la date actuelle
+            $currentDate = new DateTime();
+        }
+        
+        // Date de référence : 27 octobre 2025 = Jour 1
+        $referenceDate = new DateTime('2025-10-27');
+        
+        // Calculer la différence en jours
+        $diff = $currentDate->diff($referenceDate);
+        $daysDiff = $diff->days;
+        
+        // Si la date courante est avant le 27/10/2025, retourner jour 1
+        if ($currentDate < $referenceDate) {
+            return 1;
+        }
+        
+        // Calculer le jour : 27/10 = jour 1, 28/10 = jour 2, 29/10 = jour 3
+        $gameDay = $daysDiff + 1;
+        
+        // Limiter à jour 3 maximum, sinon retourner jour 1
+        if ($gameDay > 3) {
+            return 1;
+        }
+        
+        return $gameDay;
+        
+    } catch (Exception $e) {
+        // En cas d'erreur, retourner jour 1 par défaut
+        return 1;
+    }
+}
+
 // Fonction pour formater le nom : Prénom NOM
 function formatUserName($firstname, $lastname) {
     // Formater : première lettre majuscule pour le prénom, tout en majuscules pour le nom
@@ -98,24 +145,66 @@ if ($dbConnection) {
             }
             
             // Récupérer le statut de l'énigme depuis la table enigmes
-            $stmt = $dbConnection->prepare("SELECT status FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+            $stmt = $dbConnection->prepare("SELECT status, datetime_solved, enigm_solution FROM `enigmes` WHERE id_group = ? AND id_day = ?");
             $stmt->execute([$team['id'], $selectedDay]);
             $enigmaData = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($enigmaData) {
                 $team['enigma_status'] = (int)$enigmaData['status']; // 0 = à reconstituer, 1 = en cours, 2 = résolue
+                $team['datetime_solved'] = $enigmaData['datetime_solved']; // Date de résolution
+                $team['enigma_solution'] = $enigmaData['enigm_solution']; // Solution de l'énigme
             } else {
                 // Valeur par défaut si pas d'énigme
                 $team['enigma_status'] = 0;
+                $team['datetime_solved'] = null;
+                $team['enigma_solution'] = '';
             }
             
             $teamsWithUsers[] = $team;
         }
-        $teams = $teamsWithUsers;
+        
+        // Calculer le classement des équipes basé sur datetime_solved
+        $solvedTeams = [];
+        $unsolvedTeams = [];
+        
+        foreach ($teamsWithUsers as $team) {
+            if ($team['enigma_status'] == 2 && $team['datetime_solved']) {
+                // Équipe qui a résolu l'énigme
+                $solvedTeams[] = $team;
+            } else {
+                // Équipe qui n'a pas résolu l'énigme
+                $unsolvedTeams[] = $team;
+            }
+        }
+        
+        // Trier les équipes résolues par datetime_solved (le plus tôt en premier)
+        usort($solvedTeams, function($a, $b) {
+            return strtotime($a['datetime_solved']) - strtotime($b['datetime_solved']);
+        });
+        
+        // Assigner les rangs (1, 2, 3, 4, 5, 6)
+        $rank = 1;
+        foreach ($solvedTeams as &$team) {
+            $team['ranking'] = $rank;
+            $rank++;
+        }
+        
+        // Les équipes non résolues n'ont pas de rang
+        foreach ($unsolvedTeams as &$team) {
+            $team['ranking'] = null;
+        }
+        
+        // Reconstituer la liste des équipes : résolues d'abord (par ordre de résolution), puis non résolues
+        $teams = array_merge($solvedTeams, $unsolvedTeams);
+        
     } catch (PDOException $e) {
         error_log("Erreur lors de la récupération des équipes: " . $e->getMessage());
     }
 }
+?>
+
+<?php
+// Jour du jeu déjà calculé plus haut dans le fichier
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -138,7 +227,7 @@ if ($dbConnection) {
             background-attachment: fixed;
             color: #eee;
             min-height: 100vh;
-            padding: 40px 20px;
+            padding: 20px 20px 40px 20px;
         }
 
         .container {
@@ -156,7 +245,7 @@ if ($dbConnection) {
             flex-wrap: wrap;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 15px;
-            padding: 20px;
+            padding: 10px 20px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
             width: fit-content;
@@ -224,21 +313,21 @@ if ($dbConnection) {
         }
 
         .btn-rules {
-            background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+            background: #f2994a;
             color: white;
         }
 
         .btn-rules:hover {
-            background: linear-gradient(135deg, #f2c94c 0%, #f2994a 100%);
+            background: #f2c94c;
         }
 
         .btn-play {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            background: #11998e;
             color: white;
         }
 
         .btn-play:hover {
-            background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+            background: #38ef7d;
         }
 
         /* Styles pour la modale */
@@ -451,7 +540,7 @@ if ($dbConnection) {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: rgba(42, 42, 42, 0.95);
+            background: <?= htmlspecialchars($userTeam['team_color'] ?? '#2a2a2a') ?>cc;
             border-radius: 12px;
             padding: 12px 20px;
             display: flex;
@@ -460,6 +549,13 @@ if ($dbConnection) {
             border: 2px solid rgba(255, 255, 255, 0.1);
             z-index: 1000;
             backdrop-filter: blur(10px);
+            color: white;
+            width: 200px;
+            box-sizing: border-box;
+        }
+        
+        .header * {
+            color: white !important;
         }
 
         .user-info {
@@ -486,6 +582,9 @@ if ($dbConnection) {
             color: #fff;
             margin-bottom: 3px;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
         }
 
         .user-team {
@@ -836,6 +935,100 @@ if ($dbConnection) {
             z-index: 10;
         }
 
+        /* Styles pour les médailles de classement */
+        .ranking-medal {
+            position: fixed;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+            z-index: 999999;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(5px);
+            animation: medalGlow 2s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        /* Styles pour le texte de rang au-dessus de la carte */
+        .ranking-text {
+            position: fixed;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+            z-index: 999999;
+            pointer-events: none;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        @keyframes medalGlow {
+            0% {
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+            }
+            100% {
+                box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        /* Couleurs spécifiques pour chaque rang */
+        .medal-1 {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            border-color: #FFD700;
+        }
+
+        .medal-2 {
+            background: linear-gradient(135deg, #C0C0C0, #A0A0A0);
+            border-color: #C0C0C0;
+        }
+
+        .medal-3 {
+            background: linear-gradient(135deg, #CD7F32, #B8860B);
+            border-color: #CD7F32;
+        }
+
+        .medal-4 {
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+            border-color: #4CAF50;
+        }
+
+        .medal-5 {
+            background: linear-gradient(135deg, #2196F3, #1565C0);
+            border-color: #2196F3;
+        }
+
+        .medal-6 {
+            background: linear-gradient(135deg, #9C27B0, #6A1B9A);
+            border-color: #9C27B0;
+        }
+
+        /* Effet hover pour les médailles */
+        .ranking-medal:hover {
+            transform: scale(1.1);
+            animation: medalPulse 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes medalPulse {
+            0% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1.15);
+            }
+        }
+
         .no-teams {
             text-align: center;
             font-size: 1.5rem;
@@ -884,7 +1077,7 @@ if ($dbConnection) {
         2 => ['number' => 'Jour 2', 'objective' => '🔪 Arme du crime'],
         3 => ['number' => 'Jour 3', 'objective' => '🎭 Auteur du crime']
     ];
-    $currentDay = $dayLabels[$selectedDay];
+    $currentDay = $dayLabels[$gameDay];
     ?>
     <div class="day-indicator" id="dayIndicator">
         <div class="day-number"><?= $currentDay['number'] ?> <span class="day-arrow">▼</span></div>
@@ -906,20 +1099,9 @@ if ($dbConnection) {
         </div>
     </div>
 
-    <!-- Statut de l'énigme (uniquement si activé) -->
-    <?php if ($userActivated && $enigmaStatus): ?>
-        <div class="enigma-status-indicator" style="position: fixed; top: 130px; right: 20px; background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 240, 250, 0.95) 100%); padding: 15px 20px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5); z-index: 100; border: 2px solid rgba(150, 150, 150, 0.5); backdrop-filter: blur(10px); text-align: center; width: 200px; box-sizing: border-box;">
-            <?php if ($enigmaStatus === 'unlocked'): ?>
-                <span style="font-size: 0.9rem; color: #11998e; font-weight: 600;">🔓 Énigme déverrouillée</span>
-            <?php else: ?>
-                <span style="font-size: 0.9rem; color: #eb3349; font-weight: 600;">🔒 Énigme verrouillée</span>
-            <?php endif; ?>
-        </div>
-    <?php endif; ?>
-
     <!-- Informations utilisateur connecté (uniquement si activé) -->
     <?php if ($userActivated && $userTeam): ?>
-        <div class="header" style="top: 20px; right: 240px;">
+        <div class="header" style="top: 130px; right: 20px;">
             <div class="user-info">
                 <div class="user-avatar">
                     <?php if (!empty($userTeam['team_img']) && file_exists($userTeam['team_img'])): ?>
@@ -995,7 +1177,7 @@ if ($dbConnection) {
                 <div class="team-row">
                     <?php for ($i = 0; $i < 3 && $i < count($teams); $i++): 
                         $team = $teams[$i]; ?>
-                        <div class="team-card" style="--team-color: <?= htmlspecialchars($team['color'] ?? '#888') ?>;">
+                        <div class="team-card" style="--team-color: <?= htmlspecialchars($team['color'] ?? '#888') ?>;" data-team-id="<?= $team['id'] ?>">
                             <div class="color-indicator"></div>
                             
                             <div class="team-card-content">
@@ -1068,7 +1250,7 @@ if ($dbConnection) {
                     <div class="team-row">
                         <?php for ($i = 3; $i < 6 && $i < count($teams); $i++): 
                             $team = $teams[$i]; ?>
-                            <div class="team-card" style="--team-color: <?= htmlspecialchars($team['color'] ?? '#888') ?>;">
+                            <div class="team-card" style="--team-color: <?= htmlspecialchars($team['color'] ?? '#888') ?>;" data-team-id="<?= $team['id'] ?>">
                                 <div class="color-indicator"></div>
                                 
                                 <div class="team-card-content">
@@ -1233,6 +1415,84 @@ if ($dbConnection) {
         const urlParams = new URLSearchParams(window.location.search);
         let currentDay = parseInt(urlParams.get('day')) || 1;
         
+        // Fonction pour récupérer la solution de l'énigme
+        function getEnigmaSolution(teamData) {
+            return teamData.enigma_solution || '';
+        }
+
+        // Fonction pour positionner les médailles par-dessus les cartes
+        function positionMedals() {
+            // Supprimer toutes les médailles et textes existants
+            document.querySelectorAll('.ranking-medal, .ranking-text').forEach(element => element.remove());
+            
+            // Parcourir toutes les cartes d'équipe
+            document.querySelectorAll('.team-card').forEach(card => {
+                const teamId = card.getAttribute('data-team-id');
+                const teamData = window.currentTeamsData ? window.currentTeamsData.find(t => t.id == teamId) : null;
+                
+                if (teamData && teamData.ranking !== null && teamData.ranking !== undefined) {
+                    // Obtenir la position de la carte
+                    const rect = card.getBoundingClientRect();
+                    
+                    // Créer la médaille
+                    const medal = document.createElement('div');
+                    medal.className = `ranking-medal medal-${teamData.ranking}`;
+                    medal.textContent = teamData.ranking;
+                    medal.id = `medal-${teamId}`;
+                    
+                    // Positionner la médaille au coin supérieur gauche de la carte
+                    medal.style.left = `${rect.left - 10}px`;
+                    medal.style.top = `${rect.top - 10}px`;
+                    
+                    // Ajouter la médaille au body
+                    document.body.appendChild(medal);
+                }
+                
+                // Afficher la solution de l'énigme si elle est résolue (même sans médaille)
+                if (teamData && teamData.enigma_status == 2 && teamData.enigma_solution) {
+                    const rect = card.getBoundingClientRect();
+                    
+                    // Créer le texte de solution d'énigme
+                    const enigmaText = document.createElement('div');
+                    enigmaText.className = 'ranking-text';
+                    enigmaText.textContent = teamData.enigma_solution.toUpperCase();
+                    enigmaText.id = `text-${teamId}`;
+                    
+                    // Positionner le texte au-dessus de la carte (centré horizontalement)
+                    enigmaText.style.left = `${rect.left + (rect.width / 2) - 50}px`;
+                    enigmaText.style.top = `${rect.top - 40}px`;
+                    
+                    // Ajouter au body
+                    document.body.appendChild(enigmaText);
+                }
+            });
+        }
+        
+        // Fonction pour mettre à jour les positions des médailles et textes lors du scroll/resize
+        function updateMedalPositions() {
+            document.querySelectorAll('.ranking-medal').forEach(medal => {
+                const teamId = medal.id.replace('medal-', '');
+                const card = document.querySelector(`[data-team-id="${teamId}"]`);
+                
+                if (card) {
+                    const rect = card.getBoundingClientRect();
+                    medal.style.left = `${rect.left - 10}px`;
+                    medal.style.top = `${rect.top - 10}px`;
+                }
+            });
+            
+            document.querySelectorAll('.ranking-text').forEach(text => {
+                const teamId = text.id.replace('text-', '');
+                const card = document.querySelector(`[data-team-id="${teamId}"]`);
+                
+                if (card) {
+                    const rect = card.getBoundingClientRect();
+                    text.style.left = `${rect.left + (rect.width / 2) - 50}px`;
+                    text.style.top = `${rect.top - 40}px`;
+                }
+            });
+        }
+        
         function formatUserName(firstname, lastname) {
             const formattedFirst = firstname.charAt(0).toUpperCase() + firstname.slice(1).toLowerCase();
             const formattedLast = lastname.toUpperCase();
@@ -1250,10 +1510,16 @@ if ($dbConnection) {
                     
                     console.log('📊 Données mises à jour:', data.teams.length, 'équipes');
                     
+                    // Sauvegarder les données pour les médailles
+                    window.currentTeamsData = data.teams;
+                    
                     // Mettre à jour chaque équipe
                     data.teams.forEach((team, index) => {
                         updateTeamCard(team, index);
                     });
+                    
+                    // Positionner les médailles après la mise à jour
+                    setTimeout(positionMedals, 100);
                 })
                 .catch(error => {
                     console.error('Erreur AJAX:', error);
@@ -1266,6 +1532,7 @@ if ($dbConnection) {
             const teamCard = teamCards[index];
             
             if (!teamCard) return;
+            
             
             // Mettre à jour les utilisateurs
             const userList = teamCard.querySelector('.team-scrollable');
@@ -1362,6 +1629,13 @@ if ($dbConnection) {
         
         // Puis mettre à jour toutes les 10 secondes
         setInterval(updateTeamsData, 10000);
+        
+        // Mettre à jour les positions des médailles lors du scroll et resize
+        window.addEventListener('scroll', updateMedalPositions);
+        window.addEventListener('resize', updateMedalPositions);
+        
+        // Positionner les médailles au chargement initial
+        setTimeout(positionMedals, 500);
         
         console.log('🔄 Mise à jour automatique activée (toutes les 10 secondes)');
     </script>

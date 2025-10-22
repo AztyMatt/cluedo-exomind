@@ -28,9 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($user && $user['group_id']) {
-            // Mettre à jour le status de l'énigme à 2 (résolue)
-            $stmt = $dbConnection->prepare("UPDATE `enigmes` SET status = 2, solved = TRUE, datetime_solved = NOW() WHERE id_group = ? AND id_day = ?");
-            $stmt->execute([$user['group_id'], $dayId]);
+            // Mettre à jour le status de l'énigme à 2 (résolue) avec l'ID du solveur
+            $stmt = $dbConnection->prepare("UPDATE `enigmes` SET status = 2, solved = TRUE, datetime_solved = NOW(), solved_by_user_id = ? WHERE id_group = ? AND id_day = ?");
+            $stmt->execute([$playerId, $user['group_id'], $dayId]);
             
             // Mettre à jour complete dans total_papers_found_group
             $stmt = $dbConnection->prepare("UPDATE `total_papers_found_group` SET complete = TRUE WHERE id_group = ? AND id_day = ?");
@@ -89,10 +89,25 @@ if (!$activation_code_cookie || !$dbConnection) {
                 $error_message = "🔒 Votre équipe n'a pas encore trouvé tous les papiers pour ce jour.<br>Papiers trouvés : <strong>$found / $total</strong><br><br>Continuez à chercher !";
                 $show_error = true;
             } else {
-                // Récupérer l'énigme pour ce jour et cette équipe
-                $stmt = $dbConnection->prepare("SELECT enigm_label, enigm_solution, status FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+                // Récupérer l'énigme pour ce jour et cette équipe avec les infos du solveur
+                $stmt = $dbConnection->prepare("
+                    SELECT e.enigm_label, e.enigm_solution, e.status, e.datetime_solved, 
+                           u.firstname as solver_firstname, u.lastname as solver_lastname
+                    FROM `enigmes` e 
+                    LEFT JOIN `users` u ON e.solved_by_user_id = u.id 
+                    WHERE e.id_group = ? AND e.id_day = ?
+                ");
                 $stmt->execute([$user['group_id'], $selectedDay]);
                 $enigma = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                // Préparer les informations du solveur
+                $solverInfo = null;
+                if ($enigma && $enigma['status'] == 2 && $enigma['datetime_solved'] && $enigma['solver_firstname']) {
+                    $solverInfo = [
+                        'firstname' => $enigma['solver_firstname'],
+                        'lastname' => $enigma['solver_lastname']
+                    ];
+                }
                 
                 if (!$enigma) {
                     $error_message = "❌ Aucune énigme n'a été configurée pour votre équipe et ce jour.";
@@ -270,6 +285,31 @@ $currentDay = $dayLabels[$selectedDay];
             background: rgba(255, 255, 255, 0.2);
         }
 
+        /* Styles pour les cases résolues */
+        .letter-box.solved {
+            border-color: #4CAF50 !important;
+            background: rgba(76, 175, 80, 0.2) !important;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4) !important;
+        }
+
+        .letter-box.solved:hover {
+            transform: none;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4) !important;
+            background: rgba(76, 175, 80, 0.2) !important;
+        }
+
+        /* Styles pour le bouton désactivé */
+        .back-btn.disabled {
+            background: #666 !important;
+            cursor: not-allowed !important;
+            opacity: 0.6;
+        }
+
+        .back-btn.disabled:hover {
+            transform: none !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+        }
+
         .error-container {
             background: rgba(235, 51, 73, 0.2);
             border-left: 4px solid #eb3349;
@@ -374,31 +414,57 @@ $currentDay = $dayLabels[$selectedDay];
                 </div>
 
                 <div class="solution-container">
-                    <div class="solution-label">💡 Entrez votre solution :</div>
+                    <?php if ($enigma['status'] == 2): ?>
+                        <div class="solution-label">🎉 Solution trouvée !</div>
+                        <?php if ($solverInfo && $enigma['datetime_solved']): ?>
+                            <div style="text-align: center; margin-bottom: 20px; font-size: 1rem; color: #4CAF50;">
+                                ✅ Résolu par <strong><?= htmlspecialchars(formatUserName($solverInfo['firstname'], $solverInfo['lastname'])) ?></strong><br>
+                                📅 Le <?= date('d/m/Y à H:i', strtotime($enigma['datetime_solved'])) ?>
+                            </div>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <div class="solution-label">💡 Entrez votre solution :</div>
+                    <?php endif; ?>
                     <div class="solution-boxes">
                         <?php 
                         $solutionLength = strlen($enigma['enigm_solution']);
+                        $isSolved = $enigma['status'] == 2;
                         for ($i = 0; $i < $solutionLength; $i++): 
+                            $letter = $isSolved ? strtoupper($enigma['enigm_solution'][$i]) : '';
                         ?>
-                            <div class="letter-box" data-index="<?= $i ?>">
-                                <input 
-                                    type="text" 
-                                    maxlength="1" 
-                                    class="letter-input"
-                                    data-index="<?= $i ?>"
-                                    style="width: 100%; height: 100%; background: transparent; border: none; text-align: center; font-size: 2.5rem; font-weight: bold; color: #fff; text-transform: uppercase; outline: none;"
-                                    autocomplete="off"
-                                />
+                            <div class="letter-box <?= $isSolved ? 'solved' : '' ?>" data-index="<?= $i ?>">
+                                <?php if ($isSolved): ?>
+                                    <span style="font-size: 2.5rem; font-weight: bold; color: #fff; text-transform: uppercase;">
+                                        <?= htmlspecialchars($letter) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <input 
+                                        type="text" 
+                                        maxlength="1" 
+                                        class="letter-input"
+                                        data-index="<?= $i ?>"
+                                        style="width: 100%; height: 100%; background: transparent; border: none; text-align: center; font-size: 2.5rem; font-weight: bold; color: #fff; text-transform: uppercase; outline: none;"
+                                        autocomplete="off"
+                                    />
+                                <?php endif; ?>
                             </div>
                         <?php endfor; ?>
                     </div>
                 </div>
 
-                <div style="text-align: center; margin-top: 40px;">
-                    <button id="validateBtn" class="back-btn" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); cursor: pointer; border: none;">
-                        ✅ Valider la solution
-                    </button>
-                </div>
+                <?php if ($enigma['status'] != 2): ?>
+                    <div style="text-align: center; margin-top: 40px;">
+                        <button id="validateBtn" class="back-btn" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); cursor: pointer; border: none;">
+                            ✅ Valider la solution
+                        </button>
+                    </div>
+                <?php else: ?>
+                    <div style="text-align: center; margin-top: 40px;">
+                        <button class="back-btn disabled" style="cursor: not-allowed;">
+                            ✅ Solution validée
+                        </button>
+                    </div>
+                <?php endif; ?>
 
                 <div style="text-align: center; margin-top: 20px;">
                     <a href="game.php" class="back-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
@@ -409,7 +475,7 @@ $currentDay = $dayLabels[$selectedDay];
         <?php endif; ?>
     </div>
 
-    <?php if (!$show_error && $enigma): ?>
+    <?php if (!$show_error && $enigma && $enigma['status'] != 2): ?>
     <script>
         const solution = <?= json_encode($enigma['enigm_solution']) ?>;
         const inputs = document.querySelectorAll('.letter-input');
@@ -451,7 +517,7 @@ $currentDay = $dayLabels[$selectedDay];
                 // Solution correcte !
                 alert('🎉 Bravo ! La solution est correcte !\n\nL\'énigme a été résolue.');
                 
-                // TODO: Envoyer au serveur pour mettre à jour le status de l'énigme à 2
+                // Envoyer au serveur pour mettre à jour le status de l'énigme à 2
                 fetch(window.location.href, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

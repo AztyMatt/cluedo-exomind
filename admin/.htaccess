@@ -1,0 +1,5 @@
+AuthType Basic
+AuthName "Zone Administrateur - Éditeur du Jeu"
+AuthUserFile /var/www/html/admin/.htpasswd
+Require valid-user
+
