@@ -5,17 +5,11 @@
  */
 
 // Configuration de la base de données
-$host = $_ENV['MYSQLHOST'] ?? getenv('MYSQLHOST');
-$dbname = $_ENV['MYSQLDATABASE'] ?? getenv('MYSQLDATABASE');
-$username = $_ENV['MYSQLUSER'] ?? getenv('MYSQLUSER');
-$password = $_ENV['MYSQLPASSWORD'] ?? getenv('MYSQLPASSWORD');
-$port = $_ENV['MYSQLPORT'] ?? getenv('MYSQLPORT');
-
-if (!$host || !$dbname || !$username) {
-    error_log("⚠️ Variables d'environnement MySQL manquantes.");
-    return null;
-}
-
+$DB_HOST = 'turntable.proxy.rlwy.net';
+$DB_PORT = '12366';
+$DB_NAME = 'railway';
+$DB_USER = 'root';
+$DB_PASSWORD = 'TzBMKaUShGZcjSBvboixLxyfLFLULDTM';
 
 // Mode automatique : toujours réinitialiser complètement
 
@@ -56,6 +50,8 @@ function connectToDatabase() {
 }
 
 function executeSqlFile($pdo, $filename) {
+    global $DB_HOST, $DB_USER, $DB_PASSWORD, $DB_NAME, $DB_PORT;
+    
     if (!file_exists($filename)) {
         logMessage("⚠ Fichier $filename non trouvé (ignoré)", YELLOW);
         return true;
@@ -67,7 +63,7 @@ function executeSqlFile($pdo, $filename) {
         // Utiliser mysqli pour les fichiers avec des instructions complexes
         if (basename($filename) !== 'init.sql') {
             // Pour les fichiers d'inserts, utiliser mysqli qui gère mieux les instructions multi-lignes
-            $mysqli = new mysqli($GLOBALS['host'], $GLOBALS['username'], $GLOBALS['password'], $GLOBALS['dbname'], $GLOBALS['port']);
+            $mysqli = new mysqli($DB_HOST, $DB_USER, $DB_PASSWORD, $DB_NAME, $DB_PORT);
             if ($mysqli->connect_error) {
                 throw new Exception("Connexion mysqli échouée: " . $mysqli->connect_error);
             }
@@ -97,6 +93,7 @@ function executeSqlFile($pdo, $filename) {
 }
 
 // Début du script
+global $DB_HOST, $DB_USER, $DB_PASSWORD, $DB_NAME, $DB_PORT;
 logMessage("═══════════════════════════════════════════════════", BLUE);
 logMessage("  Initialisation automatique de la base de données", BLUE);
 logMessage("═══════════════════════════════════════════════════", BLUE);

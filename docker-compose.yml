@@ -29,13 +29,15 @@ services:
     depends_on:
       db:
         condition: service_started
-    command: >
-      bash -c "
-        echo 'Exécution du script d''initialisation...' &&
-        php /var/www/html/docker-init-db.php &&
-        echo 'Démarrage d''Apache...' &&
-        apache2-foreground
-      "
+    # docker-init-db.php a été remplacé par upload-data-railway.php (qui a les variables d'environnement pour la prod)
+
+    # command: >
+    #   bash -c "
+    #     echo 'Exécution du script d''initialisation...' &&
+    #     php /var/www/html/docker-init-db.php &&
+    #     echo 'Démarrage d''Apache...' &&
+    #     apache2-foreground
+    #   "
   
   adminer:
     image: adminer:latest
