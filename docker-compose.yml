@@ -1,11 +1,13 @@
 services:
   db:
     image: mysql:8.0
+    env_file:
+      - .env
     environment:
-      MYSQL_ROOT_PASSWORD: hall0w33n
-      MYSQL_DATABASE: cluedo
-      MYSQL_USER: admin
-      MYSQL_PASSWORD: hall0w33n
+      MYSQL_ROOT_PASSWORD: ${MYSQLPASSWORD}
+      MYSQL_DATABASE: ${MYSQLDATABASE}
+      MYSQL_USER: ${MYSQLUSER}
+      MYSQL_PASSWORD: ${MYSQLPASSWORD}
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./db:/var/lib/mysql
@@ -15,6 +17,8 @@ services:
   php:
     build:
       context: ./docker/php
+    env_file:
+      - .env
     volumes:
       - .:/var/www/html
       - ./apache/limits.conf:/etc/apache2/conf-enabled/limits.conf:ro

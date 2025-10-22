@@ -5,10 +5,17 @@
  */
 
 // Configuration de la base de données
-$DB_HOST = 'db';
-$DB_NAME = 'cluedo';
-$DB_USER = 'admin';
-$DB_PASSWORD = 'hall0w33n';
+$host = $_ENV['MYSQLHOST'] ?? getenv('MYSQLHOST');
+$dbname = $_ENV['MYSQLDATABASE'] ?? getenv('MYSQLDATABASE');
+$username = $_ENV['MYSQLUSER'] ?? getenv('MYSQLUSER');
+$password = $_ENV['MYSQLPASSWORD'] ?? getenv('MYSQLPASSWORD');
+$port = $_ENV['MYSQLPORT'] ?? getenv('MYSQLPORT');
+
+if (!$host || !$dbname || !$username) {
+    error_log("⚠️ Variables d'environnement MySQL manquantes.");
+    return null;
+}
+
 
 // Mode automatique : toujours réinitialiser complètement
 
@@ -24,14 +31,14 @@ function logMessage($message, $color = NC) {
 }
 
 function connectToDatabase() {
-    global $DB_HOST, $DB_USER, $DB_PASSWORD;
+    global $DB_HOST, $DB_USER, $DB_PASSWORD, $DB_PORT;
     
-    $maxRetries = 30;
+    $maxRetries = 5;
     $retryCount = 0;
     
     while ($retryCount < $maxRetries) {
         try {
-            $pdo = new PDO("mysql:host=$DB_HOST;charset=utf8mb4", $DB_USER, $DB_PASSWORD);
+            $pdo = new PDO("mysql:host=$DB_HOST;port=$DB_PORT;charset=utf8mb4", $DB_USER, $DB_PASSWORD);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             logMessage("✓ Connexion à MySQL réussie!", GREEN);
             return $pdo;
@@ -60,7 +67,7 @@ function executeSqlFile($pdo, $filename) {
         // Utiliser mysqli pour les fichiers avec des instructions complexes
         if (basename($filename) !== 'init.sql') {
             // Pour les fichiers d'inserts, utiliser mysqli qui gère mieux les instructions multi-lignes
-            $mysqli = new mysqli($GLOBALS['DB_HOST'], $GLOBALS['DB_USER'], $GLOBALS['DB_PASSWORD'], $GLOBALS['DB_NAME']);
+            $mysqli = new mysqli($GLOBALS['DB_HOST'], $GLOBALS['DB_USER'], $GLOBALS['DB_PASSWORD'], $GLOBALS['DB_NAME'], $GLOBALS['DB_PORT']);
             if ($mysqli->connect_error) {
                 throw new Exception("Connexion mysqli échouée: " . $mysqli->connect_error);
             }
