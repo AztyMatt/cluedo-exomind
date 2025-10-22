@@ -49,6 +49,37 @@ function getGameDay($dbConnection) {
     }
 }
 
+// Fonction pour formater la durée de résolution
+function formatDuration($timestampStart, $timestampEnd) {
+    if (!$timestampStart || !$timestampEnd) {
+        return null;
+    }
+    
+    $start = new DateTime($timestampStart);
+    $end = new DateTime($timestampEnd);
+    $diff = $start->diff($end);
+    
+    $hours = $diff->h;
+    $minutes = $diff->i;
+    $seconds = $diff->s;
+    
+    $result = '';
+    
+    if ($hours > 0) {
+        $result .= $hours . 'h ';
+    }
+    
+    if ($minutes > 0) {
+        $result .= $minutes . 'm ';
+    }
+    
+    if ($seconds > 0 || ($hours == 0 && $minutes == 0)) {
+        $result .= $seconds . 's';
+    }
+    
+    return trim($result);
+}
+
 // Calculer le jour du jeu
 $gameDay = getGameDay($dbConnection);
 
@@ -58,7 +89,7 @@ $selectedDay = max(1, min(3, $selectedDay)); // Limiter entre 1 et 3
 
 $response = [
     'success' => false,
-    'day' => $gameDay,
+    'day' => $selectedDay,
     'selectedDay' => $selectedDay,
     'teams' => []
 ];
@@ -74,20 +105,20 @@ try {
     $stmt->execute();
     $teams = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    foreach ($teams as &$team) {
+    foreach ($teams as $index => $team) {
         // Récupérer les utilisateurs du groupe
         $stmt = $dbConnection->prepare("SELECT id, firstname, lastname, username, email, has_activated FROM `users` WHERE group_id = ? ORDER BY lastname ASC, firstname ASC");
         $stmt->execute([$team['id']]);
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Pour chaque utilisateur, récupérer le nombre de papiers trouvés
-        foreach ($users as &$user) {
+        foreach ($users as $userIndex => $user) {
             // Récupérer le vrai nombre de papiers trouvés depuis papers_found_user
             $stmt = $dbConnection->prepare("SELECT COUNT(*) as count FROM `papers_found_user` WHERE id_player = ? AND id_day = ?");
             $stmt->execute([$user['id'], $selectedDay]);
             $papersCount = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            $user['papers_found'] = $papersCount ? (int)$papersCount['count'] : 0;
+            $users[$userIndex]['papers_found'] = $papersCount ? (int)$papersCount['count'] : 0;
         }
         
         // Trier les utilisateurs : actifs avec le plus de papiers d'abord, puis inactifs
@@ -100,7 +131,7 @@ try {
             return $b['papers_found'] - $a['papers_found'];
         });
         
-        $team['users'] = $users;
+        $teams[$index]['users'] = $users;
         
         // Récupérer les infos de papiers depuis total_papers_found_group
         $stmt = $dbConnection->prepare("SELECT total_to_found, total_founded, complete FROM `total_papers_found_group` WHERE id_group = ? AND id_day = ?");
@@ -108,28 +139,44 @@ try {
         $paperStats = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($paperStats) {
-            $team['total_to_found'] = (int)$paperStats['total_to_found'];
-            $team['papers_found'] = (int)$paperStats['total_founded'];
-            $team['complete'] = (bool)$paperStats['complete'];
+            $teams[$index]['total_to_found'] = (int)$paperStats['total_to_found'];
+            $teams[$index]['papers_found'] = (int)$paperStats['total_founded'];
+            $teams[$index]['complete'] = (bool)$paperStats['complete'];
         } else {
-            $team['total_to_found'] = 10;
-            $team['papers_found'] = 0;
-            $team['complete'] = false;
+            // Valeurs par défaut si pas de données pour ce jour
+            $teams[$index]['total_to_found'] = 10;
+            $teams[$index]['papers_found'] = 0;
+            $teams[$index]['complete'] = false;
         }
         
-        // Récupérer le statut de l'énigme depuis la table enigmes
-        $stmt = $dbConnection->prepare("SELECT status, datetime_solved, enigm_solution FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+        // Récupérer le statut de l'énigme depuis la table enigmes avec les timestamps de durée
+        $stmt = $dbConnection->prepare("
+            SELECT e.status, e.datetime_solved, e.enigm_solution, 
+                   esd.timestamp_start, esd.timestamp_end
+            FROM `enigmes` e 
+            LEFT JOIN `enigm_solutions_durations` esd ON e.id = esd.id_enigm 
+            WHERE e.id_group = ? AND e.id_day = ?
+        ");
         $stmt->execute([$team['id'], $selectedDay]);
         $enigmaData = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($enigmaData) {
-            $team['enigma_status'] = (int)$enigmaData['status'];
-            $team['datetime_solved'] = $enigmaData['datetime_solved'];
-            $team['enigma_solution'] = $enigmaData['enigm_solution'];
+            $teams[$index]['enigma_status'] = (int)$enigmaData['status'];
+            $teams[$index]['datetime_solved'] = $enigmaData['datetime_solved'];
+            $teams[$index]['enigma_solution'] = $enigmaData['enigm_solution'];
+            $teams[$index]['timestamp_start'] = $enigmaData['timestamp_start'];
+            $teams[$index]['timestamp_end'] = $enigmaData['timestamp_end'];
+            
+            // Calculer la durée de résolution
+            $teams[$index]['duration'] = formatDuration($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
         } else {
-            $team['enigma_status'] = 0;
-            $team['datetime_solved'] = null;
-            $team['enigma_solution'] = '';
+            // Valeurs par défaut si pas de données pour ce jour
+            $teams[$index]['enigma_status'] = 0;
+            $teams[$index]['datetime_solved'] = null;
+            $teams[$index]['enigma_solution'] = '';
+            $teams[$index]['timestamp_start'] = null;
+            $teams[$index]['timestamp_end'] = null;
+            $teams[$index]['duration'] = null;
         }
     }
     
@@ -138,8 +185,8 @@ try {
     $unsolvedTeams = [];
     
     foreach ($teams as $team) {
-        if ($team['enigma_status'] == 2 && $team['datetime_solved']) {
-            // Équipe qui a résolu l'énigme
+        if ($team['enigma_status'] >= 2 && $team['datetime_solved']) {
+            // Équipe qui a résolu l'énigme (statut 2 ou plus)
             $solvedTeams[] = $team;
         } else {
             // Équipe qui n'a pas résolu l'énigme
@@ -154,18 +201,29 @@ try {
     
     // Assigner les rangs (1, 2, 3, 4, 5, 6)
     $rank = 1;
-    foreach ($solvedTeams as &$team) {
-        $team['ranking'] = $rank;
+    foreach ($solvedTeams as $index => $team) {
+        $solvedTeams[$index]['ranking'] = $rank;
         $rank++;
     }
     
     // Les équipes non résolues n'ont pas de rang
-    foreach ($unsolvedTeams as &$team) {
-        $team['ranking'] = null;
+    foreach ($unsolvedTeams as $index => $team) {
+        $unsolvedTeams[$index]['ranking'] = null;
     }
     
     // Reconstituer la liste des équipes : résolues d'abord (par ordre de résolution), puis non résolues
     $teams = array_merge($solvedTeams, $unsolvedTeams);
+    
+    // Vérifier et supprimer les doublons par ID
+    $uniqueTeams = [];
+    $seenIds = [];
+    foreach ($teams as $team) {
+        if (!in_array($team['id'], $seenIds)) {
+            $uniqueTeams[] = $team;
+            $seenIds[] = $team['id'];
+        }
+    }
+    $teams = $uniqueTeams;
     
     $response['success'] = true;
     $response['teams'] = $teams;

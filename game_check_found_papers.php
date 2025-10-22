@@ -28,10 +28,12 @@ try {
     $currentDay = isset($_GET['day']) ? (int)$_GET['day'] : 1;
     $currentDay = max(1, min(3, $currentDay));
     
-    // Récupérer tous les papiers trouvés pour ce jour avec les infos des joueurs
+    // Récupérer tous les papiers trouvés sur TOUS les jours avec les infos des joueurs
+    // Les drapeaux doivent rester visibles peu importe le jour
     $stmt = $dbConnection->prepare("
         SELECT 
             pfu.id_paper,
+            pfu.id_day,
             u.username,
             u.firstname,
             u.lastname,
@@ -43,10 +45,9 @@ try {
         FROM `papers_found_user` pfu
         JOIN `users` u ON pfu.id_player = u.id
         LEFT JOIN `groups` g ON u.group_id = g.id
-        WHERE pfu.id_day = ?
         ORDER BY pfu.created_at DESC
     ");
-    $stmt->execute([$currentDay]);
+    $stmt->execute();
     $foundPapers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Formater les données
@@ -57,6 +58,7 @@ try {
         
         $formattedPapers[] = [
             'id_paper' => (int)$paper['id_paper'],
+            'id_day' => (int)$paper['id_day'],
             'found_by' => $paper['username'],
             'found_by_display' => ucfirst(strtolower($paper['firstname'])) . ' ' . strtoupper($paper['lastname']),
             'found_at' => $formattedDateTime,

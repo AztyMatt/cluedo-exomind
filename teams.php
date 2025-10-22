@@ -59,6 +59,48 @@ function formatUserName($firstname, $lastname) {
     return $formattedFirstName . ' ' . $formattedLastName;
 }
 
+// Fonction pour déterminer le statut des papiers
+function getPapersStatus($papersFound, $totalToFound) {
+    if ($papersFound === 0) {
+        return 'status-zero';
+    } else if ($papersFound >= $totalToFound) {
+        return 'status-complete';
+    } else {
+        return 'status-in-progress';
+    }
+}
+
+// Fonction pour formater la durée de résolution
+function formatDuration($timestampStart, $timestampEnd) {
+    if (!$timestampStart || !$timestampEnd) {
+        return null;
+    }
+    
+    $start = new DateTime($timestampStart);
+    $end = new DateTime($timestampEnd);
+    $diff = $start->diff($end);
+    
+    $hours = $diff->h;
+    $minutes = $diff->i;
+    $seconds = $diff->s;
+    
+    $result = '';
+    
+    if ($hours > 0) {
+        $result .= $hours . 'h ';
+    }
+    
+    if ($minutes > 0) {
+        $result .= $minutes . 'm ';
+    }
+    
+    if ($seconds > 0 || ($hours == 0 && $minutes == 0)) {
+        $result .= $seconds . 's';
+    }
+    
+    return trim($result);
+}
+
 // Vérifier si l'utilisateur est activé via le cookie
 $userActivated = false;
 $userTeam = null;
@@ -98,6 +140,12 @@ if ($dbConnection) {
         $stmt = $dbConnection->prepare("SELECT id, name, pole_name, color, img_path FROM `groups` ORDER BY id ASC");
         $stmt->execute();
         $teams = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Debug: vérifier les équipes chargées au début
+        error_log("Équipes chargées au début: " . count($teams));
+        foreach ($teams as $team) {
+            error_log("- " . $team['name'] . " (ID: " . $team['id'] . ")");
+        }
         
         // Récupérer les utilisateurs pour chaque groupe
         $teamsWithUsers = [];
@@ -144,8 +192,14 @@ if ($dbConnection) {
                 $team['complete'] = false;
             }
             
-            // Récupérer le statut de l'énigme depuis la table enigmes
-            $stmt = $dbConnection->prepare("SELECT status, datetime_solved, enigm_solution FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+            // Récupérer le statut de l'énigme depuis la table enigmes avec les timestamps de durée
+            $stmt = $dbConnection->prepare("
+                SELECT e.status, e.datetime_solved, e.enigm_solution, 
+                       esd.timestamp_start, esd.timestamp_end
+                FROM `enigmes` e 
+                LEFT JOIN `enigm_solutions_durations` esd ON e.id = esd.id_enigm 
+                WHERE e.id_group = ? AND e.id_day = ?
+            ");
             $stmt->execute([$team['id'], $selectedDay]);
             $enigmaData = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -153,11 +207,19 @@ if ($dbConnection) {
                 $team['enigma_status'] = (int)$enigmaData['status']; // 0 = à reconstituer, 1 = en cours, 2 = résolue
                 $team['datetime_solved'] = $enigmaData['datetime_solved']; // Date de résolution
                 $team['enigma_solution'] = $enigmaData['enigm_solution']; // Solution de l'énigme
+                $team['timestamp_start'] = $enigmaData['timestamp_start']; // Début du chrono
+                $team['timestamp_end'] = $enigmaData['timestamp_end']; // Fin du chrono
+                
+                // Calculer la durée de résolution
+                $team['duration'] = formatDuration($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
             } else {
                 // Valeur par défaut si pas d'énigme
                 $team['enigma_status'] = 0;
                 $team['datetime_solved'] = null;
                 $team['enigma_solution'] = '';
+                $team['timestamp_start'] = null;
+                $team['timestamp_end'] = null;
+                $team['duration'] = null;
             }
             
             $teamsWithUsers[] = $team;
@@ -184,14 +246,14 @@ if ($dbConnection) {
         
         // Assigner les rangs (1, 2, 3, 4, 5, 6)
         $rank = 1;
-        foreach ($solvedTeams as &$team) {
-            $team['ranking'] = $rank;
+        foreach ($solvedTeams as $index => $team) {
+            $solvedTeams[$index]['ranking'] = $rank;
             $rank++;
         }
         
         // Les équipes non résolues n'ont pas de rang
-        foreach ($unsolvedTeams as &$team) {
-            $team['ranking'] = null;
+        foreach ($unsolvedTeams as $index => $team) {
+            $unsolvedTeams[$index]['ranking'] = null;
         }
         
         // Reconstituer la liste des équipes : résolues d'abord (par ordre de résolution), puis non résolues
@@ -640,6 +702,7 @@ if ($dbConnection) {
             display: flex;
             flex-direction: column;
             width: 380px;
+            height: 420px;
             flex-shrink: 0;
         }
 
@@ -676,7 +739,7 @@ if ($dbConnection) {
         .team-card-content {
             display: flex;
             width: 100%;
-            height: calc(100% - 60px);
+            height: calc(100% - 80px);
             gap: 0;
         }
 
@@ -715,7 +778,7 @@ if ($dbConnection) {
         }
 
         .team-scrollable {
-            height: 400px;
+            height: 300px;
             background: rgba(0, 0, 0, 0.8);
             border-radius: 15px;
             padding: 15px;
@@ -895,12 +958,50 @@ if ($dbConnection) {
             color: #fff;
         }
 
+        /* Styles pour les compteurs globaux d'équipe - même style que les boutons d'énigme */
+        .status-value.status-zero {
+            background: linear-gradient(135deg, #eb3349, #f45c43) !important; /* Rouge pour 0 papiers */
+            color: white !important;
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
+        .status-value.status-in-progress {
+            background: linear-gradient(135deg, #f2994a, #f2c94c) !important; /* Orange pour en cours */
+            color: white !important;
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
+        .status-value.status-complete {
+            background: linear-gradient(135deg, #11998e, #38ef7d) !important; /* Vert pour complet */
+            color: white !important;
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
         .status-badge {
             padding: 4px 12px;
             border-radius: 20px;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             font-weight: bold;
             text-transform: uppercase;
+            text-align: center;
         }
 
         .badge-success {
@@ -915,7 +1016,7 @@ if ($dbConnection) {
 
         .badge-warning {
             background: linear-gradient(135deg, #f2994a, #f2c94c);
-            color: #000;
+            color: white;
         }
         
         .status-badge:hover {
@@ -972,6 +1073,22 @@ if ($dbConnection) {
             border-radius: 8px;
             backdrop-filter: blur(5px);
             border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Styles pour l'encart chrono */
+        .chrono-text {
+            position: fixed;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: white;
+            z-index: 999999;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 6px 10px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }
 
         @keyframes medalGlow {
@@ -1084,15 +1201,15 @@ if ($dbConnection) {
         <div class="day-objective"><?= $currentDay['objective'] ?></div>
         
         <div class="day-dropdown" id="dayDropdown">
-            <div class="day-option <?= $selectedDay == 1 ? 'active' : '' ?>" data-day="1">
+            <div class="day-option <?= $gameDay == 1 ? 'active' : '' ?>" data-day="1">
                 <div style="font-weight: bold; color: #2a2a2a;">Jour 1</div>
                 <div style="font-size: 0.9rem; color: #666;">🏛️ Scène du crime</div>
             </div>
-            <div class="day-option <?= $selectedDay == 2 ? 'active' : '' ?>" data-day="2">
+            <div class="day-option <?= $gameDay == 2 ? 'active' : '' ?>" data-day="2">
                 <div style="font-weight: bold; color: #2a2a2a;">Jour 2</div>
                 <div style="font-size: 0.9rem; color: #666;">🔪 Arme du crime</div>
             </div>
-            <div class="day-option <?= $selectedDay == 3 ? 'active' : '' ?>" data-day="3">
+            <div class="day-option <?= $gameDay == 3 ? 'active' : '' ?>" data-day="3">
                 <div style="font-weight: bold; color: #2a2a2a;">Jour 3</div>
                 <div style="font-size: 0.9rem; color: #666;">🎭 Auteur du crime</div>
             </div>
@@ -1132,7 +1249,7 @@ if ($dbConnection) {
 
         <div class="buttons-container">
             <button id="rulesBtn" class="game-button btn-rules">📖 Règles du jeu</button>
-            <a href="game.php" class="game-button btn-play">🎮 Jouer</a>
+            <a href="/game" class="game-button btn-play">🎮 Jouer</a>
         </div>
 
         <!-- Modale des règles -->
@@ -1228,7 +1345,7 @@ if ($dbConnection) {
                             <div class="team-status">
                                 <div class="status-item">
                                     <span class="status-label">Papiers</span>
-                                    <span class="status-value">📄 <?= $team['papers_found'] ?> / <?= $team['total_to_found'] ?></span>
+                                    <span class="status-value <?= getPapersStatus($team['papers_found'], $team['total_to_found']) ?>">📄 <?= $team['papers_found'] ?> / <?= $team['total_to_found'] ?></span>
                                 </div>
                                 <div class="status-item">
                                     <span class="status-label">Énigme</span>
@@ -1301,7 +1418,7 @@ if ($dbConnection) {
                                 <div class="team-status">
                                     <div class="status-item">
                                         <span class="status-label">Papiers</span>
-                                        <span class="status-value">📄 <?= $team['papers_found'] ?> / <?= $team['total_to_found'] ?></span>
+                                        <span class="status-value <?= getPapersStatus($team['papers_found'], $team['total_to_found']) ?>">📄 <?= $team['papers_found'] ?> / <?= $team['total_to_found'] ?></span>
                                     </div>
                                     <div class="status-item">
                                         <span class="status-label">Énigme</span>
@@ -1323,6 +1440,10 @@ if ($dbConnection) {
     </div>
 
     <script>
+        // Utiliser le jour calculé par PHP selon la table current_date
+        let currentDay = <?= $gameDay ?>;
+        console.log('🚀 Initialisation - currentDay (depuis current_date):', currentDay);
+        
         // Gestion de la modale des règles
         const rulesBtn = document.getElementById('rulesBtn');
         const rulesModal = document.getElementById('rulesModal');
@@ -1393,11 +1514,7 @@ if ($dbConnection) {
                 // Mettre à jour le jour actuel et récupérer les nouvelles données
                 currentDay = parseInt(option.dataset.day);
                 
-                // Mettre à jour l'URL sans recharger la page
-                const newUrl = window.location.pathname + '?day=' + currentDay;
-                window.history.pushState({day: currentDay}, '', newUrl);
-                
-                // Mettre à jour les données immédiatement
+                // Mettre à jour les données immédiatement via AJAX (sans changer l'URL)
                 console.log('🔄 Changement de jour:', currentDay);
                 updateTeamsData();
             });
@@ -1411,10 +1528,6 @@ if ($dbConnection) {
         
         // ========== MISE À JOUR EN TEMPS RÉEL AVEC AJAX ==========
         
-        // Récupérer le jour actuel depuis l'URL ou utiliser 1 par défaut
-        const urlParams = new URLSearchParams(window.location.search);
-        let currentDay = parseInt(urlParams.get('day')) || 1;
-        
         // Fonction pour récupérer la solution de l'énigme
         function getEnigmaSolution(teamData) {
             return teamData.enigma_solution || '';
@@ -1423,7 +1536,7 @@ if ($dbConnection) {
         // Fonction pour positionner les médailles par-dessus les cartes
         function positionMedals() {
             // Supprimer toutes les médailles et textes existants
-            document.querySelectorAll('.ranking-medal, .ranking-text').forEach(element => element.remove());
+            document.querySelectorAll('.ranking-medal, .ranking-text, .chrono-text').forEach(element => element.remove());
             
             // Parcourir toutes les cartes d'équipe
             document.querySelectorAll('.team-card').forEach(card => {
@@ -1452,45 +1565,110 @@ if ($dbConnection) {
                 if (teamData && teamData.enigma_status == 2 && teamData.enigma_solution) {
                     const rect = card.getBoundingClientRect();
                     
+                    // Créer l'encart chrono séparé si duration existe
+                    let chronoWidth = 0;
+                    if (teamData.duration) {
+                        const chronoText = document.createElement('div');
+                        chronoText.className = 'chrono-text';
+                        chronoText.innerHTML = `⏱️ ${teamData.duration}`;
+                        chronoText.id = `chrono-${teamId}`;
+                        
+                        // Ajouter au body d'abord pour calculer la largeur
+                        document.body.appendChild(chronoText);
+                        chronoWidth = chronoText.offsetWidth;
+                    }
+                    
                     // Créer le texte de solution d'énigme
                     const enigmaText = document.createElement('div');
                     enigmaText.className = 'ranking-text';
                     enigmaText.textContent = teamData.enigma_solution.toUpperCase();
                     enigmaText.id = `text-${teamId}`;
                     
-                    // Positionner le texte au-dessus de la carte (centré horizontalement)
-                    enigmaText.style.left = `${rect.left + (rect.width / 2) - 50}px`;
-                    enigmaText.style.top = `${rect.top - 40}px`;
-                    
-                    // Ajouter au body
+                    // Ajouter au body pour calculer la largeur
                     document.body.appendChild(enigmaText);
+                    const solutionWidth = enigmaText.offsetWidth;
+                    
+                    // Calculer la position pour centrer l'ensemble
+                    const totalWidth = chronoWidth + solutionWidth + 10; // 10px d'espacement
+                    const startX = rect.left + (rect.width / 2) - (totalWidth / 2);
+                    
+                    // Positionner le chrono à gauche
+                    if (teamData.datetime_solved) {
+                        const chronoText = document.getElementById(`chrono-${teamId}`);
+                        chronoText.style.left = `${startX}px`;
+                        chronoText.style.top = `${rect.top - 40}px`;
+                    }
+                    
+                    // Positionner la solution à droite du chrono
+                    enigmaText.style.left = `${startX + chronoWidth + 10}px`;
+                    enigmaText.style.top = `${rect.top - 40}px`;
                 }
             });
         }
         
+        // Variables pour le throttling
+        let updateTimeout = null;
+        let isUpdating = false;
+        
         // Fonction pour mettre à jour les positions des médailles et textes lors du scroll/resize
         function updateMedalPositions() {
-            document.querySelectorAll('.ranking-medal').forEach(medal => {
-                const teamId = medal.id.replace('medal-', '');
-                const card = document.querySelector(`[data-team-id="${teamId}"]`);
-                
-                if (card) {
-                    const rect = card.getBoundingClientRect();
-                    medal.style.left = `${rect.left - 10}px`;
-                    medal.style.top = `${rect.top - 10}px`;
-                }
-            });
+            if (isUpdating) return;
             
-            document.querySelectorAll('.ranking-text').forEach(text => {
-                const teamId = text.id.replace('text-', '');
-                const card = document.querySelector(`[data-team-id="${teamId}"]`);
+            // Throttling : limiter à 60fps maximum
+            if (updateTimeout) {
+                clearTimeout(updateTimeout);
+            }
+            
+            updateTimeout = setTimeout(() => {
+                isUpdating = true;
                 
-                if (card) {
-                    const rect = card.getBoundingClientRect();
-                    text.style.left = `${rect.left + (rect.width / 2) - 50}px`;
-                    text.style.top = `${rect.top - 40}px`;
-                }
-            });
+                // Utiliser requestAnimationFrame pour une meilleure performance
+                requestAnimationFrame(() => {
+                    document.querySelectorAll('.ranking-medal').forEach(medal => {
+                        const teamId = medal.id.replace('medal-', '');
+                        const card = document.querySelector(`[data-team-id="${teamId}"]`);
+                        
+                        if (card) {
+                            const rect = card.getBoundingClientRect();
+                            medal.style.left = `${rect.left - 10}px`;
+                            medal.style.top = `${rect.top - 10}px`;
+                        }
+                    });
+                    
+                    // Mettre à jour les positions des textes et chronos ensemble
+                    document.querySelectorAll('.ranking-text').forEach(text => {
+                        const teamId = text.id.replace('text-', '');
+                        const card = document.querySelector(`[data-team-id="${teamId}"]`);
+                        const chrono = document.getElementById(`chrono-${teamId}`);
+                        
+                        if (card) {
+                            const rect = card.getBoundingClientRect();
+                            
+                            if (chrono) {
+                                // Calculer la largeur totale pour centrer l'ensemble
+                                const chronoWidth = chrono.offsetWidth;
+                                const solutionWidth = text.offsetWidth;
+                                const totalWidth = chronoWidth + solutionWidth + 10; // 10px d'espacement
+                                const startX = rect.left + (rect.width / 2) - (totalWidth / 2);
+                                
+                                // Positionner le chrono à gauche
+                                chrono.style.left = `${startX}px`;
+                                chrono.style.top = `${rect.top - 40}px`;
+                                
+                                // Positionner la solution à droite du chrono
+                                text.style.left = `${startX + chronoWidth + 10}px`;
+                                text.style.top = `${rect.top - 40}px`;
+                            } else {
+                                // Si pas de chrono, centrer juste la solution
+                                text.style.left = `${rect.left + (rect.width / 2) - 50}px`;
+                                text.style.top = `${rect.top - 40}px`;
+                            }
+                        }
+                    });
+                    
+                    isUpdating = false;
+                });
+            }, 16); // ~60fps
         }
         
         function formatUserName(firstname, lastname) {
@@ -1500,25 +1678,50 @@ if ($dbConnection) {
         }
         
         function updateTeamsData() {
-            fetch('teams_data_real_time.php?day=' + currentDay)
-                .then(response => response.json())
+            console.log('📡 Appel AJAX vers teams_data_real_time?day=' + currentDay);
+            console.log('📡 Valeur de currentDay:', currentDay, '(type:', typeof currentDay, ')');
+            fetch('teams_data_real_time?day=' + currentDay)
+                .then(response => {
+                    console.log('📡 Réponse reçue:', response.status, response.statusText);
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('📡 Données JSON reçues:', data);
                     if (!data.success || !data.teams) {
-                        console.error('Erreur lors de la récupération des données');
+                        console.error('❌ Erreur lors de la récupération des données:', data);
                         return;
                     }
                     
                     console.log('📊 Données mises à jour:', data.teams.length, 'équipes');
+                    console.log('Équipes reçues:', data.teams.map(t => `${t.name} (ID: ${t.id})`));
+                    
+                    // Debug: vérifier les équipes manquantes
+                    const expectedIds = [1, 2, 3, 4, 5, 6];
+                    const actualIds = data.teams.map(t => parseInt(t.id));
+                    const missingIds = expectedIds.filter(id => !actualIds.includes(id));
+                    if (missingIds.length > 0) {
+                        console.warn('🚨 ÉQUIPES MANQUANTES (IDs):', missingIds);
+                    }
+                    
+                    // Debug: vérifier les cartes HTML existantes
+                    const htmlCards = document.querySelectorAll('.team-card');
+                    console.log('📋 Cartes HTML existantes:', htmlCards.length);
+                    htmlCards.forEach((card, index) => {
+                        const teamId = card.getAttribute('data-team-id');
+                        const teamName = card.querySelector('.team-name')?.textContent;
+                        console.log(`  Carte ${index}: ${teamName} (ID: ${teamId})`);
+                    });
+                    
+                    // Supprimer toutes les médailles et textes existants avant de recréer
+                    document.querySelectorAll('.ranking-medal, .ranking-text, .chrono-text').forEach(element => element.remove());
                     
                     // Sauvegarder les données pour les médailles
                     window.currentTeamsData = data.teams;
                     
-                    // Mettre à jour chaque équipe
-                    data.teams.forEach((team, index) => {
-                        updateTeamCard(team, index);
-                    });
+                    // Reconstruire complètement les cartes d'équipe
+                    rebuildTeamCards(data.teams);
                     
-                    // Positionner les médailles après la mise à jour
+                    // Positionner les médailles après la reconstruction
                     setTimeout(positionMedals, 100);
                 })
                 .catch(error => {
@@ -1526,18 +1729,75 @@ if ($dbConnection) {
                 });
         }
         
-        function updateTeamCard(team, index) {
-            // Trouver toutes les cartes d'équipe (il y en a 2 instances par équipe - ligne 1 et ligne 2)
-            const teamCards = document.querySelectorAll('.team-card');
-            const teamCard = teamCards[index];
+        function rebuildTeamCards(teams) {
+            console.log('🔄 Reconstruction complète des cartes d\'équipe');
             
-            if (!teamCard) return;
+            // Trouver le conteneur principal des équipes
+            const teamsContainer = document.querySelector('.teams-grid');
+            if (!teamsContainer) {
+                console.error('❌ Conteneur des équipes (.teams-grid) non trouvé');
+                return;
+            }
             
+            // Vider le conteneur
+            teamsContainer.innerHTML = '';
             
-            // Mettre à jour les utilisateurs
-            const userList = teamCard.querySelector('.team-scrollable');
-            if (userList && team.users) {
-                let usersHTML = '';
+            // Diviser les équipes en deux lignes (3 + 3)
+            const firstRowTeams = teams.slice(0, 3);
+            const secondRowTeams = teams.slice(3, 6);
+            
+            // Créer la première ligne
+            if (firstRowTeams.length > 0) {
+                const firstRow = createTeamRow(firstRowTeams);
+                teamsContainer.appendChild(firstRow);
+            }
+            
+            // Créer la deuxième ligne
+            if (secondRowTeams.length > 0) {
+                const secondRow = createTeamRow(secondRowTeams);
+                teamsContainer.appendChild(secondRow);
+            }
+            
+            console.log('✅ Cartes reconstruites:', teams.length, 'équipes');
+        }
+        
+        function createTeamRow(teams) {
+            const row = document.createElement('div');
+            row.className = 'team-row';
+            
+            teams.forEach(team => {
+                const teamCard = createTeamCard(team);
+                row.appendChild(teamCard);
+            });
+            
+            return row;
+        }
+        
+        // Fonction pour déterminer le statut des papiers
+        function getPapersStatus(papersFound, totalToFound) {
+            if (papersFound === 0) {
+                return 'status-zero';
+            } else if (papersFound >= totalToFound) {
+                return 'status-complete';
+            } else {
+                return 'status-in-progress';
+            }
+        }
+
+        function createTeamCard(team) {
+            const card = document.createElement('div');
+            card.className = 'team-card';
+            card.style.setProperty('--team-color', team.color || '#888');
+            card.setAttribute('data-team-id', team.id);
+            
+            // Image de l'équipe
+            const teamImage = team.img_path && team.img_path !== '' ? 
+                `<img src="${team.img_path}" alt="${team.name}" class="team-image">` :
+                `<div style="font-size: 4rem; color: ${team.color || '#888'};">🎭</div>`;
+            
+            // Utilisateurs
+            let usersHTML = '';
+            if (team.users && team.users.length > 0) {
                 team.users.forEach(user => {
                     const isActive = user.has_activated == 1;
                     const statusClass = isActive ? 'active' : 'inactive';
@@ -1555,45 +1815,60 @@ if ($dbConnection) {
                         </div>
                     `;
                 });
-                
-                if (usersHTML === '') {
-                    usersHTML = '<div class="user-item"><div class="user-name">Aucun utilisateur</div></div>';
-                }
-                
-                userList.innerHTML = usersHTML;
+            } else {
+                usersHTML = '<div class="user-item"><div class="user-name">Aucun utilisateur</div></div>';
             }
             
-            // Mettre à jour le nombre de papiers
-            const papersValue = teamCard.querySelector('.team-status .status-value');
-            if (papersValue) {
-                papersValue.innerHTML = `📄 ${team.papers_found} / ${team.total_to_found}`;
+            // Statut de l'énigme
+            let enigmaBadge = '';
+            if (team.enigma_status == 0) {
+                enigmaBadge = '<span class="status-badge badge-danger">🔒 À reconstituer</span>';
+            } else if (team.enigma_status == 1) {
+                enigmaBadge = `<a href="enigme.php?day=${currentDay}" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>`;
+            } else {
+                enigmaBadge = `<a href="enigme.php?day=${currentDay}" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue</a>`;
             }
             
-            // Mettre à jour le statut de l'énigme
-            const enigmaStatusContainer = teamCard.querySelectorAll('.status-item')[1];
-            if (enigmaStatusContainer) {
-                const enigmaBadge = enigmaStatusContainer.querySelector('.status-badge');
-                if (enigmaBadge) {
-                    // Déterminer le badge en fonction du statut
-                    let badgeClass = '';
-                    let badgeText = '';
-                    
-                    if (team.enigma_status == 0) {
-                        badgeClass = 'badge-danger';
-                        badgeText = '🔒 À reconstituer';
-                    } else if (team.enigma_status == 1) {
-                        badgeClass = 'badge-warning';
-                        badgeText = '⏳ Reconstituée/à résoudre';
-                    } else {
-                        badgeClass = 'badge-success';
-                        badgeText = '✅ Résolue';
-                    }
-                    
-                    // Supprimer toutes les classes de badge
-                    enigmaBadge.className = 'status-badge ' + badgeClass;
-                    enigmaBadge.innerHTML = badgeText;
-                }
-            }
+            // Déterminer le statut des papiers pour l'équipe
+            const teamPapersStatus = getPapersStatus(team.papers_found, team.total_to_found);
+            
+            card.innerHTML = `
+                <div class="color-indicator"></div>
+                
+                <div class="team-card-content">
+                    <!-- Colonne de gauche : Image + Nom + Pôle -->
+                    <div class="team-left-column">
+                        <h2 class="team-name">${team.name}</h2>
+                        
+                        <div class="team-image-container">
+                            ${teamImage}
+                        </div>
+                        
+                        <div class="team-pole">${team.pole_name}</div>
+                    </div>
+
+                    <!-- Colonne de droite : Liste des joueurs -->
+                    <div class="team-right-column">
+                        <div class="team-scrollable">
+                            ${usersHTML}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section de statut -->
+                <div class="team-status">
+                    <div class="status-item">
+                        <span class="status-label">Papiers</span>
+                        <span class="status-value ${teamPapersStatus}">📄 ${team.papers_found} / ${team.total_to_found}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Énigme</span>
+                        ${enigmaBadge}
+                    </div>
+                </div>
+            `;
+            
+            return card;
         }
         
         // Gérer le bouton retour du navigateur

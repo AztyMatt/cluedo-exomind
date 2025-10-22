@@ -111,16 +111,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         $inserted = $stmt->rowCount() > 0;
         
-        if ($inserted) {
-            // Récupérer les infos du joueur et de son groupe
-            $stmt = $dbConnection->prepare("SELECT u.username, u.firstname, u.lastname, u.group_id, g.color, g.img_path, g.pole_name FROM `users` u LEFT JOIN `groups` g ON u.group_id = g.id WHERE u.id = ?");
-            $stmt->execute([$playerId]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($user && $user['group_id']) {
-                // Incrémenter total_founded dans total_papers_found_group
-                $stmt = $dbConnection->prepare("UPDATE `total_papers_found_group` SET total_founded = total_founded + 1 WHERE id_group = ? AND id_day = ?");
-                $stmt->execute([$user['group_id'], $dayId]);
+                if ($inserted) {
+                    // Récupérer les infos du joueur et de son groupe
+                    $stmt = $dbConnection->prepare("SELECT u.username, u.firstname, u.lastname, u.group_id, g.color, g.img_path, g.pole_name FROM `users` u LEFT JOIN `groups` g ON u.group_id = g.id WHERE u.id = ?");
+                    $stmt->execute([$playerId]);
+                    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($user && $user['group_id']) {
+                        // Incrémenter total_founded dans total_papers_found_group
+                        $stmt = $dbConnection->prepare("UPDATE `total_papers_found_group` SET total_founded = total_founded + 1 WHERE id_group = ? AND id_day = ?");
+                        $stmt->execute([$user['group_id'], $dayId]);
+                        
+                        // CHRONOMÉTRAGE : Si c'est le premier papier trouvé pour cette énigme, démarrer le chrono
+                        $stmt = $dbConnection->prepare("SELECT id FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+                        $stmt->execute([$user['group_id'], $dayId]);
+                        $enigma = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($enigma) {
+                            // Vérifier si c'est le premier papier trouvé (total_founded = 1 après l'incrémentation)
+                            $stmt = $dbConnection->prepare("SELECT total_founded FROM `total_papers_found_group` WHERE id_group = ? AND id_day = ?");
+                            $stmt->execute([$user['group_id'], $dayId]);
+                            $paperStats = $stmt->fetch(PDO::FETCH_ASSOC);
+                            
+                            if ($paperStats && $paperStats['total_founded'] == 1) {
+                                // Premier papier trouvé ! Démarrer le chrono si pas déjà démarré
+                                $stmt = $dbConnection->prepare("UPDATE `enigm_solutions_durations` SET timestamp_start = NOW() WHERE id_enigm = ? AND timestamp_start IS NULL");
+                                $stmt->execute([$enigma['id']]);
+                                
+                                if ($stmt->rowCount() > 0) {
+                                    error_log("⏱️ Chrono démarré pour l'énigme ID " . $enigma['id'] . " (équipe " . $user['group_id'] . ", jour " . $dayId . ")");
+                                }
+                            }
+                        }
                 
                 // Vérifier si tous les papiers ont été trouvés
                 $stmt = $dbConnection->prepare("SELECT total_to_found, total_founded FROM `total_papers_found_group` WHERE id_group = ? AND id_day = ?");
@@ -311,7 +333,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['activation_code'])) {
                 $_SESSION['has_activated'] = 1;
                 
                 // Recharger la page pour afficher le jeu
-                header('Location: game.php');
+                header('Location: ' . $_SERVER['REQUEST_URI']);
                 exit;
             } else {
                 $error_message = "❌ Code d'activation invalide. Veuillez réessayer.";
@@ -342,6 +364,22 @@ if (!$show_activation_form) {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['activation_code'] = $activation_code_cookie;
                 $_SESSION['has_activated'] = 1;
+                
+                // Récupérer le statut de l'énigme pour cette équipe
+                $stmt = $dbConnection->prepare("SELECT status, datetime_solved, enigm_solution FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+                $stmt->execute([$user['group_id'], $currentGameDay]);
+                $enigmaData = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($enigmaData) {
+                    $user['enigma_status'] = (int)$enigmaData['status']; // 0 = à reconstituer, 1 = en cours, 2 = résolue
+                    $user['datetime_solved'] = $enigmaData['datetime_solved'];
+                    $user['enigma_solution'] = $enigmaData['enigm_solution'];
+                } else {
+                    // Valeur par défaut si pas d'énigme
+                    $user['enigma_status'] = 0;
+                    $user['datetime_solved'] = null;
+                    $user['enigma_solution'] = '';
+                }
             } else {
                 // Cookie invalide ou utilisateur non activé -> demander le code
                 $show_activation_form = true;
@@ -1002,7 +1040,7 @@ if ($show_activation_form) {
                     </div>
                 <?php endif; ?>
 
-                <form method="POST" action="game.php" style="display: flex; flex-direction: column; gap: 20px;">
+                <form method="POST" action="<?= $_SERVER['REQUEST_URI'] ?>" style="display: flex; flex-direction: column; gap: 20px;">
                     <div>
                         <label for="activation_code" style="display: block; margin-bottom: 10px; font-size: 1rem; color: #fff; font-weight: bold;">
                             Code d'activation
@@ -1025,7 +1063,7 @@ if ($show_activation_form) {
                 </form>
 
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="teams.php" style="color: #667eea; text-decoration: none; font-size: 0.95rem;">
+                    <a href="/teams" style="color: #667eea; text-decoration: none; font-size: 0.95rem;">
                         ← Retour à la page des équipes
                     </a>
                 </div>
@@ -1127,13 +1165,26 @@ if ($show_activation_form) {
                 </div>
                 
                 <div class="bar-section">
-                    <a href="enigme.php?day=<?php echo $currentGameDay; ?>" class="btn-back" id="enigma-btn" style="background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%); display: none;">
-                        🎭 Résoudre l'énigme
-                    </a>
+                    <?php if ($user['enigma_status'] == 0): ?>
+                        <!-- Énigme verrouillée -->
+                        <div class="btn-back" style="background: linear-gradient(135deg, #666 0%, #888 100%); cursor: not-allowed; opacity: 0.6;">
+                            🔒 Énigme verrouillée
+                        </div>
+                    <?php elseif ($user['enigma_status'] == 1): ?>
+                        <!-- Énigme déverrouillée -->
+                        <a href="enigme.php?day=<?php echo $currentGameDay; ?>" class="btn-back" style="background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);">
+                            🎭 Résoudre l'énigme
+                        </a>
+                    <?php else: ?>
+                        <!-- Énigme résolue -->
+                        <a href="enigme.php?day=<?php echo $currentGameDay; ?>" class="btn-back" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                            ✅ Énigme résolue
+                        </a>
+                    <?php endif; ?>
                 </div>
                 
                 <div class="bar-section">
-                    <a href="teams.php" class="btn-back" style="background: #667eea;">
+                    <a href="/teams" class="btn-back" style="background: #667eea;">
                         🏆 ÉQUIPES
                     </a>
                 </div>
@@ -1566,6 +1617,7 @@ if ($show_activation_form) {
         }
         
         // Vérifier quels papiers ont été trouvés et appliquer le style
+        // Cette fonction récupère les papiers trouvés sur TOUS les jours pour que les drapeaux restent visibles
         function checkFoundPapers() {
             fetch('game_check_found_papers.php?day=' + <?php echo $currentGameDay; ?>, {
                 method: 'GET'
@@ -1574,8 +1626,10 @@ if ($show_activation_form) {
             .then(data => {
                 if (data.success && data.found_papers) {
                     data.found_papers.forEach(foundPaper => {
+                        // Appliquer le style "trouvé" pour tous les papiers trouvés, peu importe le jour
                         applyFoundStyle(foundPaper.id_paper, foundPaper.found_by_display, foundPaper.found_at, foundPaper.team_color, foundPaper.team_img, foundPaper.team_pole, false);
                     });
+                    console.log('🏁 Drapeaux appliqués pour', data.found_papers.length, 'papiers trouvés sur tous les jours');
                 }
             })
             .catch(error => {
@@ -2038,23 +2092,41 @@ if ($show_activation_form) {
                     // Mettre à jour l'affichage
                     updatePaperCount();
                     
+                    // Mettre à jour le bouton d'énigme selon le statut
+                    updateEnigmaButton(data.enigma_status);
+                    
                     // Vérifier si l'équipe a atteint son quota (prioritaire sur le quota individuel)
                     if (foundPapersTeam >= totalPapers) {
                         console.log('🎯 Quota équipe atteint ! Masquage des papiers non trouvés...');
                         hideUnfoundPapers();
-                        
-                        // Afficher le bouton "Résoudre l'énigme"
-                        const enigmaBtn = document.getElementById('enigma-btn');
-                        if (enigmaBtn) {
-                            enigmaBtn.style.display = 'inline-block';
-                        }
                     }
                     
-                    console.log('📊 Données jeu mises à jour - Équipe:', foundPapersTeam, '/', totalPapers, '| Moi:', foundPapersMe, '| Quota:', quotaPerUser === 0 ? 'illimité' : quotaPerUser, '| Atteint:', quotaReached);
+                    console.log('📊 Données jeu mises à jour - Équipe:', foundPapersTeam, '/', totalPapers, '| Moi:', foundPapersMe, '| Quota:', quotaPerUser === 0 ? 'illimité' : quotaPerUser, '| Atteint:', quotaReached, '| Énigme:', data.enigma_status);
                 })
                 .catch(error => {
                     console.error('Erreur AJAX game:', error);
                 });
+        }
+        
+        // Fonction pour mettre à jour le bouton d'énigme selon le statut
+        function updateEnigmaButton(enigmaStatus) {
+            const enigmaSection = document.querySelector('.bar-section:nth-child(5)'); // 5ème section (énigme)
+            if (!enigmaSection) return;
+            
+            let buttonHTML = '';
+            
+            if (enigmaStatus == 0) {
+                // Énigme verrouillée
+                buttonHTML = '<div class="btn-back" style="background: linear-gradient(135deg, #666 0%, #888 100%); cursor: not-allowed; opacity: 0.6;">🔒 Énigme verrouillée</div>';
+            } else if (enigmaStatus == 1) {
+                // Énigme déverrouillée
+                buttonHTML = '<a href="enigme.php?day=' + <?php echo $currentGameDay; ?> + '" class="btn-back" style="background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);">🎭 Résoudre l\'énigme</a>';
+            } else {
+                // Énigme résolue
+                buttonHTML = '<a href="enigme.php?day=' + <?php echo $currentGameDay; ?> + '" class="btn-back" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">✅ Énigme résolue</a>';
+            }
+            
+            enigmaSection.innerHTML = buttonHTML;
         }
         
         // Fonction pour masquer tous les papiers non trouvés

@@ -1,0 +1,18 @@
+RewriteEngine On
+
+# Servir les fichiers PHP sans redirection visible
+RewriteRule ^teams/?$ teams.php [L,QSA]
+RewriteRule ^game/?$ game.php [L,QSA]
+RewriteRule ^enigme/?$ enigme.php [L,QSA]
+RewriteRule ^admin/date/?$ admin/date.php [L,QSA]
+
+# Servir les fichiers AJAX/data
+RewriteRule ^teams_data_real_time/?$ teams_data_real_time.php [L,QSA]
+RewriteRule ^game_data_real_time/?$ game_data_real_time.php [L,QSA]
+RewriteRule ^game_check_found_papers/?$ game_check_found_papers.php [L,QSA]
+RewriteRule ^game_recent_papers/?$ game_recent_papers.php [L,QSA]
+
+# Empêcher l'accès direct aux fichiers .php (redirection vers URL propre)
+# Temporairement désactivé pour résoudre le problème d'activation
+# RewriteCond %{THE_REQUEST} \s/+([^?\s]*?)\.php[\s?] [NC]
+# RewriteRule ^ /%1?%{QUERY_STRING} [R=302,L]

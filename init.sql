@@ -106,6 +106,20 @@ CREATE TABLE IF NOT EXISTS `enigmes` (
     FOREIGN KEY (id_day) REFERENCES `days`(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Table pour chronométrer la durée de résolution des énigmes
+CREATE TABLE IF NOT EXISTS `enigm_solutions_durations` (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_enigm INT NOT NULL,
+    timestamp_start TIMESTAMP NULL DEFAULT NULL COMMENT 'Début du chrono (premier papier trouvé)',
+    timestamp_end TIMESTAMP NULL DEFAULT NULL COMMENT 'Fin du chrono (énigme résolue)',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_enigm) REFERENCES `enigmes`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    UNIQUE KEY unique_enigm (id_enigm),
+    INDEX idx_timestamp_start (timestamp_start),
+    INDEX idx_timestamp_end (timestamp_end)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Chronométrage des résolutions d\'énigmes';
+
 -- Table du total de papiers trouvés par groupe
 CREATE TABLE IF NOT EXISTS `total_papers_found_group` (
     id INT AUTO_INCREMENT PRIMARY KEY,

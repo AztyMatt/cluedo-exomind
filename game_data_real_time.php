@@ -20,6 +20,7 @@ $response = [
     'papers_found_me' => 0,
     'quota_per_user' => 0,
     'quota_reached' => false,
+    'enigma_status' => 0,
     'day' => 1
 ];
 
@@ -82,6 +83,18 @@ try {
     // Vérifier si le quota est atteint (0 = illimité)
     if ($quotaPerUser > 0 && $response['papers_found_me'] >= $quotaPerUser) {
         $response['quota_reached'] = true;
+    }
+    
+    // Récupérer le statut de l'énigme pour cette équipe
+    $stmt = $dbConnection->prepare("SELECT status FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+    $stmt->execute([$user['group_id'], $currentDay]);
+    $enigmaData = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($enigmaData) {
+        $response['enigma_status'] = (int)$enigmaData['status']; // 0 = à reconstituer, 1 = en cours, 2 = résolue
+    } else {
+        // Valeur par défaut si pas d'énigme
+        $response['enigma_status'] = 0;
     }
     
     $response['day'] = $currentDay;

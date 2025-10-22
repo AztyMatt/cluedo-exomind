@@ -32,6 +32,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $stmt = $dbConnection->prepare("UPDATE `enigmes` SET status = 2, solved = TRUE, datetime_solved = NOW(), solved_by_user_id = ? WHERE id_group = ? AND id_day = ?");
             $stmt->execute([$playerId, $user['group_id'], $dayId]);
             
+            // CHRONOMÉTRAGE : Arrêter le chrono quand l'énigme est résolue
+            $stmt = $dbConnection->prepare("SELECT id FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+            $stmt->execute([$user['group_id'], $dayId]);
+            $enigma = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($enigma) {
+                // Mettre à jour timestamp_end pour arrêter le chrono
+                $stmt = $dbConnection->prepare("UPDATE `enigm_solutions_durations` SET timestamp_end = NOW() WHERE id_enigm = ? AND timestamp_end IS NULL");
+                $stmt->execute([$enigma['id']]);
+                
+                if ($stmt->rowCount() > 0) {
+                    error_log("⏱️ Chrono arrêté pour l'énigme ID " . $enigma['id'] . " (équipe " . $user['group_id'] . ", jour " . $dayId . ")");
+                }
+            }
+            
             // Mettre à jour complete dans total_papers_found_group
             $stmt = $dbConnection->prepare("UPDATE `total_papers_found_group` SET complete = TRUE WHERE id_group = ? AND id_day = ?");
             $stmt->execute([$user['group_id'], $dayId]);
@@ -136,6 +151,10 @@ $currentDay = $dayLabels[$selectedDay];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cluedo - Énigme du <?= $currentDay['number'] ?></title>
+    
+    <!-- Canvas Confetti pour les feux d'artifice -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -209,49 +228,50 @@ $currentDay = $dayLabels[$selectedDay];
         .enigma-container {
             background: rgba(42, 42, 42, 0.95);
             border-radius: 15px;
-            padding: 40px;
+            padding: 25px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             border: 2px solid rgba(255, 255, 255, 0.1);
-            margin-top: 100px;
+            margin-top: 20px;
         }
 
         .enigma-title {
-            font-size: 2.5rem;
+            font-size: 2rem;
             color: #fff;
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
         }
 
         .enigma-subtitle {
-            font-size: 1.2rem;
+            font-size: 1rem;
             color: <?= htmlspecialchars($user['team_color'] ?? '#888') ?>;
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 25px;
             font-weight: bold;
         }
 
         .enigma-text {
-            font-size: 1.3rem;
-            color: #eee;
+            font-size: 1.1rem;
+            color: #000;
             text-align: center;
-            line-height: 2;
-            margin-bottom: 50px;
-            padding: 30px;
-            background: rgba(0, 0, 0, 0.3);
+            line-height: 1.6;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #fff;
             border-radius: 12px;
             border-left: 4px solid <?= htmlspecialchars($user['team_color'] ?? '#888') ?>;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
         .solution-container {
-            margin-top: 40px;
+            margin-top: 25px;
         }
 
         .solution-label {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             color: #fff;
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             font-weight: bold;
         }
 
@@ -263,15 +283,15 @@ $currentDay = $dayLabels[$selectedDay];
         }
 
         .letter-box {
-            width: 60px;
-            height: 80px;
+            width: 50px;
+            height: 65px;
             background: rgba(255, 255, 255, 0.1);
             border: 3px solid <?= htmlspecialchars($user['team_color'] ?? '#888') ?>;
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: bold;
             color: #fff;
             text-transform: uppercase;
@@ -315,7 +335,7 @@ $currentDay = $dayLabels[$selectedDay];
             border-left: 4px solid #eb3349;
             padding: 30px;
             border-radius: 12px;
-            margin-top: 100px;
+            margin-top: 20px;
             text-align: center;
         }
 
@@ -352,8 +372,8 @@ $currentDay = $dayLabels[$selectedDay];
 
         .day-indicator {
             text-align: center;
-            margin-bottom: 30px;
-            padding: 15px;
+            margin-bottom: 20px;
+            padding: 12px;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
             border: 2px solid <?= htmlspecialchars($user['team_color'] ?? '#888') ?>;
@@ -368,6 +388,99 @@ $currentDay = $dayLabels[$selectedDay];
         .day-indicator p {
             font-size: 1.2rem;
             color: #ccc;
+        }
+
+        /* Animation d'erreur pour les cases */
+        .letter-box.error {
+            animation: shakeError 0.5s ease-in-out;
+            border-color: #ff4444 !important;
+            background: rgba(255, 68, 68, 0.2) !important;
+            box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
+        }
+
+        @keyframes shakeError {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        /* Animation d'erreur pour le conteneur */
+        .solution-container.error {
+            animation: containerShake 0.6s ease-in-out;
+        }
+
+        @keyframes containerShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+            20%, 40%, 60%, 80% { transform: translateX(8px); }
+        }
+
+        /* Styles pour le bouton désactivé */
+        .back-btn.disabled {
+            background: #666 !important;
+            cursor: not-allowed !important;
+            opacity: 0.6;
+        }
+
+        .back-btn.disabled:hover {
+            transform: none !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        /* Message d'erreur temporaire */
+        .error-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 68, 68, 0.95);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            animation: errorPopup 0.3s ease;
+        }
+
+        @keyframes errorPopup {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -60%);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+            }
+        }
+
+        /* Message de succès temporaire */
+        .success-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(76, 175, 80, 0.95);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            animation: successPopup 0.3s ease;
+        }
+
+        @keyframes successPopup {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -60%);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+            }
         }
     </style>
 </head>
@@ -401,16 +514,28 @@ $currentDay = $dayLabels[$selectedDay];
         <?php else: ?>
             <!-- ========== AFFICHAGE DE L'ÉNIGME ========== -->
             <div class="enigma-container">
-                <div class="day-indicator">
-                    <h3><?= $currentDay['number'] ?></h3>
-                    <p><?= $currentDay['objective'] ?></p>
+                <div style="display: flex; align-items: center; margin-bottom: 25px;">
+                    <div style="width: 45%;">
+                        <div class="day-indicator" style="margin-bottom: 0;">
+                            <h3><?= $currentDay['number'] ?></h3>
+                            <p><?= $currentDay['objective'] ?></p>
+                        </div>
+                    </div>
+                    <div style="width: 10%; display: flex; justify-content: center;">
+                        <?php if (!empty($user['team_img']) && file_exists($user['team_img'])): ?>
+                            <img src="<?= htmlspecialchars($user['team_img']) ?>" alt="<?= htmlspecialchars($user['team_name']) ?>" style="width: 120px; height: 120px; object-fit: contain; border-radius: 50%;">
+                        <?php endif; ?>
+                    </div>
+                    <div style="width: 45%; text-align: right;">
+                        <h1 class="enigma-title" style="margin-bottom: 8px; font-size: 1.8rem;">🎭 Énigme de votre équipe</h1>
+                        <div class="enigma-subtitle" style="margin-bottom: 0; font-size: 1rem;">
+                            <?= htmlspecialchars($user['team_name']) ?> - <?= htmlspecialchars($user['pole_name']) ?>
+                        </div>
+                    </div>
                 </div>
 
-                <h1 class="enigma-title">🎭 Énigme de votre équipe</h1>
-                <div class="enigma-subtitle"><?= htmlspecialchars($user['team_name']) ?> - <?= htmlspecialchars($user['pole_name']) ?></div>
-
                 <div class="enigma-text">
-                    <?= nl2br(htmlspecialchars($enigma['enigm_label'])) ?>
+                    « <?= nl2br(htmlspecialchars($enigma['enigm_label'])) ?> »
                 </div>
 
                 <div class="solution-container">
@@ -454,7 +579,7 @@ $currentDay = $dayLabels[$selectedDay];
 
                 <?php if ($enigma['status'] != 2): ?>
                     <div style="text-align: center; margin-top: 40px;">
-                        <button id="validateBtn" class="back-btn" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); cursor: pointer; border: none;">
+                        <button id="validateBtn" class="back-btn disabled" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); cursor: not-allowed; border: none;" disabled>
                             ✅ Valider la solution
                         </button>
                     </div>
@@ -480,6 +605,118 @@ $currentDay = $dayLabels[$selectedDay];
         const solution = <?= json_encode($enigma['enigm_solution']) ?>;
         const inputs = document.querySelectorAll('.letter-input');
         const validateBtn = document.getElementById('validateBtn');
+        const solutionContainer = document.querySelector('.solution-container');
+
+        // Fonction pour vérifier si toutes les cases sont remplies
+        function checkAllFieldsFilled() {
+            let allFilled = true;
+            inputs.forEach(input => {
+                if (!input.value.trim()) {
+                    allFilled = false;
+                }
+            });
+            return allFilled;
+        }
+
+        // Fonction pour mettre à jour l'état du bouton
+        function updateButtonState() {
+            const allFilled = checkAllFieldsFilled();
+            if (allFilled) {
+                validateBtn.classList.remove('disabled');
+                validateBtn.disabled = false;
+            } else {
+                validateBtn.classList.add('disabled');
+                validateBtn.disabled = true;
+            }
+        }
+
+        // Fonction pour afficher un message d'erreur
+        function showErrorMessage(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            document.body.appendChild(errorDiv);
+            
+            // Supprimer après 3 secondes
+            setTimeout(() => {
+                if (errorDiv.parentNode) {
+                    errorDiv.parentNode.removeChild(errorDiv);
+                }
+            }, 3000);
+        }
+
+        // Fonction pour afficher un message de succès
+        function showSuccessMessage(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-message';
+            successDiv.textContent = message;
+            document.body.appendChild(successDiv);
+            
+            // Supprimer après 2 secondes
+            setTimeout(() => {
+                if (successDiv.parentNode) {
+                    successDiv.parentNode.removeChild(successDiv);
+                }
+            }, 2000);
+        }
+
+        // Fonction pour lancer les feux d'artifice
+        function launchFireworks() {
+            const duration = 5000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 25000 };
+            
+            function randomInRange(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+            
+            const interval = setInterval(function() {
+                const timeLeft = animationEnd - Date.now();
+                
+                if (timeLeft <= 0) {
+                    return clearInterval(interval);
+                }
+                
+                const particleCount = 50 * (timeLeft / duration);
+                
+                // Confettis depuis le centre
+                confetti(Object.assign({}, defaults, {
+                    particleCount,
+                    origin: { x: 0.5, y: 0.5 }
+                }));
+                
+                // Confettis depuis la gauche
+                confetti(Object.assign({}, defaults, {
+                    particleCount,
+                    origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+                }));
+                
+                // Confettis depuis la droite
+                confetti(Object.assign({}, defaults, {
+                    particleCount,
+                    origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+                }));
+            }, 250);
+        }
+
+        // Fonction pour animer les erreurs
+        function animateError() {
+            // Ajouter la classe d'erreur au conteneur
+            solutionContainer.classList.add('error');
+            
+            // Ajouter la classe d'erreur à toutes les cases
+            inputs.forEach(input => {
+                input.parentElement.classList.add('error');
+            });
+            
+            // Supprimer les classes d'erreur après l'animation
+            setTimeout(() => {
+                solutionContainer.classList.remove('error');
+                inputs.forEach(input => {
+                    input.parentElement.classList.remove('error');
+                });
+            }, 600);
+        }
 
         // Gérer la navigation entre les cases
         inputs.forEach((input, index) => {
@@ -491,6 +728,9 @@ $currentDay = $dayLabels[$selectedDay];
                 if (value && index < inputs.length - 1) {
                     inputs[index + 1].focus();
                 }
+                
+                // Mettre à jour l'état du bouton
+                updateButtonState();
             });
 
             // Gérer la touche retour arrière
@@ -498,6 +738,9 @@ $currentDay = $dayLabels[$selectedDay];
                 if (e.key === 'Backspace' && !e.target.value && index > 0) {
                     inputs[index - 1].focus();
                 }
+                
+                // Mettre à jour l'état du bouton
+                updateButtonState();
             });
         });
 
@@ -509,13 +752,17 @@ $currentDay = $dayLabels[$selectedDay];
             });
 
             if (userSolution.length !== solution.length) {
-                alert('⚠️ Veuillez remplir toutes les cases !');
+                showErrorMessage('⚠️ Veuillez remplir toutes les cases !');
+                animateError();
                 return;
             }
 
             if (userSolution === solution.toUpperCase()) {
                 // Solution correcte !
-                alert('🎉 Bravo ! La solution est correcte !\n\nL\'énigme a été résolue.');
+                showSuccessMessage('🎉 Bravo ! La solution est correcte !');
+                
+                // Lancer les feux d'artifice
+                launchFireworks();
                 
                 // Envoyer au serveur pour mettre à jour le status de l'énigme à 2
                 fetch(window.location.href, {
@@ -526,18 +773,26 @@ $currentDay = $dayLabels[$selectedDay];
                 .then(response => response.json())
                 .then(result => {
                     if (result.success) {
-                        window.location.href = 'teams.php?day=' + <?= $selectedDay ?>;
+                        // Attendre un peu pour que l'utilisateur profite des feux d'artifice
+                        setTimeout(() => {
+                            window.location.href = 'teams.php?day=' + <?= $selectedDay ?>;
+                        }, 3000);
                     }
                 });
             } else {
                 // Mauvaise solution
-                alert('❌ Solution incorrecte.\n\nRéessayez !');
+                showErrorMessage('❌ Solution incorrecte. Réessayez !');
+                animateError();
                 
                 // Vider les cases
                 inputs.forEach(input => input.value = '');
                 inputs[0].focus();
+                updateButtonState();
             }
         });
+
+        // Initialiser l'état du bouton
+        updateButtonState();
 
         // Focus automatique sur la première case
         if (inputs.length > 0) {

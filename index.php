@@ -1,6 +1,6 @@
 <?php
 // Redirection automatique vers la page des équipes
-header('Location: teams.php');
+header('Location: /teams');
 exit;
 ?>
 
