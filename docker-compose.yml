@@ -23,7 +23,15 @@ services:
     ports:
       - 8088:80
     depends_on:
-      - db
+      db:
+        condition: service_started
+    command: >
+      bash -c "
+        echo 'Exécution du script d''initialisation...' &&
+        php /var/www/html/docker-init-db.php &&
+        echo 'Démarrage d''Apache...' &&
+        apache2-foreground
+      "
   
   adminer:
     image: adminer:latest
