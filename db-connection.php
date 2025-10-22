@@ -4,15 +4,20 @@
  */
 
 function getDBConnection() {
-    $host = $_ENV['MYSQLHOST'] ?? getenv('MYSQLHOST');
-    $dbname = $_ENV['MYSQLDATABASE'] ?? getenv('MYSQLDATABASE');
-    $username = $_ENV['MYSQLUSER'] ?? getenv('MYSQLUSER');
-    $password = $_ENV['MYSQLPASSWORD'] ?? getenv('MYSQLPASSWORD');
-    $port = $_ENV['MYSQLPORT'] ?? getenv('MYSQLPORT');
+    $host = $_ENV['MYSQLHOST'] ?? getenv('MYSQLHOST') ?? 'db';
+    $dbname = $_ENV['MYSQLDATABASE'] ?? getenv('MYSQLDATABASE') ?? 'cluedo';
+    $username = $_ENV['MYSQLUSER'] ?? getenv('MYSQLUSER') ?? 'cluedo_user';
+    $password = $_ENV['MYSQLPASSWORD'] ?? getenv('MYSQLPASSWORD') ?? 'cluedo_password';
+    $port = $_ENV['MYSQLPORT'] ?? getenv('MYSQLPORT') ?? '3306';
 
+    // Utiliser des valeurs par défaut si les variables d'environnement ne sont pas définies
     if (!$host || !$dbname || !$username) {
-        error_log("⚠️ Variables d'environnement MySQL manquantes.");
-        return null;
+        error_log("⚠️ Variables d'environnement MySQL manquantes, utilisation des valeurs par défaut.");
+        $host = 'db';
+        $dbname = 'cluedo';
+        $username = 'cluedo_user';
+        $password = 'cluedo_password';
+        $port = '3306';
     }    
     
     try {

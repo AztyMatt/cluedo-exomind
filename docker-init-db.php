@@ -31,14 +31,14 @@ function logMessage($message, $color = NC) {
 }
 
 function connectToDatabase() {
-    global $DB_HOST, $DB_USER, $DB_PASSWORD, $DB_PORT;
+    global $host, $username, $password, $port;
     
     $maxRetries = 5;
     $retryCount = 0;
     
     while ($retryCount < $maxRetries) {
         try {
-            $pdo = new PDO("mysql:host=$DB_HOST;port=$DB_PORT;charset=utf8mb4", $DB_USER, $DB_PASSWORD);
+            $pdo = new PDO("mysql:host=$host;port=$port;charset=utf8mb4", $username, $password);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             logMessage("✓ Connexion à MySQL réussie!", GREEN);
             return $pdo;
@@ -67,7 +67,7 @@ function executeSqlFile($pdo, $filename) {
         // Utiliser mysqli pour les fichiers avec des instructions complexes
         if (basename($filename) !== 'init.sql') {
             // Pour les fichiers d'inserts, utiliser mysqli qui gère mieux les instructions multi-lignes
-            $mysqli = new mysqli($GLOBALS['DB_HOST'], $GLOBALS['DB_USER'], $GLOBALS['DB_PASSWORD'], $GLOBALS['DB_NAME'], $GLOBALS['DB_PORT']);
+            $mysqli = new mysqli($GLOBALS['host'], $GLOBALS['username'], $GLOBALS['password'], $GLOBALS['dbname'], $GLOBALS['port']);
             if ($mysqli->connect_error) {
                 throw new Exception("Connexion mysqli échouée: " . $mysqli->connect_error);
             }
@@ -107,19 +107,19 @@ $pdo = connectToDatabase();
 
 // Supprimer la base si elle existe déjà (mode automatique)
 try {
-    $stmt = $pdo->query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='$DB_NAME'");
+    $stmt = $pdo->query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='$dbname'");
     if ($stmt->rowCount() > 0) {
         logMessage("Suppression de la base de données existante...", YELLOW);
-        $pdo->exec("DROP DATABASE $DB_NAME");
+        $pdo->exec("DROP DATABASE $dbname");
         logMessage("✓ Base de données supprimée", GREEN);
     }
 } catch (PDOException $e) {
     // Base n'existe pas, continuer
 }
 
-logMessage("[1/3] Création de la base de données '$DB_NAME'...", YELLOW);
+logMessage("[1/3] Création de la base de données '$dbname'...", YELLOW);
 try {
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS $DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS $dbname CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     logMessage("✓ Base de données créée", GREEN);
 } catch (PDOException $e) {
     logMessage("✗ Erreur lors de la création de la base: " . $e->getMessage(), RED);
@@ -127,7 +127,7 @@ try {
 }
 
 logMessage("[2/3] Création des tables depuis init.sql...", YELLOW);
-$pdo->exec("USE $DB_NAME");
+$pdo->exec("USE $dbname");
 if (!executeSqlFile($pdo, 'init.sql')) {
     exit(1);
 }

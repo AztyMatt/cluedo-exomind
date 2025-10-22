@@ -75,6 +75,8 @@ $enigma = null;
 $paperStats = null;
 $selectedDay = isset($_GET['day']) ? (int)$_GET['day'] : 1;
 $selectedDay = max(1, min(3, $selectedDay));
+$targetTeamId = isset($_GET['team_id']) ? (int)$_GET['team_id'] : null;
+$isViewingOtherTeam = $targetTeamId !== null;
 
 // Vérifier le cookie
 $activation_code_cookie = $_COOKIE['cluedo_activation'] ?? null;
@@ -93,40 +95,86 @@ if (!$activation_code_cookie || !$dbConnection) {
             $error_message = "❌ Utilisateur non trouvé ou non assigné à une équipe.";
             $show_error = true;
         } else {
-            // Vérifier si tous les papiers ont été trouvés pour ce jour
-            $stmt = $dbConnection->prepare("SELECT total_to_found, total_founded FROM `total_papers_found_group` WHERE id_group = ? AND id_day = ?");
-            $stmt->execute([$user['group_id'], $selectedDay]);
-            $paperStats = $stmt->fetch(PDO::FETCH_ASSOC);
+            // Déterminer quelle équipe consulter
+            $teamIdToCheck = $isViewingOtherTeam ? $targetTeamId : $user['group_id'];
             
-            if (!$paperStats || $paperStats['total_founded'] < $paperStats['total_to_found']) {
-                $found = $paperStats ? $paperStats['total_founded'] : 0;
-                $total = $paperStats ? $paperStats['total_to_found'] : 0;
-                $error_message = "🔒 Votre équipe n'a pas encore trouvé tous les papiers pour ce jour.<br>Papiers trouvés : <strong>$found / $total</strong><br><br>Continuez à chercher !";
-                $show_error = true;
-            } else {
-                // Récupérer l'énigme pour ce jour et cette équipe avec les infos du solveur
-                $stmt = $dbConnection->prepare("
-                    SELECT e.enigm_label, e.enigm_solution, e.status, e.datetime_solved, 
-                           u.firstname as solver_firstname, u.lastname as solver_lastname
-                    FROM `enigmes` e 
-                    LEFT JOIN `users` u ON e.solved_by_user_id = u.id 
-                    WHERE e.id_group = ? AND e.id_day = ?
-                ");
-                $stmt->execute([$user['group_id'], $selectedDay]);
-                $enigma = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($isViewingOtherTeam) {
+                // Vérifier que l'équipe cible existe
+                $stmt = $dbConnection->prepare("SELECT id, name, pole_name, color, img_path FROM `groups` WHERE id = ?");
+                $stmt->execute([$targetTeamId]);
+                $targetTeam = $stmt->fetch(PDO::FETCH_ASSOC);
                 
-                // Préparer les informations du solveur
-                $solverInfo = null;
-                if ($enigma && $enigma['status'] == 2 && $enigma['datetime_solved'] && $enigma['solver_firstname']) {
-                    $solverInfo = [
-                        'firstname' => $enigma['solver_firstname'],
-                        'lastname' => $enigma['solver_lastname']
-                    ];
-                }
-                
-                if (!$enigma) {
-                    $error_message = "❌ Aucune énigme n'a été configurée pour votre équipe et ce jour.";
+                if (!$targetTeam) {
+                    $error_message = "❌ Équipe non trouvée.";
                     $show_error = true;
+                } else {
+                    // Récupérer l'énigme de l'équipe cible (seulement si résolue)
+                    $stmt = $dbConnection->prepare("
+                        SELECT e.enigm_label, e.enigm_solution, e.status, e.datetime_solved, 
+                               u.firstname as solver_firstname, u.lastname as solver_lastname
+                        FROM `enigmes` e 
+                        LEFT JOIN `users` u ON e.solved_by_user_id = u.id 
+                        WHERE e.id_group = ? AND e.id_day = ? AND e.status = 2
+                    ");
+                    $stmt->execute([$targetTeamId, $selectedDay]);
+                    $enigma = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (!$enigma) {
+                        $error_message = "🔒 Cette équipe n'a pas encore résolu son énigme pour ce jour.";
+                        $show_error = true;
+                    } else {
+                        // Utiliser les infos de l'équipe cible pour l'affichage
+                        $user['team_name'] = $targetTeam['name'];
+                        $user['pole_name'] = $targetTeam['pole_name'];
+                        $user['team_color'] = $targetTeam['color'];
+                        $user['team_img'] = $targetTeam['img_path'];
+                        
+                        // Préparer les informations du solveur
+                        $solverInfo = null;
+                        if ($enigma['status'] == 2 && $enigma['datetime_solved'] && $enigma['solver_firstname']) {
+                            $solverInfo = [
+                                'firstname' => $enigma['solver_firstname'],
+                                'lastname' => $enigma['solver_lastname']
+                            ];
+                        }
+                    }
+                }
+            } else {
+                // Mode normal : vérifier les papiers de l'utilisateur
+                $stmt = $dbConnection->prepare("SELECT total_to_found, total_founded FROM `total_papers_found_group` WHERE id_group = ? AND id_day = ?");
+                $stmt->execute([$user['group_id'], $selectedDay]);
+                $paperStats = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$paperStats || $paperStats['total_founded'] < $paperStats['total_to_found']) {
+                    $found = $paperStats ? $paperStats['total_founded'] : 0;
+                    $total = $paperStats ? $paperStats['total_to_found'] : 0;
+                    $error_message = "🔒 Votre équipe n'a pas encore trouvé tous les papiers pour ce jour.<br>Papiers trouvés : <strong>$found / $total</strong><br><br>Continuez à chercher !";
+                    $show_error = true;
+                } else {
+                    // Récupérer l'énigme pour ce jour et cette équipe avec les infos du solveur
+                    $stmt = $dbConnection->prepare("
+                        SELECT e.enigm_label, e.enigm_solution, e.status, e.datetime_solved, 
+                               u.firstname as solver_firstname, u.lastname as solver_lastname
+                        FROM `enigmes` e 
+                        LEFT JOIN `users` u ON e.solved_by_user_id = u.id 
+                        WHERE e.id_group = ? AND e.id_day = ?
+                    ");
+                    $stmt->execute([$user['group_id'], $selectedDay]);
+                    $enigma = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    // Préparer les informations du solveur
+                    $solverInfo = null;
+                    if ($enigma && $enigma['status'] == 2 && $enigma['datetime_solved'] && $enigma['solver_firstname']) {
+                        $solverInfo = [
+                            'firstname' => $enigma['solver_firstname'],
+                            'lastname' => $enigma['solver_lastname']
+                        ];
+                    }
+                    
+                    if (!$enigma) {
+                        $error_message = "❌ Aucune énigme n'a été configurée pour votre équipe et ce jour.";
+                        $show_error = true;
+                    }
                 }
             }
         }
@@ -527,7 +575,13 @@ $currentDay = $dayLabels[$selectedDay];
                         <?php endif; ?>
                     </div>
                     <div style="width: 45%; text-align: right;">
-                        <h1 class="enigma-title" style="margin-bottom: 8px; font-size: 1.8rem;">🎭 Énigme de votre équipe</h1>
+                        <h1 class="enigma-title" style="margin-bottom: 8px; font-size: 1.8rem;">
+                            <?php if ($isViewingOtherTeam): ?>
+                                👀 Énigme résolue de l'équipe
+                            <?php else: ?>
+                                🎭 Énigme de votre équipe
+                            <?php endif; ?>
+                        </h1>
                         <div class="enigma-subtitle" style="margin-bottom: 0; font-size: 1rem;">
                             <?= htmlspecialchars($user['team_name']) ?> - <?= htmlspecialchars($user['pole_name']) ?>
                         </div>
@@ -539,7 +593,7 @@ $currentDay = $dayLabels[$selectedDay];
                 </div>
 
                 <div class="solution-container">
-                    <?php if ($enigma['status'] == 2): ?>
+                    <?php if ($enigma['status'] == 2 || $isViewingOtherTeam): ?>
                         <div class="solution-label">🎉 Solution trouvée !</div>
                         <?php if ($solverInfo && $enigma['datetime_solved']): ?>
                             <div style="text-align: center; margin-bottom: 20px; font-size: 1rem; color: #4CAF50;">
@@ -553,7 +607,7 @@ $currentDay = $dayLabels[$selectedDay];
                     <div class="solution-boxes">
                         <?php 
                         $solutionLength = strlen($enigma['enigm_solution']);
-                        $isSolved = $enigma['status'] == 2;
+                        $isSolved = $enigma['status'] == 2 || $isViewingOtherTeam;
                         for ($i = 0; $i < $solutionLength; $i++): 
                             $letter = $isSolved ? strtoupper($enigma['enigm_solution'][$i]) : '';
                         ?>
@@ -577,7 +631,7 @@ $currentDay = $dayLabels[$selectedDay];
                     </div>
                 </div>
 
-                <?php if ($enigma['status'] != 2): ?>
+                <?php if ($enigma['status'] != 2 && !$isViewingOtherTeam): ?>
                     <div style="text-align: center; margin-top: 40px;">
                         <button id="validateBtn" class="back-btn disabled" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); cursor: not-allowed; border: none;" disabled>
                             ✅ Valider la solution
@@ -586,7 +640,11 @@ $currentDay = $dayLabels[$selectedDay];
                 <?php else: ?>
                     <div style="text-align: center; margin-top: 40px;">
                         <button class="back-btn disabled" style="cursor: not-allowed;">
-                            ✅ Solution validée
+                            <?php if ($isViewingOtherTeam): ?>
+                                👀 Énigme résolue par cette équipe
+                            <?php else: ?>
+                                ✅ Solution validée
+                            <?php endif; ?>
                         </button>
                     </div>
                 <?php endif; ?>

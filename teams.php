@@ -3,11 +3,22 @@
 require_once __DIR__ . '/db-connection.php';
 $dbConnection = getDBConnection();
 
+// Vérifier la connexion avant de continuer
+if (!$dbConnection) {
+    error_log("Erreur critique: Impossible de se connecter à la base de données");
+    die("Erreur de connexion à la base de données");
+}
+
 // Calculer le jour du jeu le plus tôt possible pour l'utiliser partout
 $gameDay = getGameDay($dbConnection);
 
 // Fonction pour calculer le jour du jeu basé sur la date courante
 function getGameDay($dbConnection) {
+    if (!$dbConnection) {
+        error_log("Erreur: Connexion à la base de données échouée dans getGameDay()");
+        return 1; // Retourner jour 1 par défaut
+    }
+    
     try {
         // Récupérer la date courante de la base de données
         $query = "SELECT `date` FROM `current_date` WHERE `id` = 1";
@@ -1078,7 +1089,7 @@ if ($dbConnection) {
         /* Styles pour l'encart chrono */
         .chrono-text {
             position: fixed;
-            font-size: 0.8rem;
+            font-size: 1.2rem;
             font-weight: bold;
             color: white;
             z-index: 999999;
@@ -1354,7 +1365,7 @@ if ($dbConnection) {
                                     <?php elseif ($team['enigma_status'] == 1): ?>
                                         <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>
                                     <?php else: ?>
-                                        <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue</a>
+                                        <a href="enigme.php?day=<?= $selectedDay ?>&team_id=<?= $team['id'] ?>" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue - Voir</a>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -1427,7 +1438,7 @@ if ($dbConnection) {
                                         <?php elseif ($team['enigma_status'] == 1): ?>
                                             <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>
                                         <?php else: ?>
-                                            <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue</a>
+                                            <a href="enigme.php?day=<?= $selectedDay ?>&team_id=<?= $team['id'] ?>" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue - Voir</a>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -1826,7 +1837,7 @@ if ($dbConnection) {
             } else if (team.enigma_status == 1) {
                 enigmaBadge = `<a href="enigme.php?day=${currentDay}" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>`;
             } else {
-                enigmaBadge = `<a href="enigme.php?day=${currentDay}" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue</a>`;
+                enigmaBadge = `<a href="enigme.php?day=${currentDay}&team_id=${team.id}" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue - Voir</a>`;
             }
             
             // Déterminer le statut des papiers pour l'équipe
