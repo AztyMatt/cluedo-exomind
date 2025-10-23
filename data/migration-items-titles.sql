@@ -1,11 +1,59 @@
 -- Migration pour ajouter les nouveaux champs à la table items
 -- À exécuter si la table items existe déjà
 
--- Ajouter les nouveaux champs
-ALTER TABLE `items` 
-ADD COLUMN `title` VARCHAR(255) NOT NULL DEFAULT '' AFTER `path`,
-ADD COLUMN `subtitle` VARCHAR(500) NOT NULL DEFAULT '' AFTER `title`,
-ADD COLUMN `solved_title` VARCHAR(500) NULL AFTER `subtitle`;
+-- Ajouter la colonne title si elle n'existe pas
+SET @col_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'items'
+    AND COLUMN_NAME = 'title'
+);
+
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE `items` ADD COLUMN `title` VARCHAR(255) NOT NULL DEFAULT "" AFTER `path`',
+    'SELECT "Colonne title déjà existante" AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Ajouter la colonne subtitle si elle n'existe pas
+SET @col_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'items'
+    AND COLUMN_NAME = 'subtitle'
+);
+
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE `items` ADD COLUMN `subtitle` VARCHAR(500) NOT NULL DEFAULT "" AFTER `title`',
+    'SELECT "Colonne subtitle déjà existante" AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Ajouter la colonne solved_title si elle n'existe pas
+SET @col_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'items'
+    AND COLUMN_NAME = 'solved_title'
+);
+
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE `items` ADD COLUMN `solved_title` VARCHAR(500) NULL AFTER `subtitle`',
+    'SELECT "Colonne solved_title déjà existante" AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Mettre à jour les données existantes avec les titres et sous-titres
 UPDATE `items` SET 

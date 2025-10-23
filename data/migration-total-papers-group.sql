@@ -2,20 +2,76 @@
 -- Remplacer date par id_day et ajouter les colonnes manquantes
 
 -- Ajouter la colonne id_day si elle n'existe pas
-ALTER TABLE `total_papers_found_group` 
-ADD COLUMN IF NOT EXISTS `id_day` INT NOT NULL AFTER `id_group`;
+SET @col_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'total_papers_found_group'
+    AND COLUMN_NAME = 'id_day'
+);
+
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE `total_papers_found_group` ADD COLUMN `id_day` INT NOT NULL AFTER `id_group`',
+    'SELECT "Colonne id_day déjà existante" AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Ajouter la colonne total_to_found si elle n'existe pas
-ALTER TABLE `total_papers_found_group` 
-ADD COLUMN IF NOT EXISTS `total_to_found` INT NOT NULL DEFAULT 0 AFTER `id_day`;
+SET @col_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'total_papers_found_group'
+    AND COLUMN_NAME = 'total_to_found'
+);
+
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE `total_papers_found_group` ADD COLUMN `total_to_found` INT NOT NULL DEFAULT 0 AFTER `id_day`',
+    'SELECT "Colonne total_to_found déjà existante" AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Ajouter la colonne total_founded si elle n'existe pas
-ALTER TABLE `total_papers_found_group` 
-ADD COLUMN IF NOT EXISTS `total_founded` INT NOT NULL DEFAULT 0 AFTER `total_to_found`;
+SET @col_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'total_papers_found_group'
+    AND COLUMN_NAME = 'total_founded'
+);
+
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE `total_papers_found_group` ADD COLUMN `total_founded` INT NOT NULL DEFAULT 0 AFTER `total_to_found`',
+    'SELECT "Colonne total_founded déjà existante" AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Ajouter la colonne complete si elle n'existe pas
-ALTER TABLE `total_papers_found_group` 
-ADD COLUMN IF NOT EXISTS `complete` BOOLEAN NOT NULL DEFAULT FALSE AFTER `total_founded`;
+SET @col_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'total_papers_found_group'
+    AND COLUMN_NAME = 'complete'
+);
+
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE `total_papers_found_group` ADD COLUMN `complete` BOOLEAN NOT NULL DEFAULT FALSE AFTER `total_founded`',
+    'SELECT "Colonne complete déjà existante" AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Ajouter la clé étrangère vers days si elle n'existe pas
 SET @fk_exists = (
