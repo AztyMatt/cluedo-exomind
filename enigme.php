@@ -95,8 +95,14 @@ if (!$activation_code_cookie || !$dbConnection) {
             $error_message = "❌ Utilisateur non trouvé ou non assigné à une équipe.";
             $show_error = true;
         } else {
-            // Déterminer quelle équipe consulter
-            $teamIdToCheck = $isViewingOtherTeam ? $targetTeamId : $user['group_id'];
+            // Déterminer quelle équipe consulter - SEULEMENT SA PROPRE ÉQUIPE
+            $teamIdToCheck = $user['group_id']; // Toujours sa propre équipe
+            
+            // Si quelqu'un essaie de voir une autre équipe, rediriger vers sa propre équipe
+            if ($isViewingOtherTeam && $targetTeamId !== $user['group_id']) {
+                header("Location: enigme.php?day=" . $selectedDay);
+                exit;
+            }
             
             if ($isViewingOtherTeam) {
                 // Vérifier que l'équipe cible existe

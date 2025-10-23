@@ -80,6 +80,34 @@ function formatDuration($timestampStart, $timestampEnd) {
     return trim($result);
 }
 
+// Fonction pour calculer le score basé sur la durée de résolution
+function calculateScore($timestampStart, $timestampEnd) {
+    if (!$timestampStart || !$timestampEnd) {
+        return 0; // Pas de score si pas résolu
+    }
+    
+    $start = new DateTime($timestampStart);
+    $end = new DateTime($timestampEnd);
+    $diff = $start->diff($end);
+    
+    // Calculer la durée totale en minutes
+    $totalMinutes = ($diff->h * 60) + $diff->i + ($diff->s / 60);
+    
+    // Score de base : 2000 points
+    $baseScore = 2000;
+    
+    // Pénalité : -100 points par tranche de 15 minutes
+    $penaltyPer15Minutes = 100;
+    $penaltyMinutes = floor($totalMinutes / 15) * 15; // Arrondir à la tranche de 15 minutes
+    $penalty = ($penaltyMinutes / 15) * $penaltyPer15Minutes;
+    
+    // Calculer le score final
+    $finalScore = $baseScore - $penalty;
+    
+    // Score minimum de 0
+    return max(0, $finalScore);
+}
+
 // Calculer le jour du jeu
 $gameDay = getGameDay($dbConnection);
 
@@ -157,7 +185,7 @@ try {
         
         // Récupérer le statut de l'énigme depuis la table enigmes avec les timestamps de durée
         $stmt = $dbConnection->prepare("
-            SELECT e.status, e.datetime_solved, e.enigm_solution, 
+            SELECT e.status, e.datetime_solved, 
                    esd.timestamp_start, esd.timestamp_end
             FROM `enigmes` e 
             LEFT JOIN `enigm_solutions_durations` esd ON e.id = esd.id_enigm 
@@ -169,24 +197,26 @@ try {
         if ($enigmaData) {
             $teams[$index]['enigma_status'] = (int)$enigmaData['status'];
             $teams[$index]['datetime_solved'] = $enigmaData['datetime_solved'];
-            $teams[$index]['enigma_solution'] = $enigmaData['enigm_solution'];
             $teams[$index]['timestamp_start'] = $enigmaData['timestamp_start'];
             $teams[$index]['timestamp_end'] = $enigmaData['timestamp_end'];
             
             // Calculer la durée de résolution
             $teams[$index]['duration'] = formatDuration($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
+            
+            // Calculer le score basé sur la durée
+            $teams[$index]['score'] = calculateScore($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
         } else {
             // Valeurs par défaut si pas de données pour ce jour
             $teams[$index]['enigma_status'] = 0;
             $teams[$index]['datetime_solved'] = null;
-            $teams[$index]['enigma_solution'] = '';
             $teams[$index]['timestamp_start'] = null;
             $teams[$index]['timestamp_end'] = null;
             $teams[$index]['duration'] = null;
+            $teams[$index]['score'] = 0;
         }
     }
     
-    // Calculer le classement des équipes basé sur datetime_solved
+    // Calculer le classement des équipes basé sur le score
     $solvedTeams = [];
     $unsolvedTeams = [];
     
@@ -200,9 +230,9 @@ try {
         }
     }
     
-    // Trier les équipes résolues par datetime_solved (le plus tôt en premier)
+    // Trier les équipes résolues par score décroissant (le plus haut score en premier)
     usort($solvedTeams, function($a, $b) {
-        return strtotime($a['datetime_solved']) - strtotime($b['datetime_solved']);
+        return $b['score'] - $a['score'];
     });
     
     // Assigner les rangs (1, 2, 3, 4, 5, 6)
@@ -217,7 +247,7 @@ try {
         $unsolvedTeams[$index]['ranking'] = null;
     }
     
-    // Reconstituer la liste des équipes : résolues d'abord (par ordre de résolution), puis non résolues
+    // Reconstituer la liste des équipes : résolues d'abord (par score), puis non résolues
     $teams = array_merge($solvedTeams, $unsolvedTeams);
     
     // Vérifier et supprimer les doublons par ID

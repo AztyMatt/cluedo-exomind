@@ -58,6 +58,34 @@ function getGameDay($dbConnection) {
     }
 }
 
+// Fonction pour calculer le score basé sur la durée de résolution
+function calculateScore($timestampStart, $timestampEnd) {
+    if (!$timestampStart || !$timestampEnd) {
+        return 0; // Pas de score si pas résolu
+    }
+    
+    $start = new DateTime($timestampStart);
+    $end = new DateTime($timestampEnd);
+    $diff = $start->diff($end);
+    
+    // Calculer la durée totale en minutes
+    $totalMinutes = ($diff->h * 60) + $diff->i + ($diff->s / 60);
+    
+    // Score de base : 2000 points
+    $baseScore = 2000;
+    
+    // Pénalité : -100 points par tranche de 15 minutes
+    $penaltyPer15Minutes = 100;
+    $penaltyMinutes = floor($totalMinutes / 15) * 15; // Arrondir à la tranche de 15 minutes
+    $penalty = ($penaltyMinutes / 15) * $penaltyPer15Minutes;
+    
+    // Calculer le score final
+    $finalScore = $baseScore - $penalty;
+    
+    // Score minimum de 0
+    return max(0, $finalScore);
+}
+
 // Calculer le jour du jeu
 $gameDay = getGameDay($dbConnection);
 
@@ -121,19 +149,38 @@ if ($dbConnection) {
                     $team["day_{$day}_complete"] = false;
                 }
                 
-                // Récupérer le statut de l'énigme pour chaque jour
-                $stmt = $dbConnection->prepare("SELECT status, datetime_solved FROM `enigmes` WHERE id_group = ? AND id_day = ?");
+                // Récupérer le statut de l'énigme pour chaque jour avec les timestamps
+                $stmt = $dbConnection->prepare("
+                    SELECT e.status, e.datetime_solved, 
+                           esd.timestamp_start, esd.timestamp_end
+                    FROM `enigmes` e 
+                    LEFT JOIN `enigm_solutions_durations` esd ON e.id = esd.id_enigm 
+                    WHERE e.id_group = ? AND e.id_day = ?
+                ");
                 $stmt->execute([$team['id'], $day]);
                 $enigmaData = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($enigmaData) {
                     $team["day_{$day}_enigma_status"] = (int)$enigmaData['status'];
                     $team["day_{$day}_datetime_solved"] = $enigmaData['datetime_solved'];
+                    $team["day_{$day}_timestamp_start"] = $enigmaData['timestamp_start'];
+                    $team["day_{$day}_timestamp_end"] = $enigmaData['timestamp_end'];
+                    
+                    // Calculer le score basé sur la durée
+                    $team["day_{$day}_enigma_score"] = calculateScore($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
                 } else {
                     $team["day_{$day}_enigma_status"] = 0;
                     $team["day_{$day}_datetime_solved"] = null;
+                    $team["day_{$day}_timestamp_start"] = null;
+                    $team["day_{$day}_timestamp_end"] = null;
+                    $team["day_{$day}_enigma_score"] = 0;
                 }
             }
+            
+            // Calculer le total des points (objets + énigmes)
+            $totalPoints = $team['solved_items_count'] * 500; // Points des objets
+            $totalPoints += $team['day_1_enigma_score'] + $team['day_2_enigma_score'] + $team['day_3_enigma_score']; // Points des énigmes
+            $team['total_points'] = $totalPoints;
             
             $teamsWithData[] = $team;
         }
@@ -141,9 +188,9 @@ if ($dbConnection) {
         // Utiliser les équipes avec données
         $teams = $teamsWithData;
         
-        // Trier les équipes par nombre de points décroissant (objets trouvés)
+        // Trier les équipes par total de points décroissant (objets + énigmes)
         usort($teams, function($a, $b) {
-            return $b['solved_items_count'] - $a['solved_items_count'];
+            return $b['total_points'] - $a['total_points'];
         });
         
     } catch (PDOException $e) {
@@ -432,6 +479,32 @@ if ($dbConnection) {
             text-align: center;
         }
 
+        .day-enigma-text {
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+            text-align: center;
+        }
+
+        .day-enigma-text.resolved {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .day-enigma-text.not-resolved {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        .day-points {
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ff6b35;
+        }
+
         .day-enigma-status.resolved {
             background: rgba(76, 175, 80, 0.3);
             color: #4CAF50;
@@ -541,7 +614,7 @@ if ($dbConnection) {
                     <?php foreach ($teams as $index => $team): ?>
                         <tr>
                             <td class="rank-cell rank-<?= $index + 1 ?>"><?= $index + 1 ?></td>
-                            <td class="points-cell"><?= $team['solved_items_count'] * 500 ?> pts</td>
+                            <td class="points-cell"><?= $team['total_points'] ?> pts</td>
                             <td class="team-name-cell">
                                 <div class="team-info">
                                     <?php if (!empty($team['img_path']) && file_exists($team['img_path'])): ?>
@@ -584,27 +657,48 @@ if ($dbConnection) {
                                 <?php endif; ?>
                             </td>
                             <td class="day-cell">
-                                <div class="day-enigma-status <?= $team['day_1_enigma_status'] == 2 ? 'resolved' : 'not-resolved' ?>">
+                                <div class="day-enigma-text <?= $team['day_1_enigma_status'] == 2 ? 'resolved' : 'not-resolved' ?>">
                                     <?php if ($team['day_1_enigma_status'] == 2): ?>
-                                        500 pts
+                                        Énigme résolue
+                                    <?php else: ?>
+                                        Énigme non résolue
+                                    <?php endif; ?>
+                                </div>
+                                <div class="day-points">
+                                    <?php if ($team['day_1_enigma_status'] == 2): ?>
+                                        <?= $team['day_1_enigma_score'] ?> pts
                                     <?php else: ?>
                                         0 pts
                                     <?php endif; ?>
                                 </div>
                             </td>
                             <td class="day-cell">
-                                <div class="day-enigma-status <?= $team['day_2_enigma_status'] == 2 ? 'resolved' : 'not-resolved' ?>">
+                                <div class="day-enigma-text <?= $team['day_2_enigma_status'] == 2 ? 'resolved' : 'not-resolved' ?>">
                                     <?php if ($team['day_2_enigma_status'] == 2): ?>
-                                        500 pts
+                                        Énigme résolue
+                                    <?php else: ?>
+                                        Énigme non résolue
+                                    <?php endif; ?>
+                                </div>
+                                <div class="day-points">
+                                    <?php if ($team['day_2_enigma_status'] == 2): ?>
+                                        <?= $team['day_2_enigma_score'] ?> pts
                                     <?php else: ?>
                                         0 pts
                                     <?php endif; ?>
                                 </div>
                             </td>
                             <td class="day-cell">
-                                <div class="day-enigma-status <?= $team['day_3_enigma_status'] == 2 ? 'resolved' : 'not-resolved' ?>">
+                                <div class="day-enigma-text <?= $team['day_3_enigma_status'] == 2 ? 'resolved' : 'not-resolved' ?>">
                                     <?php if ($team['day_3_enigma_status'] == 2): ?>
-                                        500 pts
+                                        Énigme résolue
+                                    <?php else: ?>
+                                        Énigme non résolue
+                                    <?php endif; ?>
+                                </div>
+                                <div class="day-points">
+                                    <?php if ($team['day_3_enigma_status'] == 2): ?>
+                                        <?= $team['day_3_enigma_score'] ?> pts
                                     <?php else: ?>
                                         0 pts
                                     <?php endif; ?>

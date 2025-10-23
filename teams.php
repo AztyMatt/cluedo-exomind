@@ -112,6 +112,34 @@ function formatDuration($timestampStart, $timestampEnd) {
     return trim($result);
 }
 
+// Fonction pour calculer le score basé sur la durée de résolution
+function calculateScore($timestampStart, $timestampEnd) {
+    if (!$timestampStart || !$timestampEnd) {
+        return 0; // Pas de score si pas résolu
+    }
+    
+    $start = new DateTime($timestampStart);
+    $end = new DateTime($timestampEnd);
+    $diff = $start->diff($end);
+    
+    // Calculer la durée totale en minutes
+    $totalMinutes = ($diff->h * 60) + $diff->i + ($diff->s / 60);
+    
+    // Score de base : 2000 points
+    $baseScore = 2000;
+    
+    // Pénalité : -100 points par tranche de 15 minutes
+    $penaltyPer15Minutes = 100;
+    $penaltyMinutes = floor($totalMinutes / 15) * 15; // Arrondir à la tranche de 15 minutes
+    $penalty = ($penaltyMinutes / 15) * $penaltyPer15Minutes;
+    
+    // Calculer le score final
+    $finalScore = $baseScore - $penalty;
+    
+    // Score minimum de 0
+    return max(0, $finalScore);
+}
+
 // Vérifier si l'utilisateur est activé via le cookie
 $userActivated = false;
 $userTeam = null;
@@ -223,26 +251,28 @@ if ($dbConnection) {
             if ($enigmaData) {
                 $team['enigma_status'] = (int)$enigmaData['status']; // 0 = à reconstituer, 1 = en cours, 2 = résolue
                 $team['datetime_solved'] = $enigmaData['datetime_solved']; // Date de résolution
-                $team['enigma_solution'] = $enigmaData['enigm_solution']; // Solution de l'énigme
                 $team['timestamp_start'] = $enigmaData['timestamp_start']; // Début du chrono
                 $team['timestamp_end'] = $enigmaData['timestamp_end']; // Fin du chrono
                 
                 // Calculer la durée de résolution
                 $team['duration'] = formatDuration($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
+                
+                // Calculer le score basé sur la durée
+                $team['score'] = calculateScore($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
             } else {
                 // Valeur par défaut si pas d'énigme
                 $team['enigma_status'] = 0;
                 $team['datetime_solved'] = null;
-                $team['enigma_solution'] = '';
                 $team['timestamp_start'] = null;
                 $team['timestamp_end'] = null;
                 $team['duration'] = null;
+                $team['score'] = 0;
             }
             
             $teamsWithUsers[] = $team;
         }
         
-        // Calculer le classement des équipes basé sur datetime_solved
+        // Calculer le classement des équipes basé sur le score
         $solvedTeams = [];
         $unsolvedTeams = [];
         
@@ -256,9 +286,9 @@ if ($dbConnection) {
             }
         }
         
-        // Trier les équipes résolues par datetime_solved (le plus tôt en premier)
+        // Trier les équipes résolues par score décroissant (le plus haut score en premier)
         usort($solvedTeams, function($a, $b) {
-            return strtotime($a['datetime_solved']) - strtotime($b['datetime_solved']);
+            return $b['score'] - $a['score'];
         });
         
         // Assigner les rangs (1, 2, 3, 4, 5, 6)
@@ -273,7 +303,7 @@ if ($dbConnection) {
             $unsolvedTeams[$index]['ranking'] = null;
         }
         
-        // Reconstituer la liste des équipes : résolues d'abord (par ordre de résolution), puis non résolues
+        // Reconstituer la liste des équipes : résolues d'abord (par score), puis non résolues
         $teams = array_merge($solvedTeams, $unsolvedTeams);
         
     } catch (PDOException $e) {
@@ -1449,9 +1479,17 @@ if ($dbConnection) {
                                     <?php if ($team['enigma_status'] == 0): ?>
                                         <span class="status-badge badge-danger">🔒 À reconstituer</span>
                                     <?php elseif ($team['enigma_status'] == 1): ?>
-                                        <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>
+                                        <?php if ($userActivated && $userTeam && $userTeam['group_id'] == $team['id']): ?>
+                                            <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>
+                                        <?php else: ?>
+                                            <span class="status-badge badge-warning">⏳ Reconstituée/à résoudre</span>
+                                        <?php endif; ?>
                                     <?php else: ?>
-                                        <a href="enigme.php?day=<?= $selectedDay ?>&team_id=<?= $team['id'] ?>" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue - Voir</a>
+                                        <?php if ($userActivated && $userTeam && $userTeam['group_id'] == $team['id']): ?>
+                                            <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue - Voir</a>
+                                        <?php else: ?>
+                                            <span class="status-badge badge-success">✅ Résolue</span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -1541,9 +1579,17 @@ if ($dbConnection) {
                                         <?php if ($team['enigma_status'] == 0): ?>
                                             <span class="status-badge badge-danger">🔒 À reconstituer</span>
                                         <?php elseif ($team['enigma_status'] == 1): ?>
-                                            <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>
+                                            <?php if ($userActivated && $userTeam && $userTeam['group_id'] == $team['id']): ?>
+                                                <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>
+                                            <?php else: ?>
+                                                <span class="status-badge badge-warning">⏳ Reconstituée/à résoudre</span>
+                                            <?php endif; ?>
                                         <?php else: ?>
-                                            <a href="enigme.php?day=<?= $selectedDay ?>&team_id=<?= $team['id'] ?>" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue - Voir</a>
+                                            <?php if ($userActivated && $userTeam && $userTeam['group_id'] == $team['id']): ?>
+                                                <a href="enigme.php?day=<?= $selectedDay ?>" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue - Voir</a>
+                                            <?php else: ?>
+                                                <span class="status-badge badge-success">✅ Résolue</span>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -1559,6 +1605,9 @@ if ($dbConnection) {
         // Utiliser le jour calculé par PHP selon la table current_date
         let currentDay = <?= $gameDay ?>;
         console.log('🚀 Initialisation - currentDay (depuis current_date):', currentDay);
+        
+        // Informations sur l'équipe de l'utilisateur connecté
+        window.currentUserTeam = <?= $userActivated && $userTeam ? json_encode($userTeam) : 'null' ?>;
         
         // Gestion de la modale des règles
         const rulesBtn = document.getElementById('rulesBtn');
@@ -1643,11 +1692,6 @@ if ($dbConnection) {
         });
         
         // ========== MISE À JOUR EN TEMPS RÉEL AVEC AJAX ==========
-        
-        // Fonction pour récupérer la solution de l'énigme
-        function getEnigmaSolution(teamData) {
-            return teamData.enigma_solution || '';
-        }
 
         // Fonction pour positionner les médailles par-dessus les cartes
         function positionMedals() {
@@ -1677,47 +1721,38 @@ if ($dbConnection) {
                     document.body.appendChild(medal);
                 }
                 
-                // Afficher la solution de l'énigme si elle est résolue (même sans médaille)
-                if (teamData && teamData.enigma_status == 2 && teamData.enigma_solution) {
+                // Afficher le chrono et les points si l'énigme est résolue
+                if (teamData && teamData.enigma_status == 2 && teamData.duration) {
                     const rect = card.getBoundingClientRect();
                     
-                    // Créer l'encart chrono séparé si duration existe
-                    let chronoWidth = 0;
-                    if (teamData.duration) {
-                        const chronoText = document.createElement('div');
-                        chronoText.className = 'chrono-text';
-                        chronoText.innerHTML = `⏱️ ${teamData.duration}`;
-                        chronoText.id = `chrono-${teamId}`;
-                        
-                        // Ajouter au body d'abord pour calculer la largeur
-                        document.body.appendChild(chronoText);
-                        chronoWidth = chronoText.offsetWidth;
-                    }
+                    // Créer l'encart chrono
+                    const chronoText = document.createElement('div');
+                    chronoText.className = 'chrono-text';
+                    chronoText.innerHTML = `⏱️ ${teamData.duration}`;
+                    chronoText.id = `chrono-${teamId}`;
                     
-                    // Créer le texte de solution d'énigme
-                    const enigmaText = document.createElement('div');
-                    enigmaText.className = 'ranking-text';
-                    enigmaText.textContent = teamData.enigma_solution.toUpperCase();
-                    enigmaText.id = `text-${teamId}`;
+                    // Créer l'encart points
+                    const pointsText = document.createElement('div');
+                    pointsText.className = 'ranking-text';
+                    pointsText.innerHTML = `🏆 ${teamData.score} pts`;
+                    pointsText.id = `points-${teamId}`;
                     
-                    // Ajouter au body pour calculer la largeur
-                    document.body.appendChild(enigmaText);
-                    const solutionWidth = enigmaText.offsetWidth;
+                    // Ajouter au body d'abord pour calculer les largeurs
+                    document.body.appendChild(chronoText);
+                    document.body.appendChild(pointsText);
                     
-                    // Calculer la position pour centrer l'ensemble
-                    const totalWidth = chronoWidth + solutionWidth + 10; // 10px d'espacement
+                    const chronoWidth = chronoText.offsetWidth;
+                    const pointsWidth = pointsText.offsetWidth;
+                    const totalWidth = chronoWidth + pointsWidth + 10; // 10px d'espacement
                     const startX = rect.left + (rect.width / 2) - (totalWidth / 2);
                     
                     // Positionner le chrono à gauche
-                    if (teamData.datetime_solved) {
-                        const chronoText = document.getElementById(`chrono-${teamId}`);
-                        chronoText.style.left = `${startX}px`;
-                        chronoText.style.top = `${rect.top - 40}px`;
-                    }
+                    chronoText.style.left = `${startX}px`;
+                    chronoText.style.top = `${rect.top - 40}px`;
                     
-                    // Positionner la solution à droite du chrono
-                    enigmaText.style.left = `${startX + chronoWidth + 10}px`;
-                    enigmaText.style.top = `${rect.top - 40}px`;
+                    // Positionner les points à droite du chrono
+                    pointsText.style.left = `${startX + chronoWidth + 10}px`;
+                    pointsText.style.top = `${rect.top - 40}px`;
                 }
             });
         }
@@ -1751,33 +1786,33 @@ if ($dbConnection) {
                         }
                     });
                     
-                    // Mettre à jour les positions des textes et chronos ensemble
-                    document.querySelectorAll('.ranking-text').forEach(text => {
-                        const teamId = text.id.replace('text-', '');
+                    // Mettre à jour les positions des chronos et points
+                    document.querySelectorAll('.chrono-text').forEach(chrono => {
+                        const teamId = chrono.id.replace('chrono-', '');
                         const card = document.querySelector(`[data-team-id="${teamId}"]`);
-                        const chrono = document.getElementById(`chrono-${teamId}`);
+                        const points = document.getElementById(`points-${teamId}`);
                         
                         if (card) {
                             const rect = card.getBoundingClientRect();
                             
-                            if (chrono) {
+                            if (points) {
                                 // Calculer la largeur totale pour centrer l'ensemble
                                 const chronoWidth = chrono.offsetWidth;
-                                const solutionWidth = text.offsetWidth;
-                                const totalWidth = chronoWidth + solutionWidth + 10; // 10px d'espacement
+                                const pointsWidth = points.offsetWidth;
+                                const totalWidth = chronoWidth + pointsWidth + 10; // 10px d'espacement
                                 const startX = rect.left + (rect.width / 2) - (totalWidth / 2);
                                 
                                 // Positionner le chrono à gauche
                                 chrono.style.left = `${startX}px`;
                                 chrono.style.top = `${rect.top - 40}px`;
                                 
-                                // Positionner la solution à droite du chrono
-                                text.style.left = `${startX + chronoWidth + 10}px`;
-                                text.style.top = `${rect.top - 40}px`;
+                                // Positionner les points à droite du chrono
+                                points.style.left = `${startX + chronoWidth + 10}px`;
+                                points.style.top = `${rect.top - 40}px`;
                             } else {
-                                // Si pas de chrono, centrer juste la solution
-                                text.style.left = `${rect.left + (rect.width / 2) - 50}px`;
-                                text.style.top = `${rect.top - 40}px`;
+                                // Si pas de points, centrer juste le chrono
+                                chrono.style.left = `${rect.left + (rect.width / 2) - 50}px`;
+                                chrono.style.top = `${rect.top - 40}px`;
                             }
                         }
                     });
@@ -1966,12 +2001,22 @@ if ($dbConnection) {
             
             // Statut de l'énigme
             let enigmaBadge = '';
+            const isUserTeam = window.currentUserTeam && window.currentUserTeam.group_id == team.id;
+            
             if (team.enigma_status == 0) {
                 enigmaBadge = '<span class="status-badge badge-danger">🔒 À reconstituer</span>';
             } else if (team.enigma_status == 1) {
-                enigmaBadge = `<a href="enigme.php?day=${currentDay}" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>`;
+                if (isUserTeam) {
+                    enigmaBadge = `<a href="enigme.php?day=${currentDay}" class="status-badge badge-warning" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">⏳ Reconstituée/à résoudre</a>`;
+                } else {
+                    enigmaBadge = '<span class="status-badge badge-warning">⏳ Reconstituée/à résoudre</span>';
+                }
             } else {
-                enigmaBadge = `<a href="enigme.php?day=${currentDay}&team_id=${team.id}" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue - Voir</a>`;
+                if (isUserTeam) {
+                    enigmaBadge = `<a href="enigme.php?day=${currentDay}" class="status-badge badge-success" style="text-decoration: none; cursor: pointer; transition: transform 0.2s;">✅ Résolue - Voir</a>`;
+                } else {
+                    enigmaBadge = '<span class="status-badge badge-success">✅ Résolue</span>';
+                }
             }
             
             // Déterminer le statut des papiers pour l'équipe
