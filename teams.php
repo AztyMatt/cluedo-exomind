@@ -378,6 +378,15 @@ if ($dbConnection) {
             background: #f4d03f;
         }
 
+        .btn-ranking {
+            background: #ff6b35;
+            color: white;
+        }
+
+        .btn-ranking:hover {
+            background: #e55a2b;
+        }
+
         .btn-play {
             background: #073545;
             color: white;
@@ -1317,7 +1326,8 @@ if ($dbConnection) {
 
         <div class="buttons-container">
             <button id="rulesBtn" class="game-button btn-rules">Règles du jeu</button>
-            <a href="/game" class="game-button btn-play">Jouer</a>
+            <a href="ranking.php" class="game-button btn-ranking">🏆 Classement</a>
+            <a href="game.php" class="game-button btn-play">Jouer</a>
         </div>
 
         <!-- Modale des règles -->
