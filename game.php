@@ -426,10 +426,7 @@ if ($show_activation_form) {
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: url('assets/img/cluedo_background.webp');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
+            background: #000000;
             color: #eee;
             min-height: 100vh;
             padding: 20px;
@@ -579,11 +576,55 @@ if ($show_activation_form) {
             width: 100vw;
             height: 88vh;
             overflow: hidden;
-            background: #1e1e1e;
+            background: #000000;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.6s ease;
+        }
+        
+        #game-canvas-container.loading {
+            opacity: 0;
         }
         
         #game-canvas-container canvas {
             display: block;
+        }
+        
+        #loading-logo-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            pointer-events: none;
+            transform: translateY(-50px);
+        }
+        
+        #loading-logo {
+            max-width: 300px;
+            max-height: 200px;
+            width: auto;
+            height: auto;
+            opacity: 0;
+        }
+        
+        #loading-logo.show {
+            animation: logoFadeInOut 4s ease-in-out infinite;
+        }
+        
+        @keyframes logoFadeInOut {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            30% { opacity: 1; }
+            50% { opacity: 0; }
+            60% { opacity: 0; }
+            80% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
         }
         
         /* Pop-up d'information papier trouvé */
@@ -1076,6 +1117,11 @@ if ($show_activation_form) {
                 <canvas id="c"></canvas>
             </div>
             
+            <!-- Logo de chargement séparé -->
+            <div id="loading-logo-container">
+                <img id="loading-logo" src="assets/img/logo.png" alt="Loading Logo">
+            </div>
+            
             <!-- Conteneur de notifications (papiers trouvés récemment) -->
             <div id="notifications-container"></div>
             
@@ -1536,40 +1582,61 @@ if ($show_activation_form) {
             currentBackgroundKey = pathToKey(src);
             console.log('🔄 Chargement de:', src, 'clé:', currentBackgroundKey);
             
-            // Nettoyer le canvas
-            canvas.getObjects().slice().forEach(o => canvas.remove(o));
+            const canvasContainer = document.getElementById('game-canvas-container');
+            const loadingLogo = document.getElementById('loading-logo');
+            const loadingLogoContainer = document.getElementById('loading-logo-container');
             
-            fabric.Image.fromURL(
-                src,
-                function (img) {
-                    backgroundImage = img;
-                    backgroundImage.set({
-                        left: 0,
-                        top: 0,
-                        scaleX: 1,
-                        scaleY: 1,
-                        originX: 'left',
-                        originY: 'top',
-                        selectable: false,
-                        evented: false
-                    });
-                    canvas.add(backgroundImage);
-                    canvas.sendToBack(backgroundImage);
-                    applyBaseViewport();
-                    isAtBaseZoom = true;
-                    canvas.requestRenderAll();
-                    console.log('✅ Image de fond chargée:', src);
-                    loadFromServer();
-                },
-                { crossOrigin: 'anonymous' }
-            );
+            // Étape 1: Fondu de l'image actuelle vers le noir + affichage du logo
+            canvasContainer.classList.add('loading');
+            loadingLogo.classList.add('show');
+            
+            // Attendre que le fondu soit terminé avant de charger la nouvelle image
+            setTimeout(() => {
+                // Masquer le canvas mais garder le logo visible pendant TOUT le chargement
+                canvasContainer.style.visibility = 'hidden';
+                
+                // Nettoyer le canvas
+                canvas.getObjects().slice().forEach(o => canvas.remove(o));
+                
+                fabric.Image.fromURL(
+                    src,
+                    function (img) {
+                        backgroundImage = img;
+                        backgroundImage.set({
+                            left: 0,
+                            top: 0,
+                            scaleX: 1,
+                            scaleY: 1,
+                            originX: 'left',
+                            originY: 'top',
+                            selectable: false,
+                            evented: false
+                        });
+                        canvas.add(backgroundImage);
+                        canvas.sendToBack(backgroundImage);
+                        applyBaseViewport();
+                        isAtBaseZoom = true;
+                        canvas.requestRenderAll();
+                        console.log('✅ Image de fond chargée:', src);
+                        
+                        // Charger les données et masquer le fondu quand tout est prêt
+                        loadFromServer().then(() => {
+                            // Étape 3: Fondu du noir vers la nouvelle image + masquer le logo
+                            loadingLogo.classList.remove('show');
+                            canvasContainer.style.visibility = 'visible';
+                            canvasContainer.classList.remove('loading');
+                        });
+                    },
+                    { crossOrigin: 'anonymous' }
+                );
+            }, 600);
         }
         
         // ========== CHARGEMENT DES DONNÉES ==========
         function loadFromServer() {
             console.log('📂 Chargement des données pour:', currentBackgroundKey);
             
-            fetch(window.location.href, {
+            return fetch(window.location.href, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: 'action=load&key=' + encodeURIComponent(currentBackgroundKey)
@@ -1580,7 +1647,7 @@ if ($show_activation_form) {
                 
                 if (!dataStr) {
                     console.log('ℹ️ Aucune donnée pour', currentBackgroundKey);
-                    return;
+                    return Promise.resolve();
                 }
                 
                 let savedObjects = [];
@@ -1588,7 +1655,7 @@ if ($show_activation_form) {
                 
                 if (!Array.isArray(savedObjects) || savedObjects.length === 0) {
                     console.log('ℹ️ Tableau vide pour', currentBackgroundKey);
-                    return;
+                    return Promise.resolve();
                 }
                 
                 console.log(`📂 Chargement de ${savedObjects.length} objets`);
@@ -1609,10 +1676,16 @@ if ($show_activation_form) {
                 });
                 
                 // Après avoir chargé tous les papiers, vérifier lesquels ont été trouvés
-                setTimeout(checkFoundPapers, 1000);
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        checkFoundPapers();
+                        resolve();
+                    }, 500);
+                });
             })
             .catch(error => {
                 console.error('❌ Erreur de chargement:', error);
+                return Promise.resolve(); // Continuer même en cas d'erreur
             });
         }
         

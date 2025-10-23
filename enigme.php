@@ -212,7 +212,7 @@ $currentDay = $dayLabels[$selectedDay];
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: url('assets/img/cluedo_background.webp');
+            background: url('assets/img/background.jpg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
