@@ -18,6 +18,14 @@ function updateButtonStates() {
   // Vérifier si une flèche est sélectionnée
   const isArrowSelected = hasSelection && activeObject.isArrow;
   
+  // Bouton "Associer Item" : disponible uniquement si masque sélectionné ET pas en mode lasso/édition
+  const associateItemBtn = document.getElementById("associateItem");
+  if (isMaskSelected && !isLassoMode && !isEditingMode) {
+    associateItemBtn.classList.remove('disabled');
+  } else {
+    associateItemBtn.classList.add('disabled');
+  }
+  
   // Boutons "Premier plan" et "Arrière plan" : disponibles si masque, papier ou flèche sélectionné
   const bringForwardBtn = document.getElementById("bringForward");
   const sendBackwardBtn = document.getElementById("sendBackward");
@@ -39,6 +47,7 @@ function updateButtonStates() {
     addPaperBtn.classList.add('disabled');
     addArrowBtn.classList.add('disabled');
     editMaskBtn.classList.add('disabled');
+    associateItemBtn.classList.add('disabled');
     bringForwardBtn.classList.add('disabled');
     sendBackwardBtn.classList.add('disabled');
   } else if (isEditingMode) {
@@ -46,6 +55,7 @@ function updateButtonStates() {
     addPaperBtn.classList.add('disabled');
     addArrowBtn.classList.add('disabled');
     toggleLassoBtn.classList.add('disabled');
+    associateItemBtn.classList.add('disabled');
     bringForwardBtn.classList.add('disabled');
     sendBackwardBtn.classList.add('disabled');
     // Le bouton editMask reste actif pour servir de "Valider"
@@ -55,7 +65,7 @@ function updateButtonStates() {
     addPaperBtn.classList.remove('disabled');
     addArrowBtn.classList.remove('disabled');
     toggleLassoBtn.classList.remove('disabled');
-    // editMask, bringForward et sendBackward gérés ci-dessus selon la sélection
+    // editMask, associateItem, bringForward et sendBackward gérés ci-dessus selon la sélection
   }
 }
 

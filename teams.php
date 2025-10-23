@@ -165,6 +165,12 @@ if ($dbConnection) {
             $stmt->execute([$team['id']]);
             $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
+            // Récupérer les objets associés à cette équipe
+            $stmt = $dbConnection->prepare("SELECT id, path, title, subtitle, solved FROM `items` WHERE group_id = ? ORDER BY id ASC");
+            $stmt->execute([$team['id']]);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $team['items'] = $items;
+            
             // Ajouter le nombre de papiers trouvés pour chaque utilisateur
             foreach ($users as &$user) {
                 // Récupérer le vrai nombre de papiers trouvés depuis papers_found_user
@@ -1034,6 +1040,82 @@ if ($dbConnection) {
             transform: scale(1.05);
         }
 
+        /* Styles pour l'encart objets */
+        .items-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 2px;
+        }
+
+        .status-label-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 2px;
+        }
+
+        .items-counter {
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .item-miniature {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid var(--team-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .item-miniature:hover {
+            transform: scale(1.1);
+            border-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .item-miniature img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .item-miniature.solved {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            border-color: #38ef7d;
+        }
+
+        .item-miniature.solved::after {
+            content: '✓';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #4CAF50;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid white;
+        }
+
         .color-indicator {
             position: absolute;
             top: 20px;
@@ -1355,6 +1437,25 @@ if ($dbConnection) {
                             <!-- Section de statut -->
                             <div class="team-status">
                                 <div class="status-item">
+                                    <div class="status-label-container">
+                                        <span class="status-label">Objets</span>
+                                        <?php 
+                                        $solvedItemsCount = 0;
+                                        foreach ($team['items'] as $item) {
+                                            if ($item['solved']) $solvedItemsCount++;
+                                        }
+                                        ?>
+                                        <span class="items-counter"><?= $solvedItemsCount ?>/<?= count($team['items']) ?></span>
+                                    </div>
+                                    <div class="items-container">
+                                        <?php foreach ($team['items'] as $item): ?>
+                                            <div class="item-miniature <?= $item['solved'] ? 'solved' : '' ?>" title="<?= htmlspecialchars($item['title']) ?> - <?= htmlspecialchars($item['subtitle']) ?>">
+                                                <img src="<?= htmlspecialchars($item['path']) ?>" alt="<?= htmlspecialchars($item['title']) ?>">
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                                <div class="status-item">
                                     <span class="status-label">Papiers</span>
                                     <span class="status-value <?= getPapersStatus($team['papers_found'], $team['total_to_found']) ?>">📄 <?= $team['papers_found'] ?> / <?= $team['total_to_found'] ?></span>
                                 </div>
@@ -1427,6 +1528,25 @@ if ($dbConnection) {
 
                                 <!-- Section de statut -->
                                 <div class="team-status">
+                                    <div class="status-item">
+                                        <div class="status-label-container">
+                                            <span class="status-label">Objets</span>
+                                            <?php 
+                                            $solvedItemsCount = 0;
+                                            foreach ($team['items'] as $item) {
+                                                if ($item['solved']) $solvedItemsCount++;
+                                            }
+                                            ?>
+                                            <span class="items-counter"><?= $solvedItemsCount ?>/<?= count($team['items']) ?></span>
+                                        </div>
+                                        <div class="items-container">
+                                            <?php foreach ($team['items'] as $item): ?>
+                                                <div class="item-miniature <?= $item['solved'] ? 'solved' : '' ?>" title="<?= htmlspecialchars($item['title']) ?> - <?= htmlspecialchars($item['subtitle']) ?>">
+                                                    <img src="<?= htmlspecialchars($item['path']) ?>" alt="<?= htmlspecialchars($item['title']) ?>">
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
                                     <div class="status-item">
                                         <span class="status-label">Papiers</span>
                                         <span class="status-value <?= getPapersStatus($team['papers_found'], $team['total_to_found']) ?>">📄 <?= $team['papers_found'] ?> / <?= $team['total_to_found'] ?></span>
@@ -1830,6 +1950,35 @@ if ($dbConnection) {
                 usersHTML = '<div class="user-item"><div class="user-name">Aucun utilisateur</div></div>';
             }
             
+            // Objets de l'équipe
+            let itemsLabelHTML = '';
+            let itemsMiniaturesHTML = '';
+            if (team.items && team.items.length > 0) {
+                // Compter les objets résolus
+                let solvedItemsCount = 0;
+                team.items.forEach(item => {
+                    if (item.solved) solvedItemsCount++;
+                });
+                
+                // Créer le label avec compteur
+                itemsLabelHTML = `
+                    <div class="status-label-container">
+                        <span class="status-label">Objets</span>
+                        <span class="items-counter">${solvedItemsCount}/${team.items.length}</span>
+                    </div>
+                `;
+                
+                // Créer les miniatures
+                team.items.forEach(item => {
+                    const solvedClass = item.solved ? 'solved' : '';
+                    itemsMiniaturesHTML += `
+                        <div class="item-miniature ${solvedClass}" title="${item.title} - ${item.subtitle}">
+                            <img src="${item.path}" alt="${item.title}">
+                        </div>
+                    `;
+                });
+            }
+            
             // Statut de l'énigme
             let enigmaBadge = '';
             if (team.enigma_status == 0) {
@@ -1868,6 +2017,12 @@ if ($dbConnection) {
 
                 <!-- Section de statut -->
                 <div class="team-status">
+                    <div class="status-item">
+                        ${itemsLabelHTML}
+                        <div class="items-container">
+                            ${itemsMiniaturesHTML}
+                        </div>
+                    </div>
                     <div class="status-item">
                         <span class="status-label">Papiers</span>
                         <span class="status-value ${teamPapersStatus}">📄 ${team.papers_found} / ${team.total_to_found}</span>

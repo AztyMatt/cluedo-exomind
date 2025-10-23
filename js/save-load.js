@@ -263,6 +263,19 @@ function loadFromServer() {
             setTimeout(() => {
               isLoadingFromServer = false;
               console.log('🔓 Sauvegarde automatique réactivée');
+              
+              // Charger les images d'items pour les masques existants
+              if (typeof window.loadExistingItemImages === 'function') {
+                console.log('🎯 Appel de loadExistingItemImages depuis save-load.js');
+                window.loadExistingItemImages();
+              } else {
+                console.log('⚠️ loadExistingItemImages pas encore disponible, délai de 1 seconde...');
+                setTimeout(() => {
+                  if (typeof window.loadExistingItemImages === 'function') {
+                    window.loadExistingItemImages();
+                  }
+                }, 1000);
+              }
             }, 100);
           }
         });

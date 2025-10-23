@@ -133,6 +133,12 @@ try {
         
         $teams[$index]['users'] = $users;
         
+        // Récupérer les objets associés à cette équipe
+        $stmt = $dbConnection->prepare("SELECT id, path, title, subtitle, solved FROM `items` WHERE group_id = ? ORDER BY id ASC");
+        $stmt->execute([$team['id']]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $teams[$index]['items'] = $items;
+        
         // Récupérer les infos de papiers depuis total_papers_found_group
         $stmt = $dbConnection->prepare("SELECT total_to_found, total_founded, complete FROM `total_papers_found_group` WHERE id_group = ? AND id_day = ?");
         $stmt->execute([$team['id'], $selectedDay]);

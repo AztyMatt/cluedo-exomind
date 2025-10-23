@@ -273,7 +273,8 @@ function generateSqlFilesFromDatabase($dbConnection) {
             $insertsDir . '/03-photos.sql',  // Fichier photos
             $insertsDir . '/04-arrows.sql',  // Fichier arrows
             $insertsDir . '/05-masks.sql',   // Fichier masks
-            $insertsDir . '/06-papers.sql'  // Fichier papers
+            $insertsDir . '/06-papers.sql',  // Fichier papers
+            $insertsDir . '/19-items.sql'    // Fichier items
         ];
         
         foreach ($filesToDelete as $file) {
@@ -409,7 +410,59 @@ function generateSqlFilesFromDatabase($dbConnection) {
         }
         file_put_contents($insertsDir . '/04-arrows.sql', $arrowsSql);
         
-        error_log("📁 Fichiers SQL générés automatiquement - Photos: " . count($photos) . ", Papers: " . count($papers) . ", Masks: " . count($masks) . ", Arrows: " . count($arrows));
+        // Récupérer tous les items avec les nouveaux champs (avec gestion des valeurs NULL)
+        $stmt = $dbConnection->prepare("SELECT id, group_id, path, COALESCE(title, '') as title, COALESCE(subtitle, '') as subtitle, solved_title, solved, id_solved_user, datetime_solved, id_mask, created_at, updated_at FROM items ORDER BY id ASC");
+        $stmt->execute();
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Générer items.sql avec les nouveaux champs
+        $itemsSql = "SET NAMES utf8mb4;\n\n";
+        $itemsSql .= "INSERT INTO `items` (`id`, `group_id`, `path`, `title`, `subtitle`, `solved_title`, `solved`, `id_solved_user`, `datetime_solved`, `id_mask`, `created_at`, `updated_at`) VALUES\n";
+        
+        $itemValues = [];
+        foreach ($items as $item) {
+            // Construire la ligne manuellement pour éviter les problèmes de sprintf avec NULL
+            $line = "(" . intval($item['id']) . ", " . intval($item['group_id']) . ", '" . addslashes($item['path']) . "', ";
+            $line .= "'" . addslashes($item['title'] ?? '') . "', ";
+            $line .= "'" . addslashes($item['subtitle'] ?? '') . "', ";
+            $line .= ($item['solved_title'] ? "'" . addslashes($item['solved_title']) . "'" : 'NULL') . ", ";
+            $line .= intval($item['solved']) . ", ";
+            $line .= ($item['id_solved_user'] ? intval($item['id_solved_user']) : 'NULL') . ", ";
+            $line .= ($item['datetime_solved'] ? "'" . $item['datetime_solved'] . "'" : 'NULL') . ", ";
+            $line .= ($item['id_mask'] ? intval($item['id_mask']) : 'NULL') . ", ";
+            $line .= "'" . $item['created_at'] . "', ";
+            $line .= "'" . $item['updated_at'] . "')";
+            
+            $itemValues[] = $line;
+        }
+        
+        if (!empty($itemValues)) {
+            $itemsSql .= implode(",\n", $itemValues) . "\n\n";
+            $itemsSql .= "ON DUPLICATE KEY UPDATE \n";
+            $itemsSql .= "    `group_id` = VALUES(`group_id`),\n";
+            $itemsSql .= "    `path` = VALUES(`path`),\n";
+            $itemsSql .= "    `title` = VALUES(`title`),\n";
+            $itemsSql .= "    `subtitle` = VALUES(`subtitle`),\n";
+            $itemsSql .= "    `solved_title` = VALUES(`solved_title`),\n";
+            $itemsSql .= "    `solved` = VALUES(`solved`),\n";
+            $itemsSql .= "    `id_solved_user` = VALUES(`id_solved_user`),\n";
+            $itemsSql .= "    `datetime_solved` = VALUES(`datetime_solved`),\n";
+            $itemsSql .= "    `id_mask` = VALUES(`id_mask`),\n";
+            $itemsSql .= "    `updated_at` = VALUES(`updated_at`);\n";
+        } else {
+            $itemsSql .= ";\n";
+        }
+        file_put_contents($insertsDir . '/19-items.sql', $itemsSql);
+        
+        // Log de debug pour diagnostiquer les problèmes SQL
+        error_log("🔍 Debug génération items SQL:");
+        error_log("📊 Nombre d'items: " . count($items));
+        if (!empty($items)) {
+            $firstItem = $items[0];
+            error_log("🔍 Premier item: " . print_r($firstItem, true));
+        }
+        
+        error_log("📁 Fichiers SQL générés automatiquement - Photos: " . count($photos) . ", Papers: " . count($papers) . ", Masks: " . count($masks) . ", Arrows: " . count($arrows) . ", Items: " . count($items));
         
     } catch (PDOException $e) {
         error_log("⚠️ Erreur génération SQL: " . $e->getMessage());
@@ -741,6 +794,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($action === 'get_item_for_mask') {
+        $maskId = $_POST['mask_id'] ?? null;
+        
+        if (!$maskId) {
+            echo json_encode(['success' => false, 'message' => 'ID masque manquant']);
+            exit;
+        }
+        
+        try {
+            if (!$dbConnection) {
+                echo json_encode(['success' => false, 'message' => 'Erreur de connexion à la base de données']);
+                exit;
+            }
+            
+            // Récupérer l'item associé à ce masque
+            $stmt = $dbConnection->prepare("SELECT id FROM `items` WHERE id_mask = ?");
+            $stmt->execute([$maskId]);
+            $item = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($item) {
+                echo json_encode(['success' => true, 'item_id' => $item['id']]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Aucun item associé à ce masque']);
+            }
+        } catch (PDOException $e) {
+            error_log("⚠️ Erreur récupération item-masque: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de la récupération: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($action === 'associate_item_mask') {
+        $itemId = $_POST['item_id'] ?? null;
+        $maskId = $_POST['mask_id'] ?? null;
+        
+        if (!$itemId || !$maskId) {
+            echo json_encode(['success' => false, 'message' => 'ID item ou masque manquant']);
+            exit;
+        }
+        
+        try {
+            if (!$dbConnection) {
+                echo json_encode(['success' => false, 'message' => 'Erreur de connexion à la base de données']);
+                exit;
+            }
+            
+            // D'abord, supprimer toutes les associations existantes pour ce masque
+            $stmt = $dbConnection->prepare("UPDATE `items` SET id_mask = NULL WHERE id_mask = ?");
+            $stmt->execute([$maskId]);
+            $removedCount = $stmt->rowCount();
+            
+            if ($removedCount > 0) {
+                error_log("🗑️ Supprimé $removedCount association(s) existante(s) pour le masque $maskId");
+            }
+            
+            // Ensuite, associer le nouvel item au masque
+            $stmt = $dbConnection->prepare("UPDATE `items` SET id_mask = ? WHERE id = ?");
+            $stmt->execute([$maskId, $itemId]);
+            
+            echo json_encode(['success' => true, 'message' => 'Association sauvegardée avec succès (anciennes associations supprimées)']);
+        } catch (PDOException $e) {
+            error_log("⚠️ Erreur association item-masque: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de la sauvegarde: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
     if ($action === 'load') {
         $key = $_POST['key'] ?? '';
         
@@ -857,6 +977,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <button id="addArrow"><span class="icon">➡️</span><span class="label-wrap"><span class="btn-label">Ajouter Flèche</span></span></button>
       <button id="toggleLasso"><span class="icon">🖊️</span><span class="label-wrap"><span class="btn-label">Mode Lasso</span></span></button>
       <button id="editMask"><span class="icon">✏️</span><span class="label-wrap"><span class="btn-label">Modifier le tracé</span></span></button>
+      <button id="associateItem" class="disabled"><span class="icon">🎯</span><span class="label-wrap"><span class="btn-label">Associer Item</span></span></button>
       <button id="bringForward"><span class="icon">⬆️</span><span class="label-wrap"><span class="btn-label">Premier plan</span></span></button>
       <button id="sendBackward"><span class="icon">⬇️</span><span class="label-wrap"><span class="btn-label">Arrière plan</span></span></button>
     </div>
@@ -913,6 +1034,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </div>
 
+  <!-- Modale pour associer un item à un masque -->
+  <div id="itemAssociationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center;">
+    <div style="background: #2a2a2a; padding: 30px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); max-width: 800px; width: 90%;">
+      <h2 style="margin: 0 0 20px 0; color: #fff; font-size: 24px;">Associer un Item au Masque</h2>
+      <p style="color: #aaa; margin-bottom: 20px;">Sélectionnez l'item à associer à ce masque :</p>
+      
+      <!-- Grille des items (2 lignes de 9) -->
+      <div id="itemsGrid" style="display: grid; grid-template-columns: repeat(9, 1fr); gap: 10px; margin-bottom: 20px;">
+        <!-- Les items seront générés dynamiquement -->
+      </div>
+      
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button id="cancelItemBtn" style="padding: 10px 20px; background: #555; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">Annuler</button>
+        <button id="confirmItemBtn" style="padding: 10px 20px; background: #4CAF50; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; opacity: 0.5;" disabled>Confirmer</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
   
   <!-- Variables PHP injectées en JavaScript -->
@@ -936,6 +1075,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script src="../js/save-load.js"></script>
   <script src="../js/keyboard.js"></script>
   <script src="../js/button-state.js"></script>
+  <script src="../js/item-association.js"></script>
   <script src="../js/init.js"></script>
   
 </body>
