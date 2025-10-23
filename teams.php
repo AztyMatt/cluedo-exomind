@@ -300,7 +300,7 @@ if ($dbConnection) {
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: url('assets/img/cluedo_background.webp');
+            background: url('assets/img/background.jpg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -314,24 +314,6 @@ if ($dbConnection) {
             margin: 0 auto;
         }
 
-        .logos-container {
-            text-align: center;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 10px 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            width: fit-content;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
         .game-description {
             text-align: center;
             color: #fff;
@@ -343,21 +325,17 @@ if ($dbConnection) {
         }
 
         .logo {
-            width: auto;
+            max-width: 400px;
+            width: 100%;
+            height: auto;
             filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+            display: block;
+            margin: 0 auto 20px auto;
         }
 
         .logo:hover {
             transform: scale(1.05);
             transition: transform 0.3s ease;
-        }
-
-        .logo-exomind {
-            height: 120px;
-        }
-
-        .logo-tak {
-            height: 60px;
         }
 
         .buttons-container {
@@ -392,21 +370,21 @@ if ($dbConnection) {
         }
 
         .btn-rules {
-            background: #f2994a;
-            color: white;
+            background: #ffdf29;
+            color: #073545;
         }
 
         .btn-rules:hover {
-            background: #f2c94c;
+            background: #f4d03f;
         }
 
         .btn-play {
-            background: #11998e;
+            background: #073545;
             color: white;
         }
 
         .btn-play:hover {
-            background: #38ef7d;
+            background: #0a4a5e;
         }
 
         /* Styles pour la modale */
@@ -1335,14 +1313,11 @@ if ($dbConnection) {
     </div>
     
     <div class="container">
-        <div class="logos-container">
-            <img src="assets/img/exomind_logo_blanc.png" alt="Exomind Logo" class="logo logo-exomind">
-            <img src="assets/img/logo_tak.svg" alt="TAK Logo" class="logo logo-tak">
-        </div>
+        <img src="assets/img/logo.png" alt="CLUEDO Tak exomind" class="logo">
 
         <div class="buttons-container">
-            <button id="rulesBtn" class="game-button btn-rules">📖 Règles du jeu</button>
-            <a href="/game" class="game-button btn-play">🎮 Jouer</a>
+            <button id="rulesBtn" class="game-button btn-rules">Règles du jeu</button>
+            <a href="/game" class="game-button btn-play">Jouer</a>
         </div>
 
         <!-- Modale des règles -->
