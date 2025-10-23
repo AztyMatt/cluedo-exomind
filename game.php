@@ -381,9 +381,9 @@ if (!$show_activation_form) {
                     $user['enigma_solution'] = '';
                 }
                 
-                // Récupérer les 3 objets du groupe (tous les jours confondus)
-                $stmt = $dbConnection->prepare("SELECT id, path, title, subtitle, solved_title, solved, id_mask FROM `items` WHERE group_id = ? ORDER BY id ASC LIMIT 3");
-                $stmt->execute([$user['group_id']]);
+                // Récupérer TOUS les objets (toutes équipes confondues) pour permettre l'affichage des objets trouvés par toutes les équipes
+                $stmt = $dbConnection->prepare("SELECT id, path, title, subtitle, solved_title, solved, id_mask, group_id FROM `items` ORDER BY id ASC");
+                $stmt->execute();
                 $groupItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $user['group_items'] = $groupItems;
                 
@@ -423,6 +423,7 @@ if ($show_activation_form) {
     
     <!-- Canvas Confetti pour les animations -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
     
     <style>
         * {
@@ -1216,7 +1217,7 @@ if ($show_activation_form) {
             display: flex;
             gap: 4px;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             flex-wrap: wrap;
         }
         
@@ -1280,6 +1281,34 @@ if ($show_activation_form) {
         }
         
         /* Styles pour la modale d'objet résolu */
+        #solved-item-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(40, 40, 40, 0.85);
+            z-index: 999999;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #solved-item-popup {
+            display: none;
+            background: #00000096;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            position: relative;
+            border: 3px solid #f39c12;
+            margin: auto;
+            z-index: 9999999;
+        }
+        
         .solved-item-info {
             padding: 20px;
         }
@@ -1594,6 +1623,16 @@ if ($show_activation_form) {
                 </div>
             </div>
             
+            <!-- Pop-up d'information objet trouvé -->
+            <div id="solved-item-overlay"></div>
+            <div id="solved-item-popup">
+                <button class="popup-close" onclick="closeSolvedItemModal()">&times;</button>
+                <div class="popup-title">🎯 Objet placé</div>
+                <div class="popup-content" id="solved-item-content">
+                    <!-- Contenu dynamique -->
+                </div>
+            </div>
+            
             <!-- Pop-up de quota atteint -->
             <div id="quota-warning-popup">
                 <h2>🔒 Quota atteint !</h2>
@@ -1644,13 +1683,35 @@ if ($show_activation_form) {
                 
                 <!-- Section des objets du groupe -->
                 <div class="bar-section">
-                    <div class="stat-item" style="background: rgba(0, 255, 0, 0.1); border: 2px solid #00ff00;">
+                    <div class="stat-item">
                         <div class="stat-icon">🎯</div>
                         <div class="stat-content">
-                            <div class="stat-label">Objets du groupe</div>
+                            <div class="stat-label">
+                                Objets du groupe 
+                                <?php 
+                                // Calculer le compteur seulement pour les objets de l'équipe courante
+                                $currentTeamItems = array_filter($user['group_items'] ?? [], function($item) use ($user) {
+                                    return $item['group_id'] == $user['group_id'];
+                                });
+                                $totalItems = count($currentTeamItems);
+                                $solvedItems = 0;
+                                foreach ($currentTeamItems as $item) {
+                                    if ($item['solved']) {
+                                        $solvedItems++;
+                                    }
+                                }
+                                ?>
+                                <span id="objects-counter" style="color: #f39c12; font-weight: bold;">(<?= $solvedItems ?>/<?= $totalItems ?>)</span>
+                            </div>
                             <div class="group-objects-container">
                                 <?php if (!empty($user['group_items'])): ?>
-                                    <?php foreach ($user['group_items'] as $item): ?>
+                                    <?php 
+                                    // Filtrer pour ne montrer que les objets de l'équipe courante dans la barre du bas
+                                    $currentTeamItems = array_filter($user['group_items'], function($item) use ($user) {
+                                        return $item['group_id'] == $user['group_id'];
+                                    });
+                                    ?>
+                                    <?php foreach ($currentTeamItems as $item): ?>
                                         <div class="group-object-item <?= $item['solved'] ? 'solved' : '' ?>" 
                                              data-item-id="<?= $item['id'] ?>"
                                              data-item-title="<?= htmlspecialchars($item['title']) ?>"
@@ -1723,6 +1784,7 @@ if ($show_activation_form) {
         const roomImages = <?php echo json_encode($roomImages); ?>;
         const paperDataUrl = <?php echo json_encode($paperData); ?>;
         const arrowDataUrl = <?php echo json_encode($arrowData); ?>;
+        const currentPhotoId = <?php echo isset($photoId) ? $photoId : 'null'; ?>;
         
         // ========== INITIALISATION DU CANVAS ==========
         const canvasElement = document.getElementById('c');
@@ -2071,30 +2133,30 @@ if ($show_activation_form) {
             setTimeout(() => {
                 // Masquer le canvas mais garder le logo visible pendant TOUT le chargement
                 canvasContainer.style.visibility = 'hidden';
-                
-                // Nettoyer le canvas
-                canvas.getObjects().slice().forEach(o => canvas.remove(o));
-                
-                fabric.Image.fromURL(
-                    src,
-                    function (img) {
-                        backgroundImage = img;
-                        backgroundImage.set({
-                            left: 0,
-                            top: 0,
-                            scaleX: 1,
-                            scaleY: 1,
-                            originX: 'left',
-                            originY: 'top',
-                            selectable: false,
-                            evented: false
-                        });
-                        canvas.add(backgroundImage);
-                        canvas.sendToBack(backgroundImage);
-                        applyBaseViewport();
-                        isAtBaseZoom = true;
-                        canvas.requestRenderAll();
-                        console.log('✅ Image de fond chargée:', src);
+            
+            // Nettoyer le canvas
+            canvas.getObjects().slice().forEach(o => canvas.remove(o));
+            
+            fabric.Image.fromURL(
+                src,
+                function (img) {
+                    backgroundImage = img;
+                    backgroundImage.set({
+                        left: 0,
+                        top: 0,
+                        scaleX: 1,
+                        scaleY: 1,
+                        originX: 'left',
+                        originY: 'top',
+                        selectable: false,
+                        evented: false
+                    });
+                    canvas.add(backgroundImage);
+                    canvas.sendToBack(backgroundImage);
+                    applyBaseViewport();
+                    isAtBaseZoom = true;
+                    canvas.requestRenderAll();
+                    console.log('✅ Image de fond chargée:', src);
                         
                         // Charger les données et masquer le fondu quand tout est prêt
                         loadFromServer().then(() => {
@@ -2103,9 +2165,9 @@ if ($show_activation_form) {
                             canvasContainer.style.visibility = 'visible';
                             canvasContainer.classList.remove('loading');
                         });
-                    },
-                    { crossOrigin: 'anonymous' }
-                );
+                },
+                { crossOrigin: 'anonymous' }
+            );
             }, 600);
         }
         
@@ -2787,11 +2849,184 @@ if ($show_activation_form) {
             }, 20000);
         }
         
+        // Fonction pour afficher la notification d'objet trouvé avec confettis
+        function showObjectFoundNotification() {
+            // Créer plusieurs explosions de confettis pour un effet "feux d'artifice"
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffa500', '#ff69b4'];
+            
+            // Explosion principale
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: colors,
+                shapes: ['circle', 'square'],
+                scalar: 1.2
+            });
+            
+            // Explosions secondaires après un court délai
+            setTimeout(() => {
+                confetti({
+                    particleCount: 100,
+                    spread: 60,
+                    origin: { y: 0.4, x: 0.2 },
+                    colors: colors,
+                    shapes: ['circle', 'square']
+                });
+                
+                confetti({
+                    particleCount: 100,
+                    spread: 60,
+                    origin: { y: 0.4, x: 0.8 },
+                    colors: colors,
+                    shapes: ['circle', 'square']
+                });
+            }, 200);
+            
+            // Explosion finale
+            setTimeout(() => {
+                confetti({
+                    particleCount: 200,
+                    spread: 80,
+                    origin: { y: 0.5 },
+                    colors: colors,
+                    shapes: ['circle', 'square'],
+                    scalar: 1.5
+                });
+            }, 400);
+            
+            // Créer la notification temporaire
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #2c3e50, #34495e);
+                color: white;
+                padding: 30px 50px;
+                border-radius: 15px;
+                border: 3px solid #f39c12;
+                font-size: 1.5rem;
+                font-weight: bold;
+                text-align: center;
+                z-index: 10000000;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+                animation: fadeInOut 3s ease-in-out forwards;
+            `;
+            
+            notification.innerHTML = '🎯 Emplacement de l\'objet trouvé';
+            
+            // Ajouter l'animation CSS
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes fadeInOut {
+                    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+                    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Ajouter la notification au DOM
+            document.body.appendChild(notification);
+            
+            // Supprimer la notification après 3 secondes
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+                if (style.parentNode) {
+                    style.parentNode.removeChild(style);
+                }
+            }, 3000);
+            
+            console.log('🎆 Confettis et notification d\'objet trouvé affichés');
+        }
+        
         // Vérifier les papiers récents toutes les 5 secondes
         setInterval(checkRecentPapers, 5000);
         
         // Première vérification après 2 secondes
         setTimeout(checkRecentPapers, 2000);
+        
+        // ========== NOTIFICATIONS OBJETS RÉCENTS ==========
+        
+        // Set pour garder trace des notifications d'objets déjà affichées
+        const shownObjectNotifications = new Set();
+        
+        // Fonction pour vérifier les objets récents
+        function checkRecentObjects() {
+            fetch('game_recent_objects.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success || !data.recent_objects) return;
+                    
+                    const recentObjects = data.recent_objects;
+                    
+                    // Afficher les nouvelles notifications
+                    recentObjects.forEach(object => {
+                        // Ne pas afficher si déjà montré
+                        if (!shownObjectNotifications.has(object.id)) {
+                            shownObjectNotifications.add(object.id);
+                            showObjectFoundNotificationForOthers(object);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('❌ Erreur récupération objets récents:', error);
+                });
+        }
+        
+        // Fonction pour afficher la notification d'objet trouvé par d'autres joueurs
+        function showObjectFoundNotificationForOthers(object) {
+            const container = document.getElementById('notifications-container');
+            
+            // Créer l'élément de notification
+            const notif = document.createElement('div');
+            notif.className = 'notification-item';
+            notif.style.setProperty('--notif-color', object.team_color);
+            notif.style.borderLeftColor = object.team_color;
+            
+            // Construire le contenu
+            let avatarContent = '🎮';
+            if (object.team_img) {
+                avatarContent = `<img src="${object.team_img}" alt="${object.team_name}">`;
+            }
+            
+            notif.innerHTML = `
+                <div class="notification-avatar" style="--notif-color: ${object.team_color};">
+                    ${avatarContent}
+                </div>
+                <div class="notification-content">
+                    <div class="notification-name">${object.display_name}</div>
+                    <div class="notification-pole">${object.pole_name}</div>
+                    <div class="notification-action">vient de placer un objet</div>
+                </div>
+            `;
+            
+            // Ajouter au conteneur
+            container.appendChild(notif);
+            
+            console.log('🔔 Notification objet affichée pour', object.display_name);
+            
+            // Masquer et supprimer après 20 secondes
+            setTimeout(() => {
+                notif.classList.add('hiding');
+                setTimeout(() => {
+                    if (notif.parentNode) {
+                        notif.parentNode.removeChild(notif);
+                    }
+                }, 300); // Attendre la fin de l'animation
+            }, 20000);
+        }
+        
+        // Vérifier les objets récents toutes les 5 secondes
+        setInterval(checkRecentObjects, 5000);
+        
+        // Première vérification après 3 secondes
+        setTimeout(checkRecentObjects, 3000);
         
         // ========== CLIC-DRAG DES OBJETS DU GROUPE ==========
         
@@ -2945,8 +3180,8 @@ if ($show_activation_form) {
                 if (isObjectMode) {
                     // Vérifier la collision avec les masques avant de désactiver
                     if (currentItemMaskId && checkMaskCollision(e.clientX, e.clientY, currentItemMaskId)) {
-                        // Collision détectée ! Afficher l'alerte
-                        alert('Objet trouvé');
+                        // Collision détectée ! Afficher la notification avec feux d'artifice
+                        showObjectFoundNotification();
                         
                         // Mettre à jour la base de données
                         updateItemAsSolved(currentItemMaskId);
@@ -3023,62 +3258,81 @@ if ($show_activation_form) {
         
         // Fonction pour afficher la modale d'information d'un objet résolu
         function showSolvedItemModal(itemData) {
-            // Créer la modale si elle n'existe pas
-            let modal = document.getElementById('solved-item-modal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'solved-item-modal';
-                modal.className = 'popup-overlay';
-                modal.innerHTML = `
-                    <div class="popup-content" style="max-width: 400px;">
-                        <button class="popup-close" onclick="closeSolvedItemModal()">&times;</button>
-                        <div class="solved-item-info">
-                            <div class="solved-item-header">
-                                <div class="team-badge" id="team-badge"></div>
-                                <h3 id="item-title"></h3>
-                            </div>
-                            <div class="solved-item-details">
-                                <p><strong>Résolu par :</strong> <span id="solved-by"></span></p>
-                                <p><strong>Objet :</strong> <span id="item-subtitle"></span></p>
-                                <p><strong>Solution :</strong> <span id="item-solved-title"></span></p>
-                            </div>
-                        </div>
+            const popup = document.getElementById('solved-item-popup');
+            const overlay = document.getElementById('solved-item-overlay');
+            const content = document.getElementById('solved-item-content');
+            
+            // Construire le HTML avec l'image de l'objet dans un rond coloré
+            let htmlContent = '';
+            
+            // Image de l'objet dans un rond coloré (comme la modale papier trouvé)
+            if (itemData.itemPath) {
+                let imagePath = itemData.itemPath.startsWith('assets/') ? itemData.itemPath : 'assets/img/items/' + itemData.itemPath;
+                htmlContent += `
+                    <div style="margin-bottom: 20px;">
+                        <img src="${imagePath}" alt="${itemData.itemTitle}" style="width: 120px; height: 120px; object-fit: contain; border-radius: 50%; border: 4px solid ${itemData.teamColor || '#f39c12'}; background: linear-gradient(135deg, ${itemData.teamColor || '#f39c12'}, rgba(255,255,255,0.2));">
                     </div>
                 `;
-                document.body.appendChild(modal);
             }
             
-            // Remplir les informations
-            document.getElementById('team-badge').style.backgroundColor = itemData.teamColor || '#4CAF50';
-            document.getElementById('item-title').textContent = itemData.itemTitle || 'Objet résolu';
-            document.getElementById('solved-by').textContent = itemData.solvedByUsername || 'Joueur inconnu';
-            document.getElementById('item-subtitle').textContent = itemData.itemSubtitle || 'Sous-titre non disponible';
-            document.getElementById('item-solved-title').textContent = itemData.solvedTitle || 'Solution non disponible';
+            // Format du nom : prénom.nom (comme la modale papier trouvé)
+            const playerName = itemData.solvedByFirstname && itemData.solvedByLastname 
+                ? `${itemData.solvedByFirstname} ${itemData.solvedByLastname}`
+                : itemData.solvedByUsername || 'Joueur inconnu';
+            
+            htmlContent += `
+                <div style="font-size: 1.4rem; margin-bottom: 15px; color: ${itemData.teamColor || '#f39c12'}; font-weight: bold;">
+                    ${itemData.itemTitle || 'Objet'}
+                </div>
+                <div style="font-size: 1.1rem; margin-bottom: 10px; color: white;">
+                    Trouvé par <strong>${playerName}</strong>
+                </div>
+                <div style="font-size: 1rem; color: #ccc; margin-bottom: 10px;">
+                    <strong>Objet :</strong> ${itemData.itemSubtitle || 'Sous-titre non disponible'}
+                </div>
+                <div style="font-size: 1rem; color: #ccc;">
+                    <strong>Solution :</strong> ${itemData.solvedTitle || 'Solution non disponible'}
+                </div>
+            `;
+            
+            content.innerHTML = htmlContent;
             
             // Afficher la modale
-            modal.style.display = 'flex';
+            overlay.style.display = 'flex';
+            popup.style.display = 'block';
             
-            // Fermer en cliquant à l'extérieur
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
+            // Fermer en cliquant sur l'overlay
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
                     closeSolvedItemModal();
                 }
             });
+            
+            // Fermer avec la touche Échap
+            const handleEscape = function(e) {
+                if (e.key === 'Escape') {
+                    closeSolvedItemModal();
+                    document.removeEventListener('keydown', handleEscape);
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
         }
         
         // Fonction pour fermer la modale d'objet résolu
         function closeSolvedItemModal() {
-            const modal = document.getElementById('solved-item-modal');
-            if (modal) {
-                modal.style.display = 'none';
+            const overlay = document.getElementById('solved-item-overlay');
+            const popup = document.getElementById('solved-item-popup');
+            if (overlay && popup) {
+                overlay.style.display = 'none';
+                popup.style.display = 'none';
             }
         }
         
         // ========== SYNCHRONISATION TEMPS RÉEL DES OBJETS ==========
         
-        // Fonction pour vérifier les objets résolus de l'équipe
-        function checkTeamSolvedItems() {
-            fetch('get-team-solved-items.php', {
+        // Fonction pour vérifier tous les objets résolus (toutes équipes)
+        function checkAllSolvedItems() {
+            fetch('get-all-solved-items.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -3089,8 +3343,12 @@ if ($show_activation_form) {
             })
             .then(response => response.json())
             .then(data => {
+                console.log('🔍 Réponse get-all-solved-items:', data);
                 if (data.success && data.items) {
+                    console.log('📊 Nombre d\'objets résolus reçus:', data.items.length);
                     updateSolvedItemsUI(data.items);
+                } else {
+                    console.warn('⚠️ Aucun objet résolu trouvé ou erreur dans la réponse');
                 }
             })
             .catch(error => {
@@ -3101,7 +3359,10 @@ if ($show_activation_form) {
         // Fonction pour mettre à jour l'interface des objets résolus
         function updateSolvedItemsUI(solvedItems) {
             const groupItems = document.querySelectorAll('.group-object-item');
+            let solvedCount = 0;
+            const totalCount = groupItems.length;
             
+            // Traiter d'abord les objets de l'équipe courante pour la barre du bas
             groupItems.forEach(item => {
                 const itemId = parseInt(item.dataset.itemId);
                 const solvedItem = solvedItems.find(si => si.id === itemId);
@@ -3118,11 +3379,23 @@ if ($show_activation_form) {
                             img.title = solvedItem.solved_title;
                         }
                     }
-                    
-                    // Afficher l'objet résolu sur le canvas
+                    solvedCount++;
+                }
+            });
+            
+            // Traiter TOUS les objets résolus pour l'affichage sur le canvas
+            solvedItems.forEach(solvedItem => {
+                if (solvedItem && solvedItem.solved) {
+                    // Afficher l'objet résolu sur le canvas (toutes équipes confondues)
                     displaySolvedItemOnCanvas(solvedItem);
                 }
             });
+            
+            // Mettre à jour le compteur en temps réel
+            const counterElement = document.getElementById('objects-counter');
+            if (counterElement) {
+                counterElement.textContent = `(${solvedCount}/${totalCount})`;
+            }
         }
         
         // Fonction pour afficher un objet résolu sur le canvas
@@ -3131,116 +3404,162 @@ if ($show_activation_form) {
             const existingItem = canvas.getObjects().find(obj => 
                 obj.itemData && obj.itemData.isSolvedItem && obj.itemData.itemId === solvedItem.id
             );
-            
+
             if (existingItem) {
                 return;
             }
-            
-            // Trouver le masque correspondant
+
+            // Vérifier si le masque appartient à la pièce courante
             const masks = canvas.getObjects().filter(obj => obj.maskData && obj.maskData.isMask);
-            
             const correspondingMask = masks.find(mask => mask.maskData.dbId == solvedItem.id_mask);
             
             if (!correspondingMask) {
+                // Le masque n'est pas dans cette pièce, ne pas afficher l'objet
                 return;
             }
-            
+
+            // Le masque est dans cette pièce, afficher l'objet
+            createSolvedItemOnCanvas(solvedItem, correspondingMask.maskData);
+        }
+        
+        // Fonction pour créer l'objet résolu sur le canvas avec les données du masque
+        function createSolvedItemOnCanvas(solvedItem, maskData) {
             // Utiliser directement les points originaux du masque pour calculer le centre
-            const originalPoints = correspondingMask.maskData.originalPoints;
+            const originalPoints = maskData.originalPoints;
             if (!originalPoints || originalPoints.length === 0) {
                 return;
             }
             
-            // Calculer le centre géométrique des points
-            let sumX = 0;
-            let sumY = 0;
-            originalPoints.forEach(point => {
-                sumX += point.x;
-                sumY += point.y;
-            });
-            
-            const centerX = sumX / originalPoints.length;
-            const centerY = sumY / originalPoints.length;
-            
-            // Créer la pastille colorée
-            const badgeSize = 30;
-            const teamColor = solvedItem.team_color || '#4CAF50';
-            const badge = new fabric.Circle({
-                left: centerX - badgeSize / 2,
-                top: centerY - badgeSize / 2,
-                radius: badgeSize / 2,
-                fill: teamColor,
-                stroke: '#fff',
-                strokeWidth: 3,
-                selectable: false,
-                evented: true,
-                originX: 'center',
-                originY: 'center',
-                itemData: {
-                    isSolvedItem: true,
-                    itemId: solvedItem.id,
-                    itemTitle: solvedItem.title,
-                    itemSubtitle: solvedItem.subtitle,
-                    solvedTitle: solvedItem.solved_title,
-                    solvedByUsername: solvedItem.solved_by_username,
-                    teamColor: teamColor
+            // Utiliser la même logique que recreateMask pour calculer le centre
+            const clipPolygon = new fabric.Polygon(originalPoints, { fill: "transparent", stroke: "transparent" });
+            const bounds = clipPolygon.getBoundingRect();
+
+            // Centre du masque (même calcul que dans recreateMask)
+            const centerX = bounds.left + bounds.width / 2;
+            const centerY = bounds.top + bounds.height / 2;
+
+            // Construire le chemin de l'image de l'objet
+            let imagePath = '';
+            if (solvedItem.path) {
+                if (solvedItem.path.startsWith('assets/')) {
+                    imagePath = solvedItem.path;
+                } else {
+                    imagePath = 'assets/img/items/' + solvedItem.path;
                 }
-            });
-            
-            // Ajouter l'icône ✓ au centre
-            const checkmark = new fabric.Text('✓', {
-                fontSize: 16,
-                fill: '#fff',
-                fontFamily: 'Arial',
-                fontWeight: 'bold',
-                originX: 'center',
-                originY: 'center',
-                textBaseline: 'middle',
-                selectable: false,
-                evented: false
-            });
-            
-            // Créer un groupe avec la pastille et l'icône
-            const solvedItemGroup = new fabric.Group([badge, checkmark], {
-                left: centerX,
-                top: centerY,
-                selectable: false,
-                evented: true,
-                hasControls: false,
-                hasBorders: false,
-                lockMovementX: true,
-                lockMovementY: true,
-                lockRotation: true,
-                lockScalingX: true,
-                lockScalingY: true,
-                zIndex: 9999, // Z-index maximal
-                itemData: {
-                    isSolvedItem: true,
-                    itemId: solvedItem.id,
-                    itemTitle: solvedItem.title,
-                    itemSubtitle: solvedItem.subtitle,
-                    solvedTitle: solvedItem.solved_title,
-                    solvedByUsername: solvedItem.solved_by_username,
-                    teamColor: teamColor
+            } else {
+                imagePath = 'assets/img/items/' + solvedItem.id + '.png';
+            }
+
+            console.log('🎯 Chargement de l\'image:', imagePath);
+
+            // Charger l'image de l'objet
+            fabric.Image.fromURL(imagePath, function(img) {
+                if (!img) {
+                    console.log('❌ Impossible de charger l\'image:', imagePath);
+                    return;
                 }
-            });
-            
-            canvas.add(solvedItemGroup);
-            canvas.bringToFront(solvedItemGroup);
-            canvas.renderAll();
+
+                // Redimensionner l'image (max 180px - 3x plus grand)
+                const maxSize = 180;
+                const scale = Math.min(maxSize / img.width, maxSize / img.height);
+                img.scale(scale);
+
+                // Positionner l'image au centre du masque
+                img.set({
+                    left: centerX,
+                    top: centerY,
+                    originX: 'center',
+                    originY: 'center',
+                    selectable: false,
+                    evented: true,
+                    hoverCursor: 'pointer',
+                    itemData: {
+                        isSolvedItem: true,
+                        itemId: solvedItem.id,
+                        itemTitle: solvedItem.title,
+                        itemSubtitle: solvedItem.subtitle,
+                        solvedTitle: solvedItem.solved_title,
+                        solvedByUsername: solvedItem.solved_by_username,
+                        solvedByFirstname: solvedItem.solved_by_firstname,
+                        solvedByLastname: solvedItem.solved_by_lastname,
+                        teamColor: solvedItem.team_color || '#4CAF50',
+                        itemPath: imagePath
+                    }
+                });
+
+                // Créer un rond coloré avec la couleur de l'équipe
+                const teamColor = solvedItem.team_color || '#4CAF50';
+                const circleSize = Math.max(img.width * scale, img.height * scale) + 20; // Taille du rond
+                const backgroundCircle = new fabric.Circle({
+                    left: centerX,
+                    top: centerY,
+                    radius: circleSize / 2,
+                    fill: teamColor,
+                    opacity: 0.8,
+                    selectable: false,
+                    evented: true,
+                    originX: 'center',
+                    originY: 'center',
+                    itemData: {
+                        isSolvedItem: true,
+                        itemId: solvedItem.id,
+                        itemTitle: solvedItem.title,
+                        itemSubtitle: solvedItem.subtitle,
+                        solvedTitle: solvedItem.solved_title,
+                        solvedByUsername: solvedItem.solved_by_username,
+                        solvedByFirstname: solvedItem.solved_by_firstname,
+                        solvedByLastname: solvedItem.solved_by_lastname,
+                        teamColor: teamColor,
+                        itemPath: imagePath
+                    }
+                });
+
+                // Ajouter tous les éléments au canvas (rond en arrière-plan, image par-dessus)
+                canvas.add(backgroundCircle);
+                canvas.add(img);
+
+                // Mettre l'image au premier plan pour qu'elle soit cliquable
+                canvas.bringToFront(img);
+                canvas.renderAll();
+
+            }, { crossOrigin: 'anonymous' });
         }
         
-        // Vérifier les objets résolus toutes les 3 secondes
-        setInterval(checkTeamSolvedItems, 3000);
+        // Fonction pour vérifier tous les objets résolus au chargement (comme checkFoundPapers)
+        function checkAllSolvedItemsOnLoad() {
+            fetch('get-all-solved-items.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    groupId: <?= $user['group_id'] ?>
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('🔍 Chargement initial - Objets résolus:', data);
+                if (data.success && data.items) {
+                    data.items.forEach(solvedItem => {
+                        // Appliquer le style "résolu" pour tous les objets résolus
+                        displaySolvedItemOnCanvas(solvedItem);
+                    });
+                    console.log('🎯 Drapeaux appliqués pour', data.items.length, 'objets résolus au chargement');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erreur vérification objets résolus au chargement:', error);
+            });
+        }
         
-        // Vérifier immédiatement au chargement
-        setTimeout(checkTeamSolvedItems, 1000);
+        // Vérifier tous les objets résolus toutes les 3 secondes
+        setInterval(checkAllSolvedItems, 3000);
         
-        // Charger les objets résolus existants au démarrage
-        setTimeout(checkTeamSolvedItems, 2000);
+        // Charger tous les objets résolus existants au démarrage (comme pour les papiers)
+        setTimeout(checkAllSolvedItemsOnLoad, 2000);
         
         console.log('🔄 Mise à jour automatique activée (données: 10s, papiers trouvés: 15s, notifications: 5s, objets: 3s)');
-        console.log('🎯 Système curseur-objet activé');
+        console.log('🎯 Système curseur-objet activé - Affichage de TOUS les objets résolus');
     </script>
     <?php endif; ?>
 </body>

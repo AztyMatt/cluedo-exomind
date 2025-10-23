@@ -8,6 +8,14 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
+// Démarrer la session pour stocker l'ID du joueur
+session_start([
+    'cookie_lifetime' => 86400 * 7,
+    'cookie_secure' => false,
+    'cookie_httponly' => true,
+    'cookie_samesite' => 'Strict'
+]);
+
 // Log pour debug
 error_log("update-item-solved.php appelé");
 
@@ -47,6 +55,9 @@ try {
     if (!$stmt->fetch()) {
         throw new Exception('Utilisateur non trouvé');
     }
+    
+    // Stocker l'ID du joueur dans la session pour les notifications
+    $_SESSION['user_id'] = $userId;
     
     // Trouver l'item correspondant au masque
     $stmt = $dbConnection->prepare("SELECT id FROM `items` WHERE id_mask = ?");
