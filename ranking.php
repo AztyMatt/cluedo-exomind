@@ -92,6 +92,18 @@ if ($dbConnection) {
             $team['solved_items_count'] = $solvedItemsCount;
             $team['total_items_count'] = count($items);
             
+            // Récupérer les membres de l'équipe
+            $stmt = $dbConnection->prepare("SELECT firstname, lastname FROM `users` WHERE group_id = ? ORDER BY firstname ASC");
+            $stmt->execute([$team['id']]);
+            $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Créer la liste des membres avec des virgules
+            $team['members'] = [];
+            foreach ($members as $member) {
+                $team['members'][] = $member['firstname'] . ' ' . $member['lastname'];
+            }
+            $team['members_list'] = implode(', ', $team['members']);
+            
             // Récupérer les données pour chaque jour (1, 2, 3)
             for ($day = 1; $day <= 3; $day++) {
                 // Récupérer les infos de papiers depuis total_papers_found_group
@@ -291,6 +303,8 @@ if ($dbConnection) {
         .team-name-cell {
             text-align: left;
             padding: 8px 10px;
+            max-width: 650px;
+            width: 650px;
         }
 
         .team-info {
@@ -300,11 +314,11 @@ if ($dbConnection) {
         }
 
         .team-character-image {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            object-fit: contain;
+            background-color: rgba(255, 255, 255, 0.1);
         }
 
         .team-details {
@@ -318,12 +332,22 @@ if ($dbConnection) {
             color: #f093fb;
             text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
             font-size: 0.9rem;
+            text-align: left;
         }
 
         .team-pole-name {
             color: #bbb;
             font-size: 0.8rem;
             font-style: italic;
+            text-align: left;
+        }
+
+        .team-members-list {
+            color: #ddd;
+            font-size: 0.75rem;
+            margin-top: 2px;
+            line-height: 1.2;
+            text-align: left;
         }
 
         .points-cell {
@@ -532,6 +556,9 @@ if ($dbConnection) {
                                     <div class="team-details">
                                         <div class="team-character-name"><?= htmlspecialchars($team['name']) ?></div>
                                         <div class="team-pole-name"><?= htmlspecialchars($team['pole_name']) ?></div>
+                                        <?php if (!empty($team['members_list'])): ?>
+                                            <div class="team-members-list"><?= htmlspecialchars($team['members_list']) ?></div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </td>
