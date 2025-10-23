@@ -43,6 +43,7 @@ function cancelPaperPlacement() {
   canvas.defaultCursor = 'default';
   canvas.hoverCursor = 'move';
   document.getElementById("addPaper").style.background = "#3a3a3a";
+  document.getElementById("addPaperDore").style.background = "#3a3a3a";
   canvas.requestRenderAll();
 }
 
@@ -62,9 +63,11 @@ function finalizePaperPlacement(opt) {
   const savedScale = paperPreviewSize.scale;
   const savedW = paperPreviewSize.w;
   const savedH = paperPreviewSize.h;
+  const paperType = paperPreviewSize.paperType || 0; // 0 = blanc, 1 = doré
   paperPreviewSize = null;
   canvas.skipTargetFind = false;
   document.getElementById("addPaper").style.background = "#3a3a3a";
+  document.getElementById("addPaperDore").style.background = "#3a3a3a";
   
   // Calculer le z-index pour le nouveau paper
   let newZIndex = 0;
@@ -72,7 +75,10 @@ function finalizePaperPlacement(opt) {
     if (obj !== backgroundImage) newZIndex++;
   });
   
-  fabric.Image.fromURL(paperDataUrl, (paperImg) => {
+  // Choisir l'image selon le type de papier
+  const paperImageUrl = paperType === 1 ? paperDoreDataUrl : paperDataUrl;
+  
+  fabric.Image.fromURL(paperImageUrl, (paperImg) => {
     paperImg.set({
       left: 0,
       top: 0,
@@ -110,7 +116,8 @@ function finalizePaperPlacement(opt) {
       cornerColor: 'cyan',
       cornerStyle: 'circle',
       subTargetCheck: false,
-      zIndex: newZIndex // Attribuer le z-index au nouveau paper
+      zIndex: newZIndex, // Attribuer le z-index au nouveau paper
+      paperType: paperType // Stocker le type de papier
     });
     canvas.add(paperGroup);
     canvas.selection = true;
@@ -118,11 +125,11 @@ function finalizePaperPlacement(opt) {
     canvas.defaultCursor = 'move';
     canvas.hoverCursor = 'move';
     canvas.requestRenderAll();
-    console.log("✅ Papier ajouté !");
+    console.log("✅ Papier " + (paperType === 1 ? "doré" : "blanc") + " ajouté !");
   });
 }
 
-// Bouton Ajouter Papier
+// Bouton Ajouter Papier Blanc
 document.getElementById("addPaper").onclick = function() {
   // Vérifier si le bouton est désactivé
   if (this.classList.contains('disabled')) return;
@@ -134,6 +141,7 @@ document.getElementById("addPaper").onclick = function() {
   if (isPlacingPaper) return;
   isPlacingPaper = true;
   document.getElementById("addPaper").style.background = "#1a7f1a";
+  document.getElementById("addPaperDore").style.background = "#3a3a3a";
   canvas.discardActiveObject();
   canvas.selection = false;
   canvas.skipTargetFind = true;
@@ -153,7 +161,7 @@ document.getElementById("addPaper").onclick = function() {
   img.onload = () => {
     const wWorld = img.naturalWidth * paperPlaceholderScale;
     const hWorld = img.naturalHeight * paperPlaceholderScale;
-    paperPreviewSize = { w: wWorld, h: hWorld, scale: paperPlaceholderScale };
+    paperPreviewSize = { w: wWorld, h: hWorld, scale: paperPlaceholderScale, paperType: 0 };
     img.style.display = 'block';
     positionPaperPreviewAtCenter();
   };
@@ -165,17 +173,67 @@ document.getElementById("addPaper").onclick = function() {
     updatePaperPlaceholderSize();
   };
   window.addEventListener('mousemove', paperPlaceholderMoveHandler);
-  console.log("👆 Placez le papier avec un clic.");
+  console.log("👆 Placez le papier blanc avec un clic.");
+};
+
+// Bouton Ajouter Papier Doré
+document.getElementById("addPaperDore").onclick = function() {
+  // Vérifier si le bouton est désactivé
+  if (this.classList.contains('disabled')) return;
+  
+  if (!paperDoreDataUrl) {
+    alert("L'image papier_dore.png n'a été trouvée !");
+    return;
+  }
+  if (isPlacingPaper) return;
+  isPlacingPaper = true;
+  document.getElementById("addPaperDore").style.background = "#1a7f1a";
+  document.getElementById("addPaper").style.background = "#3a3a3a";
+  canvas.discardActiveObject();
+  canvas.selection = false;
+  canvas.skipTargetFind = true;
+  canvas.defaultCursor = 'crosshair';
+  canvas.hoverCursor = 'crosshair';
+  
+  const img = new Image();
+  img.src = paperDoreDataUrl;
+  img.style.position = 'fixed';
+  img.style.pointerEvents = 'none';
+  img.style.opacity = '0.5';
+  img.style.zIndex = '2000';
+  img.style.transform = 'translate(-50%, -50%)';
+  img.style.display = 'none';
+  document.body.appendChild(img);
+  paperPlaceholderImg = img;
+  img.onload = () => {
+    const wWorld = img.naturalWidth * paperPlaceholderScale;
+    const hWorld = img.naturalHeight * paperPlaceholderScale;
+    paperPreviewSize = { w: wWorld, h: hWorld, scale: paperPlaceholderScale, paperType: 1 };
+    img.style.display = 'block';
+    positionPaperPreviewAtCenter();
+  };
+  
+  paperPlaceholderMoveHandler = (e) => {
+    if (!paperPlaceholderImg) return;
+    paperPlaceholderImg.style.left = `${e.clientX}px`;
+    paperPlaceholderImg.style.top = `${e.clientY}px`;
+    updatePaperPlaceholderSize();
+  };
+  window.addEventListener('mousemove', paperPlaceholderMoveHandler);
+  console.log("👆 Placez le papier doré avec un clic.");
 };
 
 // Fonction pour recréer un papier (utilisée au chargement)
 function recreatePaper(paperData, callback) {
-  if (!paperDataUrl) {
+  const paperType = paperData.paperType || 0;
+  const paperImageUrl = paperType === 1 ? paperDoreDataUrl : paperDataUrl;
+  
+  if (!paperImageUrl) {
     if (callback) callback();
     return;
   }
   
-  fabric.Image.fromURL(paperDataUrl, (paperImg) => {
+  fabric.Image.fromURL(paperImageUrl, (paperImg) => {
     paperImg.set({
       left: 0,
       top: 0,
@@ -222,7 +280,8 @@ function recreatePaper(paperData, callback) {
       cornerStyle: 'circle',
       subTargetCheck: false,
       dbId: paperData.id || null, // Conserver l'ID de la BDD
-      zIndex: paperData.zIndex || 0 // Conserver le z-index de la BDD
+      zIndex: paperData.zIndex || 0, // Conserver le z-index de la BDD
+      paperType: paperType // Conserver le type de papier
     });
     
     canvas.add(paperGroup);

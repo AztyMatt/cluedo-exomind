@@ -1295,7 +1295,7 @@ if ($dbConnection) {
             </div>
         </div>
 
-        <?php if (empty($teams)): ?>
+        <?php if (empty($teamsWithUsers)): ?>
             <div class="no-teams">
                 <p>Aucune équipe disponible pour le moment.</p>
             </div>
@@ -1303,8 +1303,8 @@ if ($dbConnection) {
             <div class="teams-grid">
                 <!-- Ligne 1 : 3 cartes espacées -->
                 <div class="team-row">
-                    <?php for ($i = 0; $i < 3 && $i < count($teams); $i++): 
-                        $team = $teams[$i]; ?>
+                    <?php for ($i = 0; $i < 3 && $i < count($teamsWithUsers); $i++): 
+                        $team = $teamsWithUsers[$i]; ?>
                         <div class="team-card" style="--team-color: <?= htmlspecialchars($team['color'] ?? '#888') ?>;" data-team-id="<?= $team['id'] ?>">
                             <div class="color-indicator"></div>
                             
@@ -1374,10 +1374,10 @@ if ($dbConnection) {
                 </div>
 
                 <!-- Ligne 2 : 3 cartes centrées -->
-                <?php if (count($teams) > 3): ?>
+                <?php if (count($teamsWithUsers) > 3): ?>
                     <div class="team-row">
-                        <?php for ($i = 3; $i < 6 && $i < count($teams); $i++): 
-                            $team = $teams[$i]; ?>
+                        <?php for ($i = 3; $i < 6 && $i < count($teamsWithUsers); $i++): 
+                            $team = $teamsWithUsers[$i]; ?>
                             <div class="team-card" style="--team-color: <?= htmlspecialchars($team['color'] ?? '#888') ?>;" data-team-id="<?= $team['id'] ?>">
                                 <div class="color-indicator"></div>
                                 

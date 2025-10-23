@@ -100,7 +100,8 @@ function saveToServer(silent = false) {
         scaleX: obj.scaleX,
         scaleY: obj.scaleY,
         angle: obj.angle,
-        zIndex: zIndex++
+        zIndex: zIndex++,
+        paperType: obj.paperType || 0 // 0 = blanc, 1 = doré
       });
     }
   });

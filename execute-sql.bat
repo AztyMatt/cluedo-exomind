@@ -106,7 +106,8 @@ echo [4/4] Insertion donnees depuis %INSERTS_DIR%...
 set SUCCESS=0
 set ERRORS=0
 
-for %%F in ("%INSERTS_DIR%\*.sql") do (
+REM Traiter seulement les fichiers dans sql\inserts avec pattern numerique
+for %%F in ("%INSERTS_DIR%\??-*.sql") do (
     echo   - %%~nxF...
     type "%%F" | docker exec -i %DB_CONTAINER% mysql -u%DB_USER% -p%DB_PASSWORD% %DB_NAME% >nul 2>&1
     if errorlevel 1 (

@@ -23,12 +23,20 @@ if (file_exists($imagePath)) {
     $imageData = 'data:' . $mime . ';base64,' . $imageData;
 }
 
-// Charger l'image papier et la convertir en base64
+// Charger l'image papier blanc et la convertir en base64
 $paperPath = '../papier.png';
 $paperData = '';
 if (file_exists($paperPath)) {
     $paperData = base64_encode(file_get_contents($paperPath));
     $paperData = 'data:image/png;base64,' . $paperData;
+}
+
+// Charger l'image papier doré et la convertir en base64
+$paperDorePath = '../papier_dore.png';
+$paperDoreData = '';
+if (file_exists($paperDorePath)) {
+    $paperDoreData = base64_encode(file_get_contents($paperDorePath));
+    $paperDoreData = 'data:image/png;base64,' . $paperDoreData;
 }
 
 // Charger l'image flèche et la convertir en base64
@@ -53,6 +61,361 @@ if (is_dir($roomsDir)) {
     sort($roomImages);
 }
 
+// ========== FONCTIONS UTILITAIRES POUR LA SAUVEGARDE SQL ==========
+
+function loadExistingSqlData() {
+    $data = ['papers' => [], 'masks' => [], 'arrows' => [], 'photos' => []];
+    
+    // Créer les fichiers SQL vides s'ils n'existent pas
+    createEmptySqlFilesIfNeeded();
+    
+    // Charger les photos depuis le fichier photos.sql
+    if (file_exists('../data/photos.sql')) {
+        $photosContent = file_get_contents('../data/photos.sql');
+        $data['photos'] = parsePhotosFromSql($photosContent);
+    }
+    
+    // Charger les papiers depuis papers.sql
+    if (file_exists('../data/papers.sql')) {
+        $papersContent = file_get_contents('../data/papers.sql');
+        $data['papers'] = parsePapersFromSql($papersContent);
+    }
+    
+    // Charger les masques depuis masks.sql
+    if (file_exists('../data/masks.sql')) {
+        $masksContent = file_get_contents('../data/masks.sql');
+        $data['masks'] = parseMasksFromSql($masksContent);
+    }
+    
+    // Charger les flèches depuis arrows.sql
+    if (file_exists('../data/arrows.sql')) {
+        $arrowsContent = file_get_contents('../data/arrows.sql');
+        $data['arrows'] = parseArrowsFromSql($arrowsContent);
+    }
+    
+    return $data;
+}
+
+function createEmptySqlFilesIfNeeded() {
+    $files = [
+        '../data/photos.sql' => "SET NAMES utf8mb4;\n\nINSERT INTO `photos` (`id`, `filename`, `file_path`, `created_at`, `updated_at`) VALUES\n;\n",
+        '../data/papers.sql' => "SET NAMES utf8mb4;\n\nINSERT INTO `papers` (`id`, `photo_id`, `position_left`, `position_top`, `scale_x`, `scale_y`, `angle`, `z_index`, `paper_type`, `created_at`, `updated_at`) VALUES\n;\n",
+        '../data/masks.sql' => "SET NAMES utf8mb4;\n\nINSERT INTO `masks` (`id`, `photo_id`, `original_points`, `curve_handles`, `position_left`, `position_top`, `z_index`, `created_at`, `updated_at`) VALUES\n;\n",
+        '../data/arrows.sql' => "SET NAMES utf8mb4;\n\nINSERT INTO `arrows` (`id`, `photo_id`, `target_photo_id`, `position_left`, `position_top`, `angle`, `active`, `free_placement`, `created_at`, `updated_at`) VALUES\n;\n"
+    ];
+    
+    foreach ($files as $file => $content) {
+        if (!file_exists($file)) {
+            file_put_contents($file, $content);
+        }
+    }
+}
+
+function parsePhotosFromSql($content) {
+    $photos = [];
+    // Vérifier s'il y a des données (pas juste le header)
+    if (strpos($content, 'VALUES') !== false && strpos($content, ');') !== false) {
+        if (preg_match_all('/INSERT INTO `photos`[^;]+VALUES\s*([^;]+);/s', $content, $matches)) {
+            foreach ($matches[1] as $values) {
+                if (preg_match_all('/\(([^)]+)\)/', $values, $rows)) {
+                    foreach ($rows[1] as $row) {
+                        $parts = explode(',', $row);
+                        if (count($parts) >= 3) {
+                            $photos[] = [
+                                'id' => trim($parts[0]),
+                                'filename' => trim($parts[1], " '"),
+                                'file_path' => trim($parts[2], " '")
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return $photos;
+}
+
+function parsePapersFromSql($content) {
+    $papers = [];
+    // Vérifier s'il y a des données (pas juste le header)
+    if (strpos($content, 'VALUES') !== false && strpos($content, ');') !== false) {
+        if (preg_match_all('/INSERT INTO `papers`[^;]+VALUES\s*([^;]+);/s', $content, $matches)) {
+            foreach ($matches[1] as $values) {
+                if (preg_match_all('/\(([^)]+)\)/', $values, $rows)) {
+                    foreach ($rows[1] as $row) {
+                        $parts = explode(',', $row);
+                        if (count($parts) >= 9) {
+                            $papers[] = [
+                                'id' => trim($parts[0]),
+                                'photo_id' => trim($parts[1]),
+                                'position_left' => trim($parts[2]),
+                                'position_top' => trim($parts[3]),
+                                'scale_x' => trim($parts[4]),
+                                'scale_y' => trim($parts[5]),
+                                'angle' => trim($parts[6]),
+                                'z_index' => trim($parts[7]),
+                                'paper_type' => trim($parts[8]),
+                                'created_at' => trim($parts[9], " '"),
+                                'updated_at' => trim($parts[10], " '")
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return $papers;
+}
+
+function parseMasksFromSql($content) {
+    $masks = [];
+    // Vérifier s'il y a des données (pas juste le header)
+    if (strpos($content, 'VALUES') !== false && strpos($content, ');') !== false) {
+        if (preg_match_all('/INSERT INTO `masks`[^;]+VALUES\s*([^;]+);/s', $content, $matches)) {
+            foreach ($matches[1] as $values) {
+                if (preg_match_all('/\(([^)]+)\)/', $values, $rows)) {
+                    foreach ($rows[1] as $row) {
+                        $parts = explode(',', $row);
+                        if (count($parts) >= 7) {
+                            $masks[] = [
+                                'id' => trim($parts[0]),
+                                'photo_id' => trim($parts[1]),
+                                'original_points' => trim($parts[2], " '"),
+                                'curve_handles' => trim($parts[3], " '"),
+                                'position_left' => trim($parts[4]),
+                                'position_top' => trim($parts[5]),
+                                'z_index' => trim($parts[6]),
+                                'created_at' => trim($parts[7], " '"),
+                                'updated_at' => trim($parts[8], " '")
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return $masks;
+}
+
+function parseArrowsFromSql($content) {
+    $arrows = [];
+    // Vérifier s'il y a des données (pas juste le header)
+    if (strpos($content, 'VALUES') !== false && strpos($content, ');') !== false) {
+        if (preg_match_all('/INSERT INTO `arrows`[^;]+VALUES\s*([^;]+);/s', $content, $matches)) {
+            foreach ($matches[1] as $values) {
+                if (preg_match_all('/\(([^)]+)\)/', $values, $rows)) {
+                    foreach ($rows[1] as $row) {
+                        $parts = explode(',', $row);
+                        if (count($parts) >= 8) {
+                            $arrows[] = [
+                                'id' => trim($parts[0]),
+                                'photo_id' => trim($parts[1]),
+                                'target_photo_id' => trim($parts[2]) === 'NULL' ? null : trim($parts[2]),
+                                'position_left' => trim($parts[3]),
+                                'position_top' => trim($parts[4]),
+                                'angle' => trim($parts[5]),
+                                'active' => trim($parts[6]),
+                                'free_placement' => trim($parts[7]),
+                                'created_at' => trim($parts[8], " '"),
+                                'updated_at' => trim($parts[9], " '")
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return $arrows;
+}
+
+function findOrCreatePhotoId($key, &$existingData) {
+    // Chercher dans les photos existantes
+    foreach ($existingData['photos'] as $photo) {
+        $filename = pathinfo($photo['filename'], PATHINFO_FILENAME);
+        if ($filename === $key) {
+            return $photo['id'];
+        }
+    }
+    
+    // Créer une nouvelle photo
+    $newId = generateNewId($existingData['photos']);
+    $filename = $key . '.JPG';
+    $filePath = 'rooms/' . $filename;
+    
+    $existingData['photos'][] = [
+        'id' => $newId,
+        'filename' => $filename,
+        'file_path' => $filePath
+    ];
+    
+    return $newId;
+}
+
+function generateNewId($items) {
+    if (empty($items)) return 1;
+    $maxId = 0;
+    foreach ($items as $item) {
+        $maxId = max($maxId, (int)$item['id']);
+    }
+    return $maxId + 1;
+}
+
+function generateSqlFilesFromDatabase($dbConnection) {
+    try {
+        // Créer le dossier sql/inserts s'il n'existe pas
+        $insertsDir = __DIR__ . '/../sql/inserts';
+        if (!is_dir($insertsDir)) {
+            mkdir($insertsDir, 0755, true);
+        }
+        
+        // Supprimer les anciens fichiers générés automatiquement
+        $filesToDelete = [
+            $insertsDir . '/03-photos.sql',  // Fichier photos
+            $insertsDir . '/04-arrows.sql',  // Fichier arrows
+            $insertsDir . '/05-masks.sql',   // Fichier masks
+            $insertsDir . '/06-papers.sql'  // Fichier papers
+        ];
+        
+        foreach ($filesToDelete as $file) {
+            if (file_exists($file)) {
+                unlink($file);
+                error_log("🗑️ Fichier supprimé: " . basename($file));
+            }
+        }
+        // Récupérer toutes les photos
+        $stmt = $dbConnection->prepare("SELECT id, filename, file_path, created_at, updated_at FROM photos ORDER BY id ASC");
+        $stmt->execute();
+        $photos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Générer photos.sql
+        $photosSql = "SET NAMES utf8mb4;\n\n";
+        $photosSql .= "INSERT INTO `photos` (`id`, `filename`, `file_path`, `created_at`, `updated_at`) VALUES\n";
+        
+        $photoValues = [];
+        foreach ($photos as $photo) {
+            $photoValues[] = sprintf(
+                "(%d, '%s', '%s', '%s', '%s')",
+                $photo['id'],
+                addslashes($photo['filename']),
+                addslashes($photo['file_path']),
+                $photo['created_at'],
+                $photo['updated_at']
+            );
+        }
+        
+        if (!empty($photoValues)) {
+            $photosSql .= implode(",\n", $photoValues) . ";\n";
+        } else {
+            $photosSql .= ";\n";
+        }
+        file_put_contents($insertsDir . '/03-photos.sql', $photosSql);
+        
+        // Récupérer tous les papiers
+        $stmt = $dbConnection->prepare("SELECT id, photo_id, position_left, position_top, scale_x, scale_y, angle, z_index, paper_type, created_at, updated_at FROM papers ORDER BY id ASC");
+        $stmt->execute();
+        $papers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Générer papers.sql
+        $papersSql = "SET NAMES utf8mb4;\n\n";
+        $papersSql .= "INSERT INTO `papers` (`id`, `photo_id`, `position_left`, `position_top`, `scale_x`, `scale_y`, `angle`, `z_index`, `paper_type`, `created_at`, `updated_at`) VALUES\n";
+        
+        $paperValues = [];
+        foreach ($papers as $paper) {
+            $paperValues[] = sprintf(
+                "(%d, %d, %.10f, %.10f, %.6f, %.6f, %.6f, %d, %d, '%s', '%s')",
+                $paper['id'],
+                $paper['photo_id'],
+                $paper['position_left'],
+                $paper['position_top'],
+                $paper['scale_x'],
+                $paper['scale_y'],
+                $paper['angle'],
+                $paper['z_index'],
+                $paper['paper_type'],
+                $paper['created_at'],
+                $paper['updated_at']
+            );
+        }
+        
+        if (!empty($paperValues)) {
+            $papersSql .= implode(",\n", $paperValues) . ";\n";
+        } else {
+            $papersSql .= ";\n";
+        }
+        file_put_contents($insertsDir . '/06-papers.sql', $papersSql);
+        
+        // Récupérer tous les masques
+        $stmt = $dbConnection->prepare("SELECT id, photo_id, original_points, curve_handles, position_left, position_top, z_index, created_at, updated_at FROM masks ORDER BY id ASC");
+        $stmt->execute();
+        $masks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Générer masks.sql
+        $masksSql = "SET NAMES utf8mb4;\n\n";
+        $masksSql .= "INSERT INTO `masks` (`id`, `photo_id`, `original_points`, `curve_handles`, `position_left`, `position_top`, `z_index`, `created_at`, `updated_at`) VALUES\n";
+        
+        $maskValues = [];
+        foreach ($masks as $mask) {
+            $maskValues[] = sprintf(
+                "(%d, %d, '%s', '%s', %.10f, %.10f, %d, '%s', '%s')",
+                $mask['id'],
+                $mask['photo_id'],
+                addslashes($mask['original_points']),
+                addslashes($mask['curve_handles']),
+                $mask['position_left'],
+                $mask['position_top'],
+                $mask['z_index'],
+                $mask['created_at'],
+                $mask['updated_at']
+            );
+        }
+        
+        if (!empty($maskValues)) {
+            $masksSql .= implode(",\n", $maskValues) . ";\n";
+        } else {
+            $masksSql .= ";\n";
+        }
+        file_put_contents($insertsDir . '/05-masks.sql', $masksSql);
+        
+        // Récupérer toutes les flèches
+        $stmt = $dbConnection->prepare("SELECT id, photo_id, target_photo_id, position_left, position_top, angle, active, free_placement, created_at, updated_at FROM arrows ORDER BY id ASC");
+        $stmt->execute();
+        $arrows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Générer arrows.sql
+        $arrowsSql = "SET NAMES utf8mb4;\n\n";
+        $arrowsSql .= "INSERT INTO `arrows` (`id`, `photo_id`, `target_photo_id`, `position_left`, `position_top`, `angle`, `active`, `free_placement`, `created_at`, `updated_at`) VALUES\n";
+        
+        $arrowValues = [];
+        foreach ($arrows as $arrow) {
+            $arrowValues[] = sprintf(
+                "(%d, %d, %s, %.10f, %.10f, %.6f, %d, %d, '%s', '%s')",
+                $arrow['id'],
+                $arrow['photo_id'],
+                $arrow['target_photo_id'] ? $arrow['target_photo_id'] : 'NULL',
+                $arrow['position_left'],
+                $arrow['position_top'],
+                $arrow['angle'],
+                $arrow['active'] ? 1 : 0,
+                $arrow['free_placement'] ? 1 : 0,
+                $arrow['created_at'],
+                $arrow['updated_at']
+            );
+        }
+        
+        if (!empty($arrowValues)) {
+            $arrowsSql .= implode(",\n", $arrowValues) . ";\n";
+        } else {
+            $arrowsSql .= ";\n";
+        }
+        file_put_contents($insertsDir . '/04-arrows.sql', $arrowsSql);
+        
+        error_log("📁 Fichiers SQL générés automatiquement - Photos: " . count($photos) . ", Papers: " . count($papers) . ", Masks: " . count($masks) . ", Arrows: " . count($arrows));
+        
+    } catch (PDOException $e) {
+        error_log("⚠️ Erreur génération SQL: " . $e->getMessage());
+    }
+}
+
 // ========== API POUR SAUVEGARDER/CHARGER ==========
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -67,7 +430,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $payload = json_decode($data, true);
         if (!is_array($payload)) { $payload = []; }
         
-        // ========== SAUVEGARDE EN BDD UNIQUEMENT ==========
+        // ========== SAUVEGARDE EN BDD + GÉNÉRATION SQL AUTOMATIQUE ==========
         try {
             if (!$dbConnection) {
                 echo json_encode(['success' => false, 'message' => 'Erreur de connexion à la base de données']);
@@ -102,7 +465,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $photoId = $photo['id'];
             }
             
-            // 3. Récupérer les IDs existants de papers, masks et arrows pour cette photo
+            // 2. Récupérer les IDs existants de papers, masks et arrows pour cette photo
             $stmt = $dbConnection->prepare("SELECT id FROM `papers` WHERE photo_id = ?");
             $stmt->execute([$photoId]);
             $existingPaperIds = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id');
@@ -123,25 +486,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updatedArrowIds = [];
             $responseMapping = []; // Mapping pour renvoyer les IDs au client
             
-            // 4. UPDATE ou INSERT les papers/masks en BDD
+            // 3. UPDATE ou INSERT les papers/masks en BDD
             foreach ($payload as $index => $obj) {
                 error_log("🔍 Type d'objet: " . ($obj['type'] ?? 'UNDEFINED'));
                 
                 if (isset($obj['type']) && $obj['type'] === 'paper') {
                     $paperId = $obj['id'] ?? null;
+                    $paperType = $obj['paperType'] ?? 0; // 0 = blanc, 1 = doré
                     
                     if ($paperId && in_array($paperId, $existingPaperIds)) {
                         // UPDATE
-                        error_log("🔄 Mise à jour paper ID: $paperId");
-                        $stmt = $dbConnection->prepare("UPDATE `papers` SET position_left = ?, position_top = ?, scale_x = ?, scale_y = ?, angle = ?, z_index = ? WHERE id = ?");
-                        $stmt->execute([$obj['left'] ?? 0, $obj['top'] ?? 0, $obj['scaleX'] ?? 1, $obj['scaleY'] ?? 1, $obj['angle'] ?? 0, $obj['zIndex'] ?? 0, $paperId]);
+                        error_log("🔄 Mise à jour paper ID: $paperId, type: $paperType");
+                        $stmt = $dbConnection->prepare("UPDATE `papers` SET position_left = ?, position_top = ?, scale_x = ?, scale_y = ?, angle = ?, z_index = ?, paper_type = ? WHERE id = ?");
+                        $stmt->execute([$obj['left'] ?? 0, $obj['top'] ?? 0, $obj['scaleX'] ?? 1, $obj['scaleY'] ?? 1, $obj['angle'] ?? 0, $obj['zIndex'] ?? 0, $paperType, $paperId]);
                         $updatedPaperIds[] = $paperId;
                         $responseMapping[$index] = ['type' => 'paper', 'id' => $paperId];
                     } else {
                         // INSERT
-                        error_log("📄 Insertion paper - left: " . ($obj['left'] ?? 0) . ", top: " . ($obj['top'] ?? 0) . ", z-index: " . ($obj['zIndex'] ?? 0));
-                        $stmt = $dbConnection->prepare("INSERT INTO `papers` (photo_id, position_left, position_top, scale_x, scale_y, angle, z_index) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                        $stmt->execute([$photoId, $obj['left'] ?? 0, $obj['top'] ?? 0, $obj['scaleX'] ?? 1, $obj['scaleY'] ?? 1, $obj['angle'] ?? 0, $obj['zIndex'] ?? 0]);
+                        error_log("📄 Insertion paper - left: " . ($obj['left'] ?? 0) . ", top: " . ($obj['top'] ?? 0) . ", z-index: " . ($obj['zIndex'] ?? 0) . ", type: $paperType");
+                        $stmt = $dbConnection->prepare("INSERT INTO `papers` (photo_id, position_left, position_top, scale_x, scale_y, angle, z_index, paper_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$photoId, $obj['left'] ?? 0, $obj['top'] ?? 0, $obj['scaleX'] ?? 1, $obj['scaleY'] ?? 1, $obj['angle'] ?? 0, $obj['zIndex'] ?? 0, $paperType]);
                         $newId = $dbConnection->lastInsertId();
                         $updatedPaperIds[] = $newId;
                         $responseMapping[$index] = ['type' => 'paper', 'id' => $newId];
@@ -214,7 +578,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
-            // 5. Supprimer les papers/masks/arrows qui n'existent plus
+            // 4. Supprimer les papers/masks/arrows qui n'existent plus
             $papersToDelete = array_diff($existingPaperIds, $updatedPaperIds);
             foreach ($papersToDelete as $id) {
                 $stmt = $dbConnection->prepare("DELETE FROM `papers` WHERE id = ?");
@@ -238,10 +602,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             error_log("📊 Sauvegarde BDD terminée avec succès");
             
-            echo json_encode(['success' => true, 'message' => 'Données sauvegardées en base de données', 'ids' => $responseMapping]);
+            // 5. NOUVELLE ÉTAPE : Générer automatiquement les fichiers SQL d'insertion
+            try {
+                generateSqlFilesFromDatabase($dbConnection);
+                error_log("✅ Génération SQL réussie");
+            } catch (Exception $e) {
+                error_log("⚠️ Erreur génération SQL: " . $e->getMessage());
+                // Ne pas faire échouer la sauvegarde pour une erreur de génération SQL
+            }
+            
+            echo json_encode(['success' => true, 'message' => 'Données sauvegardées en base de données + fichiers SQL générés', 'ids' => $responseMapping]);
         } catch (PDOException $e) {
             error_log("⚠️ Erreur BDD: " . $e->getMessage());
             echo json_encode(['success' => false, 'message' => 'Erreur lors de la sauvegarde: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($action === 'generate_sql') {
+        // Générer les fichiers SQL d'insertion
+        try {
+            if (!$dbConnection) {
+                echo json_encode(['success' => false, 'message' => 'Erreur de connexion à la base de données']);
+                exit;
+            }
+            
+            // Générer papers.sql
+            $stmt = $dbConnection->prepare("
+                SELECT p.id, p.photo_id, p.position_left, p.position_top, p.scale_x, p.scale_y, p.angle, p.z_index, p.paper_type, p.created_at, p.updated_at
+                FROM papers p 
+                ORDER BY p.id ASC
+            ");
+            $stmt->execute();
+            $papers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $papersSql = "SET NAMES utf8mb4;\n\n";
+            $papersSql .= "INSERT INTO `papers` (`id`, `photo_id`, `position_left`, `position_top`, `scale_x`, `scale_y`, `angle`, `z_index`, `paper_type`, `created_at`, `updated_at`) VALUES\n";
+            
+            $paperValues = [];
+            foreach ($papers as $paper) {
+                $paperValues[] = sprintf(
+                    "(%d, %d, %.10f, %.10f, %.6f, %.6f, %.6f, %d, %d, '%s', '%s')",
+                    $paper['id'],
+                    $paper['photo_id'],
+                    $paper['position_left'],
+                    $paper['position_top'],
+                    $paper['scale_x'],
+                    $paper['scale_y'],
+                    $paper['angle'],
+                    $paper['z_index'],
+                    $paper['paper_type'],
+                    $paper['created_at'],
+                    $paper['updated_at']
+                );
+            }
+            
+            $papersSql .= implode(",\n", $paperValues) . ";\n";
+            file_put_contents('../data/papers.sql', $papersSql);
+            
+            // Générer masks.sql
+            $stmt = $dbConnection->prepare("
+                SELECT m.id, m.photo_id, m.original_points, m.curve_handles, m.position_left, m.position_top, m.z_index, m.created_at, m.updated_at
+                FROM masks m 
+                ORDER BY m.id ASC
+            ");
+            $stmt->execute();
+            $masks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $masksSql = "SET NAMES utf8mb4;\n\n";
+            $masksSql .= "INSERT INTO `masks` (`id`, `photo_id`, `original_points`, `curve_handles`, `position_left`, `position_top`, `z_index`, `created_at`, `updated_at`) VALUES\n";
+            
+            $maskValues = [];
+            foreach ($masks as $mask) {
+                $maskValues[] = sprintf(
+                    "(%d, %d, '%s', '%s', %.10f, %.10f, %d, '%s', '%s')",
+                    $mask['id'],
+                    $mask['photo_id'],
+                    addslashes($mask['original_points']),
+                    addslashes($mask['curve_handles']),
+                    $mask['position_left'],
+                    $mask['position_top'],
+                    $mask['z_index'],
+                    $mask['created_at'],
+                    $mask['updated_at']
+                );
+            }
+            
+            $masksSql .= implode(",\n", $maskValues) . ";\n";
+            file_put_contents('../data/masks.sql', $masksSql);
+            
+            // Générer arrows.sql
+            $stmt = $dbConnection->prepare("
+                SELECT a.id, a.photo_id, a.target_photo_id, a.position_left, a.position_top, a.angle, a.active, a.free_placement, a.created_at, a.updated_at
+                FROM arrows a 
+                ORDER BY a.id ASC
+            ");
+            $stmt->execute();
+            $arrows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $arrowsSql = "SET NAMES utf8mb4;\n\n";
+            $arrowsSql .= "INSERT INTO `arrows` (`id`, `photo_id`, `target_photo_id`, `position_left`, `position_top`, `angle`, `active`, `free_placement`, `created_at`, `updated_at`) VALUES\n";
+            
+            $arrowValues = [];
+            foreach ($arrows as $arrow) {
+                $arrowValues[] = sprintf(
+                    "(%d, %d, %s, %.10f, %.10f, %.6f, %d, %d, '%s', '%s')",
+                    $arrow['id'],
+                    $arrow['photo_id'],
+                    $arrow['target_photo_id'] ? $arrow['target_photo_id'] : 'NULL',
+                    $arrow['position_left'],
+                    $arrow['position_top'],
+                    $arrow['angle'],
+                    $arrow['active'] ? 1 : 0,
+                    $arrow['free_placement'] ? 1 : 0,
+                    $arrow['created_at'],
+                    $arrow['updated_at']
+                );
+            }
+            
+            $arrowsSql .= implode(",\n", $arrowValues) . ";\n";
+            file_put_contents('../data/arrows.sql', $arrowsSql);
+            
+            $goldPapers = count(array_filter($papers, function($p) { return $p['paper_type'] == 1; }));
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Fichiers SQL générés avec succès !',
+                'stats' => [
+                    'papers' => count($papers),
+                    'goldPapers' => $goldPapers,
+                    'masks' => count($masks),
+                    'arrows' => count($arrows)
+                ]
+            ]);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de la génération: ' . $e->getMessage()]);
         }
         exit;
     }
@@ -266,7 +761,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $result = [];
                 
                 // 2. Charger tous les papers de cette photo
-                $stmt = $dbConnection->prepare("SELECT id, position_left, position_top, scale_x, scale_y, angle, z_index FROM `papers` WHERE photo_id = ? ORDER BY z_index ASC, id ASC");
+                $stmt = $dbConnection->prepare("SELECT id, position_left, position_top, scale_x, scale_y, angle, z_index, paper_type FROM `papers` WHERE photo_id = ? ORDER BY z_index ASC, id ASC");
                 $stmt->execute([$photoId]);
                 $papers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
@@ -279,7 +774,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'scaleX' => (float)$paper['scale_x'],
                         'scaleY' => (float)$paper['scale_y'],
                         'angle' => (float)$paper['angle'],
-                        'zIndex' => (int)$paper['z_index']
+                        'zIndex' => (int)$paper['z_index'],
+                        'paperType' => (int)$paper['paper_type']
                     ];
                 }
                 
@@ -356,7 +852,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
   <div id="toolbar">
     <div class="toolbar-top">
-      <button id="addPaper"><span class="icon">📄</span><span class="label-wrap"><span class="btn-label">Ajouter Papier</span></span></button>
+      <button id="addPaper"><span class="icon">📄</span><span class="label-wrap"><span class="btn-label">Ajouter Papier Blanc</span></span></button>
+      <button id="addPaperDore"><span class="icon">📜</span><span class="label-wrap"><span class="btn-label">Ajouter Papier Doré</span></span></button>
       <button id="addArrow"><span class="icon">➡️</span><span class="label-wrap"><span class="btn-label">Ajouter Flèche</span></span></button>
       <button id="toggleLasso"><span class="icon">🖊️</span><span class="label-wrap"><span class="btn-label">Mode Lasso</span></span></button>
       <button id="editMask"><span class="icon">✏️</span><span class="label-wrap"><span class="btn-label">Modifier le tracé</span></span></button>
@@ -422,6 +919,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script>
     const roomImages = <?php echo json_encode($roomImages); ?>;
     const paperDataUrl = <?php echo json_encode($paperData); ?>;
+    const paperDoreDataUrl = <?php echo json_encode($paperDoreData); ?>;
     const arrowDataUrl = <?php echo json_encode($arrowData); ?>;
   </script>
   
@@ -439,5 +937,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script src="../js/keyboard.js"></script>
   <script src="../js/button-state.js"></script>
   <script src="../js/init.js"></script>
+  
 </body>
 </html>
