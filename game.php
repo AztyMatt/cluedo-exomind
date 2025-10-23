@@ -380,6 +380,13 @@ if (!$show_activation_form) {
                     $user['datetime_solved'] = null;
                     $user['enigma_solution'] = '';
                 }
+                
+                // Récupérer les 3 objets du groupe (tous les jours confondus)
+                $stmt = $dbConnection->prepare("SELECT id, path, title, subtitle, solved_title, solved, id_mask FROM `items` WHERE group_id = ? ORDER BY id ASC LIMIT 3");
+                $stmt->execute([$user['group_id']]);
+                $groupItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $user['group_items'] = $groupItems;
+                
             } else {
                 // Cookie invalide ou utilisateur non activé -> demander le code
                 $show_activation_form = true;
@@ -910,30 +917,38 @@ if ($show_activation_form) {
             border-top: 2px solid rgba(255, 255, 255, 0.1);
             display: flex;
             align-items: stretch;
-            justify-content: space-around;
-            padding: 15px 30px;
+            justify-content: space-between;
+            padding: 10px 15px;
             box-sizing: border-box;
             box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
             z-index: 1000;
+            overflow-x: auto;
+            overflow-y: hidden;
+            gap: 8px;
         }
         
         .bar-section {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 15px;
+            gap: 8px;
+            min-width: 100px;
+            flex-shrink: 1;
+            flex-grow: 1;
         }
         
         .user-info-compact {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             background: <?= htmlspecialchars($user['team_color'] ?? '#2a2a2a') ?>cc;
-            padding: 12px 20px;
-            border-radius: 12px;
+            padding: 8px 12px;
+            border-radius: 8px;
             border: 2px solid rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             color: white;
+            min-width: 0;
+            flex: 1;
         }
         
         .user-info-compact * {
@@ -941,14 +956,14 @@ if ($show_activation_form) {
         }
         
         .user-avatar-small {
-            width: 50px;
-            height: 50px;
+            width: 35px;
+            height: 35px;
             border-radius: 50%;
             background: linear-gradient(135deg, <?= htmlspecialchars($user['team_color'] ?? '#888') ?>, rgba(255,255,255,0.3));
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             border: 2px solid <?= htmlspecialchars($user['team_color'] ?? '#888') ?>;
             flex-shrink: 0;
         }
@@ -956,69 +971,497 @@ if ($show_activation_form) {
         .user-details-small {
             display: flex;
             flex-direction: column;
-            gap: 3px;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
         }
         
         .user-name-small {
-            font-size: 1rem;
+            font-size: 0.8rem;
             color: #fff;
             font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .user-team-small {
-            font-size: 0.85rem;
+            font-size: 0.65rem;
             color: <?= htmlspecialchars($user['team_color'] ?? '#888') ?>;
             font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .stat-item {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             background: rgba(255, 255, 255, 0.05);
-            padding: 12px 20px;
-            border-radius: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
             border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 0;
+            flex: 1;
         }
         
         .stat-icon {
-            font-size: 2rem;
+            font-size: 1.2rem;
+            flex-shrink: 0;
         }
         
         .stat-content {
             display: flex;
             flex-direction: column;
-            gap: 3px;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
         }
         
         .stat-label {
-            font-size: 0.75rem;
+            font-size: 0.6rem;
             color: #aaa;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .stat-value {
-            font-size: 1.2rem;
+            font-size: 0.9rem;
             color: #fff;
             font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Encart des objets du groupe en triangle */
+        .group-items-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 100px;
+            max-width: 120px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .group-items-title {
+            font-size: 0.6rem;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        
+        .group-items-triangle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        
+        .group-item-row {
+            display: flex;
+            justify-content: center;
+            gap: 3px;
+        }
+        
+        .group-item {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .group-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 3px;
+        }
+        
+        .group-item.solved {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.2);
+        }
+        
+        .group-item.solved::after {
+            content: '✓';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            font-size: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid white;
         }
         
         .btn-back {
-            padding: 12px 25px;
+            padding: 8px 16px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             text-decoration: none;
-            border-radius: 10px;
+            border-radius: 8px;
             font-weight: bold;
-            font-size: 1rem;
+            font-size: 0.85rem;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
+            flex-shrink: 0;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .btn-back:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* Styles pour la section des boutons verticaux */
+        .buttons-section {
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: center;
+            min-width: 120px;
+        }
+        
+        .buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: stretch;
+            width: 100%;
+        }
+        
+        #enigma-button-container {
+            display: flex;
+            align-items: stretch;
+        }
+        
+        #enigma-button-container .btn-back {
+            width: 100%;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Styles pour les objets du groupe */
+        .group-objects-container {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .group-object-item {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        
+        .group-object-item:hover {
+            border-color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1);
+        }
+        
+        .group-object-item:active {
+            cursor: grabbing;
+        }
+        
+        .group-object-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 3px;
+        }
+        
+        .group-object-item.solved {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.2);
+            cursor: not-allowed;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        
+        .group-object-item.solved::after {
+            content: '✓';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            width: 10px;
+            height: 10px;
+            font-size: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid white;
+            z-index: 1;
+        }
+        
+        /* Styles pour la modale d'objet résolu */
+        .solved-item-info {
+            padding: 20px;
+        }
+        
+        .solved-item-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+        
+        .team-badge {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .solved-item-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 18px;
+        }
+        
+        .solved-item-details p {
+            margin: 8px 0;
+            color: #666;
+            line-height: 1.4;
+        }
+        
+        .solved-item-details strong {
+            color: #333;
+        }
+        
+        .object-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        /* Image qui suit le curseur */
+        .dragging-image {
+            position: fixed;
+            pointer-events: none;
+            z-index: 10000;
+            width: 120px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.9;
+            transition: none;
+            cursor: none;
+        }
+        
+        .dragging-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        
+        /* Styles responsifs pour la barre du bas */
+        @media (max-width: 1200px) {
+            #game-bottom-bar {
+                padding: 8px 10px;
+                gap: 6px;
+            }
+            
+            .bar-section {
+                min-width: 80px;
+                gap: 6px;
+            }
+            
+            .stat-item {
+                padding: 6px 8px;
+                gap: 6px;
+            }
+            
+            .stat-label {
+                font-size: 0.55rem;
+            }
+            
+            .stat-value {
+                font-size: 0.8rem;
+            }
+            
+            .user-info-compact {
+                padding: 6px 8px;
+                gap: 6px;
+            }
+            
+            .user-avatar-small {
+                width: 30px;
+                height: 30px;
+                font-size: 1rem;
+            }
+            
+            .user-name-small {
+                font-size: 0.75rem;
+            }
+            
+            .user-team-small {
+                font-size: 0.6rem;
+            }
+            
+            .btn-back {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+            
+            .buttons-container {
+                gap: 4px;
+            }
+            
+            .buttons-section {
+                min-width: 100px;
+            }
+            
+            .group-object-item {
+                width: 20px;
+                height: 20px;
+            }
+            
+            .group-object-item:hover {
+                transform: scale(1.05);
+            }
+            
+            .group-object-item.solved::after {
+                width: 8px;
+                height: 8px;
+                font-size: 6px;
+            }
+            
+            .object-placeholder {
+                font-size: 10px;
+            }
+        }
+        
+        @media (max-width: 900px) {
+            #game-bottom-bar {
+                height: 14vh;
+                padding: 6px 8px;
+                gap: 4px;
+            }
+            
+            .bar-section {
+                min-width: 70px;
+                gap: 4px;
+            }
+            
+            .stat-item {
+                padding: 4px 6px;
+                gap: 4px;
+            }
+            
+            .stat-icon {
+                font-size: 1rem;
+            }
+            
+            .stat-label {
+                font-size: 0.5rem;
+            }
+            
+            .stat-value {
+                font-size: 0.75rem;
+            }
+            
+            .user-info-compact {
+                padding: 4px 6px;
+                gap: 4px;
+            }
+            
+            .user-avatar-small {
+                width: 25px;
+                height: 25px;
+                font-size: 0.9rem;
+            }
+            
+            .user-name-small {
+                font-size: 0.7rem;
+            }
+            
+            .user-team-small {
+                font-size: 0.55rem;
+            }
+            
+            .btn-back {
+                padding: 4px 8px;
+                font-size: 0.75rem;
+            }
+            
+            .buttons-container {
+                gap: 3px;
+            }
+            
+            .buttons-section {
+                min-width: 80px;
+            }
+            
+            .group-object-item {
+                width: 18px;
+                height: 18px;
+            }
+            
+            .group-object-item:hover {
+                transform: scale(1.05);
+            }
+            
+            .group-object-item.solved::after {
+                width: 7px;
+                height: 7px;
+                font-size: 5px;
+            }
+            
+            .object-placeholder {
+                font-size: 9px;
+            }
         }
     </style>
 </head>
@@ -1153,40 +1596,74 @@ if ($show_activation_form) {
                     </div>
                 </div>
                 
+                <!-- Section des objets du groupe -->
+                <div class="bar-section">
+                    <div class="stat-item" style="background: rgba(0, 255, 0, 0.1); border: 2px solid #00ff00;">
+                        <div class="stat-icon">🎯</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Objets du groupe</div>
+                            <div class="group-objects-container">
+                                <?php if (!empty($user['group_items'])): ?>
+                                    <?php foreach ($user['group_items'] as $item): ?>
+                                        <div class="group-object-item <?= $item['solved'] ? 'solved' : '' ?>" 
+                                             data-item-id="<?= $item['id'] ?>"
+                                             data-item-title="<?= htmlspecialchars($item['title']) ?>"
+                                             data-item-solved-title="<?= htmlspecialchars($item['solved_title'] ?? '') ?>"
+                                             data-item-solved="<?= $item['solved'] ? 'true' : 'false' ?>"
+                                             data-item-mask-id="<?= $item['id_mask'] ?? '' ?>">
+                                            <?php 
+                                            // Construire le chemin correct de l'image
+                                            $imagePath = '';
+                                            if (!empty($item['path'])) {
+                                                // Si le chemin commence par 'assets/', utiliser tel quel
+                                                if (strpos($item['path'], 'assets/') === 0) {
+                                                    $imagePath = $item['path'];
+                                                } else {
+                                                    // Sinon, construire le chemin depuis assets/img/items/
+                                                    $imagePath = 'assets/img/items/' . basename($item['path']);
+                                                }
+                                            } else {
+                                                // Si pas de chemin, essayer avec l'ID
+                                                $imagePath = 'assets/img/items/' . $item['id'] . '.png';
+                                            }
+                                            
+                                            // Vérifier si l'image existe
+                                            if (file_exists($imagePath)): ?>
+                                                <img src="<?= htmlspecialchars($imagePath) ?>" alt="<?= htmlspecialchars($item['title']) ?>" title="<?= htmlspecialchars($item['solved'] ? $item['solved_title'] : $item['title']) ?>">
+                                            <?php else: ?>
+                                                <div class="object-placeholder">🎯</div>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <div class="object-placeholder">🎯</div>
+                                    <div class="object-placeholder">🎯</div>
+                                    <div class="object-placeholder">🎯</div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="bar-section">
                     <div class="stat-item">
                         <div class="stat-icon">📅</div>
                         <div class="stat-content">
                             <div class="stat-label">Jour</div>
                             <div class="stat-value">Jour <?php echo $currentGameDay; ?></div>
-                            <!-- Debug: Date courante = <?php echo $currentGameDay; ?> -->
                         </div>
                     </div>
                 </div>
                 
-                <div class="bar-section">
-                    <?php if ($user['enigma_status'] == 0): ?>
-                        <!-- Énigme verrouillée -->
-                        <div class="btn-back" style="background: linear-gradient(135deg, #666 0%, #888 100%); cursor: not-allowed; opacity: 0.6;">
-                            🔒 Énigme verrouillée
+                <div class="bar-section buttons-section">
+                    <div class="buttons-container">
+                        <div id="enigma-button-container">
+                            <!-- Le bouton d'énigme sera inséré ici par JavaScript -->
                         </div>
-                    <?php elseif ($user['enigma_status'] == 1): ?>
-                        <!-- Énigme déverrouillée -->
-                        <a href="enigme.php?day=<?php echo $currentGameDay; ?>" class="btn-back" style="background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);">
-                            🎭 Résoudre l'énigme
+                        <a href="/teams" class="btn-back" style="background: #4A90E2; text-align: center;">
+                            🏆 ÉQUIPES
                         </a>
-                    <?php else: ?>
-                        <!-- Énigme résolue -->
-                        <a href="enigme.php?day=<?php echo $currentGameDay; ?>" class="btn-back" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
-                            ✅ Énigme résolue
-                        </a>
-                    <?php endif; ?>
-                </div>
-                
-                <div class="bar-section">
-                    <a href="/teams" class="btn-back" style="background: #667eea;">
-                        🏆 ÉQUIPES
-                    </a>
+                    </div>
                 </div>
             </div>
 
@@ -2110,8 +2587,8 @@ if ($show_activation_form) {
         
         // Fonction pour mettre à jour le bouton d'énigme selon le statut
         function updateEnigmaButton(enigmaStatus) {
-            const enigmaSection = document.querySelector('.bar-section:nth-child(5)'); // 5ème section (énigme)
-            if (!enigmaSection) return;
+            const enigmaContainer = document.getElementById('enigma-button-container');
+            if (!enigmaContainer) return;
             
             let buttonHTML = '';
             
@@ -2126,7 +2603,7 @@ if ($show_activation_form) {
                 buttonHTML = '<a href="enigme.php?day=' + <?php echo $currentGameDay; ?> + '" class="btn-back" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">✅ Énigme résolue</a>';
             }
             
-            enigmaSection.innerHTML = buttonHTML;
+            enigmaContainer.innerHTML = buttonHTML;
         }
         
         // Fonction pour masquer tous les papiers non trouvés
@@ -2243,7 +2720,454 @@ if ($show_activation_form) {
         // Première vérification après 2 secondes
         setTimeout(checkRecentPapers, 2000);
         
-        console.log('🔄 Mise à jour automatique activée (données: 10s, papiers trouvés: 15s, notifications: 5s)');
+        // ========== CLIC-DRAG DES OBJETS DU GROUPE ==========
+        
+        // Variables pour le système de curseur-objet
+        let currentObjectImage = null;
+        let isObjectMode = false;
+        let currentItemMaskId = null;
+        
+        // Fonction pour créer l'image qui suit le curseur
+        function createObjectImage(itemElement, mouseX, mouseY) {
+            const objectDiv = document.createElement('div');
+            objectDiv.className = 'dragging-image';
+            
+            // Récupérer l'image source
+            const imgElement = itemElement.querySelector('img');
+            if (imgElement) {
+                const newImg = imgElement.cloneNode(true);
+                objectDiv.appendChild(newImg);
+            } else {
+                // Si pas d'image, utiliser l'emoji du placeholder
+                const placeholder = itemElement.querySelector('.object-placeholder');
+                if (placeholder) {
+                    objectDiv.innerHTML = placeholder.innerHTML;
+                    objectDiv.style.fontSize = '48px';
+                }
+            }
+            
+            // Positionner l'image aux coordonnées du curseur
+            objectDiv.style.left = (mouseX - 60) + 'px'; // -60 pour centrer (120/2)
+            objectDiv.style.top = (mouseY - 60) + 'px';
+            
+            document.body.appendChild(objectDiv);
+            return objectDiv;
+        }
+        
+        // Fonction pour vérifier la collision avec les masques
+        function checkMaskCollision(mouseX, mouseY, itemMaskId) {
+            if (!itemMaskId) {
+                return false;
+            }
+            
+            // Récupérer tous les masques du canvas
+            const canvasObjects = canvas.getObjects();
+            const masks = canvasObjects.filter(obj => obj.maskData && obj.maskData.isMask);
+            
+            for (let mask of masks) {
+                // Vérifier si l'ID du masque correspond à l'ID de l'item
+                if (mask.maskData.dbId == itemMaskId) {
+                    // Convertir les coordonnées de la souris en coordonnées du canvas Fabric.js
+                    const canvasRect = canvasElement.getBoundingClientRect();
+                    const canvasX = mouseX - canvasRect.left;
+                    const canvasY = mouseY - canvasRect.top;
+                    
+                    // Utiliser la méthode correcte de Fabric.js pour convertir les coordonnées
+                    const fabricPoint = canvas.restorePointerVpt(new fabric.Point(canvasX, canvasY));
+                    
+                    // Vérification simple : le point est-il dans les limites du masque ?
+                    let collisionDetected = false;
+                    
+                    // Utiliser les points originaux du masque pour calculer les limites
+                    const originalPoints = mask.maskData.originalPoints;
+                    if (originalPoints && originalPoints.length > 0) {
+                        // Calculer les limites min/max du masque
+                        let minX = originalPoints[0].x;
+                        let maxX = originalPoints[0].x;
+                        let minY = originalPoints[0].y;
+                        let maxY = originalPoints[0].y;
+                        
+                        originalPoints.forEach(point => {
+                            minX = Math.min(minX, point.x);
+                            maxX = Math.max(maxX, point.x);
+                            minY = Math.min(minY, point.y);
+                            maxY = Math.max(maxY, point.y);
+                        });
+                        
+                        // Vérifier si le point est dans les limites
+                        if (fabricPoint.x >= minX && fabricPoint.x <= maxX && 
+                            fabricPoint.y >= minY && fabricPoint.y <= maxY) {
+                            collisionDetected = true;
+                        }
+                    }
+                    
+                    if (collisionDetected) {
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        // Fonction pour nettoyer l'image objet
+        function cleanupObjectImage() {
+            if (currentObjectImage) {
+                document.body.removeChild(currentObjectImage);
+                currentObjectImage = null;
+            }
+            isObjectMode = false;
+            currentItemMaskId = null;
+            document.body.style.cursor = '';
+        }
+        
+        // Gestionnaires d'événements pour le système curseur-objet
+        document.addEventListener('DOMContentLoaded', function() {
+            const groupItems = document.querySelectorAll('.group-object-item');
+            
+            groupItems.forEach(item => {
+                // Événement de clic pour activer/désactiver l'objet curseur
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Vérifier si l'objet est déjà résolu
+                    if (this.classList.contains('solved') || this.dataset.itemSolved === 'true') {
+                        return;
+                    }
+                    
+                    if (isObjectMode) {
+                        // Si déjà en mode objet, désactiver
+                        cleanupObjectImage();
+                    } else {
+                        // Activer le mode objet
+                        cleanupObjectImage(); // Nettoyer au cas où
+                        
+                        currentObjectImage = createObjectImage(this, e.clientX, e.clientY);
+                        isObjectMode = true;
+                        currentItemMaskId = this.dataset.itemMaskId;
+                        
+                        // Masquer le curseur
+                        document.body.style.cursor = 'none';
+                    }
+                });
+            });
+            
+            // Événement global pour faire suivre l'image au curseur
+            document.addEventListener('mousemove', function(e) {
+                if (isObjectMode && currentObjectImage) {
+                    // Suivre le curseur
+                    currentObjectImage.style.left = (e.clientX - 60) + 'px';
+                    currentObjectImage.style.top = (e.clientY - 60) + 'px';
+                }
+            });
+            
+            // Événement de clic global pour désactiver le mode objet
+            document.addEventListener('click', function(e) {
+                // Ne pas désactiver si on clique sur un objet de la barre
+                if (e.target.closest('.group-object-item')) {
+                    return;
+                }
+                
+                if (isObjectMode) {
+                    // Vérifier la collision avec les masques avant de désactiver
+                    if (currentItemMaskId && checkMaskCollision(e.clientX, e.clientY, currentItemMaskId)) {
+                        // Collision détectée ! Afficher l'alerte
+                        alert('Objet trouvé');
+                        
+                        // Mettre à jour la base de données
+                        updateItemAsSolved(currentItemMaskId);
+                    }
+                    
+                    cleanupObjectImage();
+                }
+            });
+            
+            // Gestionnaire de clic sur le canvas pour les objets résolus
+            canvas.on('mouse:down', function(e) {
+                if (e.target && e.target.itemData && e.target.itemData.isSolvedItem) {
+                    showSolvedItemModal(e.target.itemData);
+                }
+            });
+            
+            // Empêcher le drag par défaut des images
+            document.addEventListener('dragstart', function(e) {
+                if (e.target.tagName === 'IMG') {
+                    e.preventDefault();
+                }
+            });
+        });
+        
+        // Fonction pour mettre à jour l'item comme résolu
+        function updateItemAsSolved(maskId) {
+            fetch('update-item-solved.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    maskId: maskId,
+                    userId: <?= $user['id'] ?>
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Mettre à jour l'interface utilisateur
+                    updateItemUI(maskId);
+                } else {
+                    alert('Erreur lors de la sauvegarde: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Erreur de connexion lors de la sauvegarde: ' + error.message);
+            });
+        }
+        
+        // Fonction pour mettre à jour l'interface utilisateur
+        function updateItemUI(maskId) {
+            // Trouver l'objet correspondant dans la barre latérale
+            const groupItems = document.querySelectorAll('.group-object-item');
+            groupItems.forEach(item => {
+                if (item.dataset.itemMaskId == maskId) {
+                    // Marquer comme résolu
+                    item.classList.add('solved');
+                    item.dataset.itemSolved = 'true';
+                    
+                    // Changer le titre si un solved_title existe
+                    const img = item.querySelector('img');
+                    if (img && img.dataset.solvedTitle) {
+                        img.title = img.dataset.solvedTitle;
+                    }
+                }
+            });
+        }
+        
+        // Fonction pour afficher la modale d'information d'un objet résolu
+        function showSolvedItemModal(itemData) {
+            // Créer la modale si elle n'existe pas
+            let modal = document.getElementById('solved-item-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'solved-item-modal';
+                modal.className = 'popup-overlay';
+                modal.innerHTML = `
+                    <div class="popup-content" style="max-width: 400px;">
+                        <button class="popup-close" onclick="closeSolvedItemModal()">&times;</button>
+                        <div class="solved-item-info">
+                            <div class="solved-item-header">
+                                <div class="team-badge" id="team-badge"></div>
+                                <h3 id="item-title"></h3>
+                            </div>
+                            <div class="solved-item-details">
+                                <p><strong>Résolu par :</strong> <span id="solved-by"></span></p>
+                                <p><strong>Objet :</strong> <span id="item-subtitle"></span></p>
+                                <p><strong>Solution :</strong> <span id="item-solved-title"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            // Remplir les informations
+            document.getElementById('team-badge').style.backgroundColor = itemData.teamColor || '#4CAF50';
+            document.getElementById('item-title').textContent = itemData.itemTitle || 'Objet résolu';
+            document.getElementById('solved-by').textContent = itemData.solvedByUsername || 'Joueur inconnu';
+            document.getElementById('item-subtitle').textContent = itemData.itemSubtitle || 'Sous-titre non disponible';
+            document.getElementById('item-solved-title').textContent = itemData.solvedTitle || 'Solution non disponible';
+            
+            // Afficher la modale
+            modal.style.display = 'flex';
+            
+            // Fermer en cliquant à l'extérieur
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeSolvedItemModal();
+                }
+            });
+        }
+        
+        // Fonction pour fermer la modale d'objet résolu
+        function closeSolvedItemModal() {
+            const modal = document.getElementById('solved-item-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // ========== SYNCHRONISATION TEMPS RÉEL DES OBJETS ==========
+        
+        // Fonction pour vérifier les objets résolus de l'équipe
+        function checkTeamSolvedItems() {
+            fetch('get-team-solved-items.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    groupId: <?= $user['group_id'] ?>
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.items) {
+                    updateSolvedItemsUI(data.items);
+                }
+            })
+            .catch(error => {
+                // Erreur silencieuse pour ne pas perturber l'expérience utilisateur
+            });
+        }
+        
+        // Fonction pour mettre à jour l'interface des objets résolus
+        function updateSolvedItemsUI(solvedItems) {
+            const groupItems = document.querySelectorAll('.group-object-item');
+            
+            groupItems.forEach(item => {
+                const itemId = parseInt(item.dataset.itemId);
+                const solvedItem = solvedItems.find(si => si.id === itemId);
+                
+                if (solvedItem && solvedItem.solved) {
+                    // Marquer comme résolu si pas déjà fait
+                    if (!item.classList.contains('solved')) {
+                        item.classList.add('solved');
+                        item.dataset.itemSolved = 'true';
+                        
+                        // Changer le titre si un solved_title existe
+                        const img = item.querySelector('img');
+                        if (img && solvedItem.solved_title) {
+                            img.title = solvedItem.solved_title;
+                        }
+                    }
+                    
+                    // Afficher l'objet résolu sur le canvas
+                    displaySolvedItemOnCanvas(solvedItem);
+                }
+            });
+        }
+        
+        // Fonction pour afficher un objet résolu sur le canvas
+        function displaySolvedItemOnCanvas(solvedItem) {
+            // Vérifier si l'objet n'est pas déjà affiché sur le canvas
+            const existingItem = canvas.getObjects().find(obj => 
+                obj.itemData && obj.itemData.isSolvedItem && obj.itemData.itemId === solvedItem.id
+            );
+            
+            if (existingItem) {
+                return;
+            }
+            
+            // Trouver le masque correspondant
+            const masks = canvas.getObjects().filter(obj => obj.maskData && obj.maskData.isMask);
+            
+            const correspondingMask = masks.find(mask => mask.maskData.dbId == solvedItem.id_mask);
+            
+            if (!correspondingMask) {
+                return;
+            }
+            
+            // Utiliser directement les points originaux du masque pour calculer le centre
+            const originalPoints = correspondingMask.maskData.originalPoints;
+            if (!originalPoints || originalPoints.length === 0) {
+                return;
+            }
+            
+            // Calculer le centre géométrique des points
+            let sumX = 0;
+            let sumY = 0;
+            originalPoints.forEach(point => {
+                sumX += point.x;
+                sumY += point.y;
+            });
+            
+            const centerX = sumX / originalPoints.length;
+            const centerY = sumY / originalPoints.length;
+            
+            // Créer la pastille colorée
+            const badgeSize = 30;
+            const teamColor = solvedItem.team_color || '#4CAF50';
+            const badge = new fabric.Circle({
+                left: centerX - badgeSize / 2,
+                top: centerY - badgeSize / 2,
+                radius: badgeSize / 2,
+                fill: teamColor,
+                stroke: '#fff',
+                strokeWidth: 3,
+                selectable: false,
+                evented: true,
+                originX: 'center',
+                originY: 'center',
+                itemData: {
+                    isSolvedItem: true,
+                    itemId: solvedItem.id,
+                    itemTitle: solvedItem.title,
+                    itemSubtitle: solvedItem.subtitle,
+                    solvedTitle: solvedItem.solved_title,
+                    solvedByUsername: solvedItem.solved_by_username,
+                    teamColor: teamColor
+                }
+            });
+            
+            // Ajouter l'icône ✓ au centre
+            const checkmark = new fabric.Text('✓', {
+                fontSize: 16,
+                fill: '#fff',
+                fontFamily: 'Arial',
+                fontWeight: 'bold',
+                originX: 'center',
+                originY: 'center',
+                textBaseline: 'middle',
+                selectable: false,
+                evented: false
+            });
+            
+            // Créer un groupe avec la pastille et l'icône
+            const solvedItemGroup = new fabric.Group([badge, checkmark], {
+                left: centerX,
+                top: centerY,
+                selectable: false,
+                evented: true,
+                hasControls: false,
+                hasBorders: false,
+                lockMovementX: true,
+                lockMovementY: true,
+                lockRotation: true,
+                lockScalingX: true,
+                lockScalingY: true,
+                zIndex: 9999, // Z-index maximal
+                itemData: {
+                    isSolvedItem: true,
+                    itemId: solvedItem.id,
+                    itemTitle: solvedItem.title,
+                    itemSubtitle: solvedItem.subtitle,
+                    solvedTitle: solvedItem.solved_title,
+                    solvedByUsername: solvedItem.solved_by_username,
+                    teamColor: teamColor
+                }
+            });
+            
+            canvas.add(solvedItemGroup);
+            canvas.bringToFront(solvedItemGroup);
+            canvas.renderAll();
+        }
+        
+        // Vérifier les objets résolus toutes les 3 secondes
+        setInterval(checkTeamSolvedItems, 3000);
+        
+        // Vérifier immédiatement au chargement
+        setTimeout(checkTeamSolvedItems, 1000);
+        
+        // Charger les objets résolus existants au démarrage
+        setTimeout(checkTeamSolvedItems, 2000);
+        
+        console.log('🔄 Mise à jour automatique activée (données: 10s, papiers trouvés: 15s, notifications: 5s, objets: 3s)');
+        console.log('🎯 Système curseur-objet activé');
     </script>
     <?php endif; ?>
 </body>
