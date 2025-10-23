@@ -2,8 +2,22 @@
 -- Remplacer date par id_day
 
 -- Ajouter la colonne id_day si elle n'existe pas
-ALTER TABLE `papers_found_user` 
-ADD COLUMN IF NOT EXISTS `id_day` INT NOT NULL AFTER `id_player`;
+SET @col_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'papers_found_user'
+    AND COLUMN_NAME = 'id_day'
+);
+
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE `papers_found_user` ADD COLUMN `id_day` INT NOT NULL AFTER `id_player`',
+    'SELECT "Colonne id_day déjà existante" AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Ajouter la clé étrangère vers days si elle n'existe pas
 SET @fk_exists = (

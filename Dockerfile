@@ -16,12 +16,15 @@ COPY apache/app.conf /etc/apache2/conf-enabled/app.conf
 WORKDIR /var/www/html
 COPY . /var/www/html
 
+# S'assurer que le script d'initialisation est exécutable
+RUN chmod +x /var/www/html/upload-data-railway.php
+
 # Apache doit écouter sur $PORT (imposé par Railway)
 ENV PORT=8080
 RUN sed -ri 's!Listen 80!Listen ${PORT}!g' /etc/apache2/ports.conf \
  && sed -ri 's!<VirtualHost \*:80>!<VirtualHost \*:${PORT}>!g' /etc/apache2/sites-available/000-default.conf
 
-# Entrypoint : lance ton script d'init DB puis Apache
+# Entrypoint : lance le script d'init DB puis Apache
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

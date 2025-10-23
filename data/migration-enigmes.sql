@@ -1,12 +1,40 @@
 -- Migration pour ajouter les colonnes status et id_day à la table enigmes
 
 -- Ajouter la colonne id_day si elle n'existe pas
-ALTER TABLE `enigmes` 
-ADD COLUMN IF NOT EXISTS `id_day` INT NOT NULL AFTER `id_group`;
+SET @col_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'enigmes'
+    AND COLUMN_NAME = 'id_day'
+);
+
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE `enigmes` ADD COLUMN `id_day` INT NOT NULL AFTER `id_group`',
+    'SELECT "Colonne id_day déjà existante" AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Ajouter la colonne status si elle n'existe pas
-ALTER TABLE `enigmes` 
-ADD COLUMN IF NOT EXISTS `status` INT NOT NULL DEFAULT 0 COMMENT '0=pas débloqué, 1=en cours de résolution, 2=résolue' AFTER `enigm_solution`;
+SET @col_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'enigmes'
+    AND COLUMN_NAME = 'status'
+);
+
+SET @sql = IF(@col_exists = 0,
+    'ALTER TABLE `enigmes` ADD COLUMN `status` INT NOT NULL DEFAULT 0 COMMENT "0=pas débloqué, 1=en cours de résolution, 2=résolue" AFTER `enigm_solution`',
+    'SELECT "Colonne status déjà existante" AS message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Ajouter la clé étrangère vers days si elle n'existe pas
 -- Note: On vérifie d'abord si la contrainte existe déjà

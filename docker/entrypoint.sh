@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "➡️  Running DB init (docker-init-db.php)…"
-# Optionnel: attendre la DB (ou gérer les retries dans ton PHP)
-# until nc -z "$MYSQLHOST" "$MYSQLPORT"; do echo "waiting DB…"; sleep 1; done
+echo "➡️  Initialisation de la base de données Cluedo..."
+echo "📊 Exécution du script upload-data-railway.php..."
 
-php /var/www/html/docker-init-db.php || echo "ℹ️  init script finished (or non-fatal)."
+# Exécuter le script d'initialisation de la base de données
+php /var/www/html/upload-data-railway.php || {
+    echo "⚠️  Le script d'initialisation a terminé (avec ou sans erreurs non-fatales)"
+}
 
-echo "🚀 Starting Apache on PORT=${PORT}"
+echo "🚀 Démarrage d'Apache sur le port ${PORT}"
 exec apache2-foreground
