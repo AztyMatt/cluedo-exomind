@@ -8,7 +8,7 @@ INSERT INTO `items` (`id`, `group_id`, `path`, `title`, `subtitle`, `solved_titl
 (5, 2, '/assets/img/items/5.png', 'Poudre marron', 'Que faire de cette poudre?', NULL, 0, NULL, NULL, 275, '2025-10-23 10:02:59', '2025-10-23 10:53:19'),
 (6, 2, '/assets/img/items/6.png', 'Tasse à café', 'Quelqu\'un a encore perdu sa tasse...', NULL, 0, NULL, NULL, 274, '2025-10-23 10:02:59', '2025-10-23 11:44:02'),
 (7, 3, '/assets/img/items/7.png', 'Engrenage', 'Encore un engrenage qui a cassé...', NULL, 0, NULL, NULL, 300, '2025-10-23 10:02:59', '2025-10-23 11:46:15'),
-(8, 3, '/assets/img/items/8.png', 'Feuille', 'Redonnons vie à une branche', NULL, 0, NULL, NULL, NULL, '2025-10-23 10:02:59', '2025-10-23 11:48:55'),
+(8, 3, '/assets/img/items/8.png', 'Feuille', 'Redonnons vie à une branche', NULL, 0, NULL, NULL, 349, '2025-10-23 10:02:59', '2025-10-24 13:23:31'),
 (9, 3, '/assets/img/items/9.png', 'WD 40', 'Faudrait penser à la huiler...', NULL, 0, NULL, NULL, 265, '2025-10-23 10:02:59', '2025-10-23 10:42:23'),
 (10, 4, '/assets/img/items/10.png', 'PC Portable', 'Ca serait bien de le placer quelque part', NULL, 0, NULL, NULL, 294, '2025-10-23 10:02:59', '2025-10-23 11:40:41'),
 (11, 4, '/assets/img/items/11.png', 'Rubik\'s Cube', 'Un Rubik\'s Cube égaré', NULL, 0, NULL, NULL, 289, '2025-10-23 10:02:59', '2025-10-23 11:37:22'),
