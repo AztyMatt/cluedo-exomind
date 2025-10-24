@@ -489,14 +489,14 @@ if ($dbConnection) {
         }
 
         .btn-play {
-            background: #073545;
+            background: #4CAF50;
             color: white;
             padding: 18px 50px;
             font-size: 1.3rem;
         }
 
         .btn-play:hover {
-            background: #0a4a5e;
+            background: #45a049;
         }
 
         /* Styles pour la modale */
@@ -1941,8 +1941,8 @@ if ($dbConnection) {
 
     <!-- Boutons de classement fixes en haut à gauche -->
     <div class="ranking-buttons-fixed">
-        <a href="ranking.php" class="game-button btn-ranking btn-ranking-top">🏆 Équipes</a>
-        <a href="ranking-individual.php" class="game-button btn-individual btn-ranking-bottom">👤 Individuel</a>
+        <a href="ranking.php" class="game-button btn-ranking btn-ranking-top">🏆 Classement Équipes</a>
+        <a href="ranking-individual.php" class="game-button btn-individual btn-ranking-bottom">👤 Classement Individuel</a>
     </div>
 
     <!-- Indicateur de mise à jour en temps réel -->
@@ -1955,8 +1955,8 @@ if ($dbConnection) {
         <img src="assets/img/logo.png" alt="CLUEDO Tak exomind" class="logo">
 
         <div class="buttons-container">
-            <button id="rulesBtn" class="game-button btn-rules">Règles du jeu</button>
-            <a href="game.php" class="game-button btn-play">Jouer</a>
+            <button id="rulesBtn" class="game-button btn-rules">📋 Règles du jeu</button>
+            <a href="game.php" class="game-button btn-play">🔍 JOUER</a>
         </div>
 
         <!-- Modale des règles -->
