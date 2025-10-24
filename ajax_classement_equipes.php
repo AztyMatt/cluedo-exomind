@@ -205,6 +205,7 @@ if ($dbConnection) {
         // Calculer les classements en gérant les ex-aequo et les équipes à 0 points
         $currentRank = 1;
         $previousPoints = null;
+        $firstScoredTeamIndex = null;
         
         foreach ($teams as $index => &$team) {
             $currentPoints = $team['total_points'];
@@ -213,6 +214,11 @@ if ($dbConnection) {
             if ($currentPoints <= 0) {
                 $team['rank'] = '-';
             } else {
+                // Trouver l'index de la première équipe avec des points
+                if ($firstScoredTeamIndex === null) {
+                    $firstScoredTeamIndex = $index;
+                }
+                
                 // Si c'est la première équipe avec des points ou si les points sont différents de l'équipe précédente
                 if ($previousPoints === null || $currentPoints != $previousPoints) {
                     $currentRank = $index + 1;

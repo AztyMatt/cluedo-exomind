@@ -224,13 +224,18 @@ try {
     foreach ($players as $index => &$player) {
         $currentPoints = $player['total_points'];
         
-        // Si c'est le premier joueur ou si les points sont différents du joueur précédent
-        if ($previousPoints === null || $currentPoints != $previousPoints) {
-            $currentRank = $index + 1;
+        // Si le joueur a 0 points, il n'a pas de classement numérique
+        if ($currentPoints <= 0) {
+            $player['rank'] = '-';
+        } else {
+            // Si c'est le premier joueur avec des points ou si les points sont différents du joueur précédent
+            if ($previousPoints === null || $currentPoints != $previousPoints) {
+                $currentRank = $index + 1;
+            }
+            
+            $player['rank'] = $currentRank;
+            $previousPoints = $currentPoints;
         }
-        
-        $player['rank'] = $currentRank;
-        $previousPoints = $currentPoints;
     }
     
     // Retourner les données en JSON

@@ -440,6 +440,10 @@
             padding: 8px;
         }
 
+        #ranking-tbody > tr > td:first-child {
+            margin-top: 40px;
+        }
+
         .rank-1 { color: #ffd700; }
         .rank-2 { color: #c0c0c0; }
         .rank-3 { color: #cd7f32; }
