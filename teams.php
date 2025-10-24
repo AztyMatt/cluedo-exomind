@@ -1208,10 +1208,14 @@ if ($dbConnection) {
             border: 1px solid white;
         }
 
+        .team-image-container {
+            position: relative;
+        }
+
         .color-indicator {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 10px;
+            right: 10px;
             width: 30px;
             height: 30px;
             border-radius: 50%;
@@ -2002,7 +2006,6 @@ if ($dbConnection) {
                     <?php for ($i = 0; $i < 3 && $i < count($teamsWithUsers); $i++): 
                         $team = $teamsWithUsers[$i]; ?>
                         <div class="team-card" style="--team-color: <?= htmlspecialchars($team['color'] ?? '#888') ?>;" data-team-id="<?= $team['id'] ?>">
-                            <div class="color-indicator"></div>
                             
                             <div class="team-card-content">
                                 <!-- Colonne de gauche : Image + Nom + Pôle -->
@@ -2010,6 +2013,7 @@ if ($dbConnection) {
                                     <h2 class="team-name"><?= htmlspecialchars($team['name']) ?></h2>
                                     
                                     <div class="team-image-container">
+                                        <div class="color-indicator"></div>
                                         <?php if (!empty($team['img_path']) && file_exists($team['img_path'])): ?>
                                             <img src="<?= htmlspecialchars($team['img_path']) ?>" 
                                                  alt="<?= htmlspecialchars($team['name']) ?>" 
@@ -2102,7 +2106,6 @@ if ($dbConnection) {
                         <?php for ($i = 3; $i < 6 && $i < count($teamsWithUsers); $i++): 
                             $team = $teamsWithUsers[$i]; ?>
                             <div class="team-card" style="--team-color: <?= htmlspecialchars($team['color'] ?? '#888') ?>;" data-team-id="<?= $team['id'] ?>">
-                                <div class="color-indicator"></div>
                                 
                                 <div class="team-card-content">
                                     <!-- Colonne de gauche : Image + Nom + Pôle -->
@@ -2110,6 +2113,7 @@ if ($dbConnection) {
                                         <h2 class="team-name"><?= htmlspecialchars($team['name']) ?></h2>
                                         
                                         <div class="team-image-container">
+                                            <div class="color-indicator"></div>
                                             <?php if (!empty($team['img_path']) && file_exists($team['img_path'])): ?>
                                                 <img src="<?= htmlspecialchars($team['img_path']) ?>" 
                                                      alt="<?= htmlspecialchars($team['name']) ?>" 
@@ -2808,7 +2812,6 @@ if ($dbConnection) {
             const teamPapersStatus = getPapersStatus(team.papers_found, team.total_to_found);
             
             card.innerHTML = `
-                <div class="color-indicator"></div>
                 
                 <div class="team-card-content">
                     <!-- Colonne de gauche : Image + Nom + Pôle -->
@@ -2816,6 +2819,7 @@ if ($dbConnection) {
                         <h2 class="team-name">${team.name}</h2>
                         
                         <div class="team-image-container">
+                            <div class="color-indicator"></div>
                             ${teamImage}
                         </div>
                         
