@@ -70,9 +70,13 @@ function formatUserName($firstname, $lastname) {
 // Calculer le jour du jeu
 $gameDay = getGameDay($dbConnection);
 
-// Test simple d'abord - récupérer tous les utilisateurs avec nombre de papiers trouvés
+// Test simple d'abord - récupérer tous les utilisateurs avec nombre de papiers trouvés, objets trouvés et papiers en or par jour
 $simpleQuery = "SELECT u.id, u.firstname, u.lastname, u.has_activated, g.name as group_name, g.pole_name, g.img_path, 
-                COALESCE(papers_count.total_papers, 0) as total_papers_found
+                COALESCE(papers_count.total_papers, 0) as total_papers_found,
+                COALESCE(items_count.total_items, 0) as total_items_found,
+                COALESCE(golden_day1.golden_papers, 0) as golden_papers_day1,
+                COALESCE(golden_day2.golden_papers, 0) as golden_papers_day2,
+                COALESCE(golden_day3.golden_papers, 0) as golden_papers_day3
                 FROM users u 
                 LEFT JOIN `groups` g ON u.group_id = g.id 
                 LEFT JOIN (
@@ -80,6 +84,33 @@ $simpleQuery = "SELECT u.id, u.firstname, u.lastname, u.has_activated, g.name as
                     FROM papers_found_user 
                     GROUP BY id_player
                 ) papers_count ON u.id = papers_count.id_player
+                LEFT JOIN (
+                    SELECT id_solved_user, COUNT(*) as total_items 
+                    FROM items 
+                    WHERE solved = 1
+                    GROUP BY id_solved_user
+                ) items_count ON u.id = items_count.id_solved_user
+                LEFT JOIN (
+                    SELECT pf.id_player, COUNT(*) as golden_papers
+                    FROM papers_found_user pf
+                    INNER JOIN papers p ON pf.id_paper = p.id
+                    WHERE p.paper_type = 1 AND pf.id_day = 1
+                    GROUP BY pf.id_player
+                ) golden_day1 ON u.id = golden_day1.id_player
+                LEFT JOIN (
+                    SELECT pf.id_player, COUNT(*) as golden_papers
+                    FROM papers_found_user pf
+                    INNER JOIN papers p ON pf.id_paper = p.id
+                    WHERE p.paper_type = 1 AND pf.id_day = 2
+                    GROUP BY pf.id_player
+                ) golden_day2 ON u.id = golden_day2.id_player
+                LEFT JOIN (
+                    SELECT pf.id_player, COUNT(*) as golden_papers
+                    FROM papers_found_user pf
+                    INNER JOIN papers p ON pf.id_paper = p.id
+                    WHERE p.paper_type = 1 AND pf.id_day = 3
+                    GROUP BY pf.id_player
+                ) golden_day3 ON u.id = golden_day3.id_player
                 ORDER BY u.lastname ASC, u.firstname ASC";
 
 try {
@@ -87,12 +118,15 @@ try {
     $stmt->execute();
     $players = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Ajouter des colonnes vides pour la compatibilité avec l'affichage
+    // Ajouter des colonnes vides pour la compatibilité avec l'affichage et calculer les points bonus
     foreach ($players as &$player) {
-        $player['day1_points'] = 0;
-        $player['day2_points'] = 0;
-        $player['day3_points'] = 0;
-        $player['items_count'] = 0;
+        $player['day1_points'] = $player['golden_papers_day1'] * 1000; // 1000 points par papier en or jour 1
+        $player['day2_points'] = $player['golden_papers_day2'] * 1000; // 1000 points par papier en or jour 2
+        $player['day3_points'] = $player['golden_papers_day3'] * 1000; // 1000 points par papier en or jour 3
+        $player['items_count'] = $player['total_items_found'];
+        $player['items_bonus_points'] = $player['total_items_found'] * 500; // 500 points par objet trouvé
+        $player['golden_papers_total'] = $player['golden_papers_day1'] + $player['golden_papers_day2'] + $player['golden_papers_day3'];
+        $player['golden_papers_bonus_points'] = $player['golden_papers_total'] * 1000; // 1000 points par papier en or total
     }
     
 } catch (PDOException $e) {
@@ -352,6 +386,60 @@ try {
             color: #9C27B0;
         }
 
+        .items-bonus {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .items-number {
+            font-weight: bold;
+            color: #9C27B0;
+        }
+
+        .bonus-points {
+            background: #4CAF50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+        }
+
+        .day-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .golden-paper-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+        }
+
+        .golden-paper-text {
+            color: #FFD700;
+            font-weight: bold;
+        }
+
+        .golden-bonus-points {
+            background: #FFD700;
+            color: #333;
+            padding: 3px 6px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+        }
+
         .no-data {
             text-align: center;
             padding: 40px;
@@ -464,7 +552,7 @@ try {
                                     <?php echo $rank; ?>
                                 </td>
                                 <td class="points">
-                                    <?php echo number_format($player['day1_points'] + $player['day2_points'] + $player['day3_points']); ?>
+                                    <?php echo number_format($player['day1_points'] + $player['day2_points'] + $player['day3_points'] + $player['items_bonus_points']); ?>
                                 </td>
                                 <td class="player-name">
                                     <?php echo formatUserName($player['firstname'], $player['lastname']); ?>
@@ -486,16 +574,45 @@ try {
                                     </div>
                                 </td>
                                 <td class="day-points">
-                                    <?php echo number_format($player['day1_points']); ?>
+                                    <div class="day-content">
+                                        <?php echo number_format($player['day1_points']); ?>
+                                        <?php if ($player['golden_papers_day1'] > 0): ?>
+                                            <div class="golden-paper-info">
+                                                <span class="golden-paper-text">Papier en or trouvé</span>
+                                                <span class="golden-bonus-points">+<?php echo number_format($player['golden_papers_day1'] * 1000); ?> pts</span>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                                 <td class="day-points">
-                                    <?php echo number_format($player['day2_points']); ?>
+                                    <div class="day-content">
+                                        <?php echo number_format($player['day2_points']); ?>
+                                        <?php if ($player['golden_papers_day2'] > 0): ?>
+                                            <div class="golden-paper-info">
+                                                <span class="golden-paper-text">Papier en or trouvé</span>
+                                                <span class="golden-bonus-points">+<?php echo number_format($player['golden_papers_day2'] * 1000); ?> pts</span>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                                 <td class="day-points">
-                                    <?php echo number_format($player['day3_points']); ?>
+                                    <div class="day-content">
+                                        <?php echo number_format($player['day3_points']); ?>
+                                        <?php if ($player['golden_papers_day3'] > 0): ?>
+                                            <div class="golden-paper-info">
+                                                <span class="golden-paper-text">Papier en or trouvé</span>
+                                                <span class="golden-bonus-points">+<?php echo number_format($player['golden_papers_day3'] * 1000); ?> pts</span>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                                 <td class="items-count">
-                                    <?php echo $player['items_count']; ?>
+                                    <div class="items-bonus">
+                                        <span class="items-number"><?php echo $player['items_count']; ?></span>
+                                        <?php if ($player['items_count'] > 0): ?>
+                                            <span class="bonus-points">+<?php echo number_format($player['items_bonus_points']); ?> pts</span>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                                 <td class="items-count">
                                     <?php echo $player['total_papers_found']; ?>
