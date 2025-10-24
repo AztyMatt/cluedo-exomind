@@ -581,8 +581,8 @@
         function calculateNormalPapersPoints(dayPoints, papersCount) {
             if (papersCount === 0) return 0;
             
-            // Calculer les points moyens par papier
-            const avgPointsPerPaper = Math.round(dayPoints / papersCount);
+            // Calculer les points moyens par papier (utiliser ceil comme en PHP)
+            const avgPointsPerPaper = Math.ceil(dayPoints / papersCount);
             return avgPointsPerPaper * papersCount;
         }
 
@@ -614,9 +614,9 @@
             const totalPoints = player.day1_points + player.day2_points + player.day3_points + player.items_bonus_points;
             
             // Calculer les points des papiers normaux par jour
-            const day1NormalPoints = calculateNormalPapersPoints(player.day1_points - (player.golden_papers_day1 * 1000), player.day1_papers_count);
-            const day2NormalPoints = calculateNormalPapersPoints(player.day2_points - (player.golden_papers_day2 * 1000), player.day2_papers_count);
-            const day3NormalPoints = calculateNormalPapersPoints(player.day3_points - (player.golden_papers_day3 * 1000), player.day3_papers_count);
+            const day1NormalPoints = calculateNormalPapersPoints(player.day1_points - (player.golden_papers_day1 * 1500), player.day1_papers_count);
+            const day2NormalPoints = calculateNormalPapersPoints(player.day2_points - (player.golden_papers_day2 * 1500), player.day2_papers_count);
+            const day3NormalPoints = calculateNormalPapersPoints(player.day3_points - (player.golden_papers_day3 * 1500), player.day3_papers_count);
             
             row.innerHTML = `
                 <td class="rank-position ${rankClass}">

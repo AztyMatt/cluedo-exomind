@@ -74,10 +74,9 @@ function calculateScore($timestampStart, $timestampEnd) {
     // Score de base : 2000 points
     $baseScore = 2000;
     
-    // Pénalité : -100 points par tranche de 15 minutes
-    $penaltyPer15Minutes = 100;
-    $penaltyMinutes = floor($totalMinutes / 15) * 15; // Arrondir à la tranche de 15 minutes
-    $penalty = ($penaltyMinutes / 15) * $penaltyPer15Minutes;
+    // Pénalité : -3 points par minute écoulée
+    $penaltyPerMinute = 3;
+    $penalty = $totalMinutes * $penaltyPerMinute;
     
     // Calculer le score final
     $finalScore = $baseScore - $penalty;

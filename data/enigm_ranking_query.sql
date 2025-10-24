@@ -6,9 +6,9 @@ SELECT
     g.pole_name,
     e.id_day,
     CASE 
-        WHEN e.id_day = 1 THEN '🏛️ Scène du crime'
-        WHEN e.id_day = 2 THEN '🔪 Arme du crime'
-        WHEN e.id_day = 3 THEN '🎭 Auteur du crime'
+        WHEN e.id_day = 1 THEN '🏛️ Lieu du hack'
+        WHEN e.id_day = 2 THEN '🔧 Objet du hackeur'
+        WHEN e.id_day = 3 THEN '🎭 Hackeur'
     END as day_objective,
     esd.timestamp_start,
     esd.timestamp_end,

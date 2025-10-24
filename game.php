@@ -951,6 +951,7 @@ if ($show_activation_form) {
             backdrop-filter: blur(10px);
             animation: slideInRight 0.4s ease;
             transition: opacity 0.3s ease, transform 0.3s ease;
+            position: relative;
         }
         
         .notification-item.hiding {
@@ -1009,6 +1010,32 @@ if ($show_activation_form) {
         .notification-action {
             font-size: 0.85rem;
             color: #ccc;
+        }
+        
+        .notification-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #ccc;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            z-index: 1;
+        }
+        
+        .notification-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            transform: scale(1.1);
         }
         
         /* Style pour quota atteint */
@@ -3266,6 +3293,7 @@ if ($show_activation_form) {
                     <div class="notification-pole">${paper.pole_name}</div>
                     <div class="notification-action">vient de trouver un papier</div>
                 </div>
+                <button class="notification-close" onclick="closeNotification(this)" title="Fermer">&times;</button>
             `;
             
             // Ajouter au conteneur
@@ -3287,6 +3315,22 @@ if ($show_activation_form) {
             }, 20000);
         }
         
+        // Fonction pour fermer une notification
+        function closeNotification(closeButton) {
+            const notification = closeButton.closest('.notification-item');
+            if (notification) {
+                // Ajouter l'animation de sortie
+                notification.classList.add('hiding');
+                
+                // Supprimer après l'animation
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }
+
         // Fonction pour afficher la notification d'objet trouvé avec confettis
         function showObjectFoundNotification() {
             // Créer plusieurs explosions de confettis pour un effet "feux d'artifice"
@@ -3497,6 +3541,7 @@ if ($show_activation_form) {
                     <div class="notification-action" style="color: ${paper.team_color}; font-weight: bold;">🎉 a trouvé le papier doré ! 🎉 (JOUR ${paper.id_day})</div>
                     <div class="notification-time" style="color: #ccc; font-size: 0.9rem; margin-top: 5px;">${formatNotificationTime(paper.created_at)}</div>
                 </div>
+                <button class="notification-close" onclick="closeNotification(this)" title="Fermer">&times;</button>
             `;
             
             // Ajouter au conteneur

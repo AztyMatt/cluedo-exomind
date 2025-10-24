@@ -128,10 +128,9 @@ function calculateScore($timestampStart, $timestampEnd) {
     // Score de base : 2000 points
     $baseScore = 2000;
     
-    // Pénalité : -100 points par tranche de 15 minutes
-    $penaltyPer15Minutes = 100;
-    $penaltyMinutes = floor($totalMinutes / 15) * 15; // Arrondir à la tranche de 15 minutes
-    $penalty = ($penaltyMinutes / 15) * $penaltyPer15Minutes;
+    // Pénalité : -3 points par minute écoulée
+    $penaltyPerMinute = 3;
+    $penalty = $totalMinutes * $penaltyPerMinute;
     
     // Calculer le score final
     $finalScore = $baseScore - $penalty;
@@ -2018,9 +2017,9 @@ if ($dbConnection) {
     <!-- Indicateur du jour -->
     <?php 
     $dayLabels = [
-        1 => ['number' => 'Jour 1', 'objective' => '🏛️ Scène du crime'],
-        2 => ['number' => 'Jour 2', 'objective' => '🔪 Arme du crime'],
-        3 => ['number' => 'Jour 3', 'objective' => '🎭 Auteur du crime']
+        1 => ['number' => 'Jour 1', 'objective' => '🏛️ Lieu du hack'],
+        2 => ['number' => 'Jour 2', 'objective' => '🔧 Objet du hackeur'],
+        3 => ['number' => 'Jour 3', 'objective' => '🎭 Hackeur']
     ];
     $currentDay = $dayLabels[$gameDay];
     ?>
@@ -2031,15 +2030,15 @@ if ($dbConnection) {
         <div class="day-dropdown" id="dayDropdown">
             <div class="day-option <?= $gameDay == 1 ? 'active' : '' ?>" data-day="1">
                 <div style="font-weight: bold; color: #2a2a2a;">Jour 1</div>
-                <div style="font-size: 0.9rem; color: #666;">🏛️ Scène du crime</div>
+                <div style="font-size: 0.9rem; color: #666;">🏛️ Lieu du hack</div>
             </div>
             <div class="day-option <?= $gameDay == 2 ? 'active' : '' ?>" data-day="2">
                 <div style="font-weight: bold; color: #2a2a2a;">Jour 2</div>
-                <div style="font-size: 0.9rem; color: #666;">🔪 Arme du crime</div>
+                <div style="font-size: 0.9rem; color: #666;">🔧 Objet du hack</div>
             </div>
             <div class="day-option <?= $gameDay == 3 ? 'active' : '' ?>" data-day="3">
                 <div style="font-weight: bold; color: #2a2a2a;">Jour 3</div>
-                <div style="font-size: 0.9rem; color: #666;">🎭 Auteur du crime</div>
+                <div style="font-size: 0.9rem; color: #666;">🎭 Hackeur</div>
             </div>
         </div>
     </div>
@@ -2160,9 +2159,9 @@ if ($dbConnection) {
                     <p style="margin-bottom: 20px;">
                         <b>🎯 Objectif :</b><br>
                         Chaque jour, les équipes doivent deviner un mot mystère :
-                        <br>• <b>Jour 1</b> : la scène du crime 🏛️
-                        <br>• <b>Jour 2</b> : l'arme du crime 🔪
-                        <br>• <b>Jour 3</b> : l'auteur du crime 🎭
+                        <br>• <b>Jour 1</b> : le lieu du hack 🏛️
+                        <br>• <b>Jour 2</b> : l'objet utilisé par le hackeur 🔧
+                        <br>• <b>Jour 3</b> : le hackeur 🎭
                     </p>
                     
                     <p style="margin-bottom: 20px;">

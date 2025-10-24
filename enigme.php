@@ -193,9 +193,9 @@ if (!$activation_code_cookie || !$dbConnection) {
 
 // Libellés des jours
 $dayLabels = [
-    1 => ['number' => 'Jour 1', 'objective' => '🏛️ Scène du crime'],
-    2 => ['number' => 'Jour 2', 'objective' => '🔪 Arme du crime'],
-    3 => ['number' => 'Jour 3', 'objective' => '🎭 Auteur du crime']
+    1 => ['number' => 'Jour 1', 'objective' => '🏛️ Lieu du hack'],
+    2 => ['number' => 'Jour 2', 'objective' => '🔧 Objet du hackeur'],
+    3 => ['number' => 'Jour 3', 'objective' => '🎭 Hackeur']
 ];
 $currentDay = $dayLabels[$selectedDay];
 ?>
