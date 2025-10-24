@@ -70,8 +70,34 @@ function formatUserName($firstname, $lastname) {
 // Calculer le jour du jeu
 $gameDay = getGameDay($dbConnection);
 
-// TODO: Ajouter ici la logique pour récupérer les données individuelles
-// et calculer le classement individuel selon vos besoins
+// Test simple d'abord - récupérer tous les utilisateurs avec nombre de papiers trouvés
+$simpleQuery = "SELECT u.id, u.firstname, u.lastname, u.has_activated, g.name as group_name, g.pole_name, g.img_path, 
+                COALESCE(papers_count.total_papers, 0) as total_papers_found
+                FROM users u 
+                LEFT JOIN `groups` g ON u.group_id = g.id 
+                LEFT JOIN (
+                    SELECT id_player, COUNT(*) as total_papers 
+                    FROM papers_found_user 
+                    GROUP BY id_player
+                ) papers_count ON u.id = papers_count.id_player
+                ORDER BY u.lastname ASC, u.firstname ASC";
+
+try {
+    $stmt = $dbConnection->prepare($simpleQuery);
+    $stmt->execute();
+    $players = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Ajouter des colonnes vides pour la compatibilité avec l'affichage
+    foreach ($players as &$player) {
+        $player['day1_points'] = 0;
+        $player['day2_points'] = 0;
+        $player['day3_points'] = 0;
+        $player['items_count'] = 0;
+    }
+    
+} catch (PDOException $e) {
+    $players = [];
+}
 
 ?>
 <!DOCTYPE html>
@@ -252,14 +278,115 @@ $gameDay = getGameDay($dbConnection);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
 
-        .coming-soon {
-            text-align: center;
-            font-size: 1.5rem;
-            color: #ff6b35;
-            padding: 60px 20px;
-            background: rgba(255, 107, 53, 0.1);
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.95);
             border-radius: 15px;
-            border: 2px dashed rgba(255, 107, 53, 0.3);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin-top: 20px;
+        }
+
+        .ranking-table th {
+            background: linear-gradient(135deg, #073545, #0a4a5e);
+            color: white;
+            padding: 15px 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            border-bottom: 2px solid #ff6b35;
+        }
+
+        .ranking-table td {
+            padding: 12px 8px;
+            text-align: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            color: #333;
+            font-size: 0.85rem;
+        }
+
+        .ranking-table tr:nth-child(even) {
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        .ranking-table tr:hover {
+            background: rgba(255, 107, 53, 0.1);
+            transform: scale(1.01);
+            transition: all 0.2s ease;
+        }
+
+        .rank-position {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #ff6b35;
+        }
+
+        .rank-1 { color: #ffd700; }
+        .rank-2 { color: #c0c0c0; }
+        .rank-3 { color: #cd7f32; }
+
+        .player-name {
+            font-weight: bold;
+            color: #073545;
+        }
+
+        .group-info {
+            font-size: 0.8rem;
+            color: #666;
+            font-style: italic;
+        }
+
+        .points {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .day-points {
+            font-weight: bold;
+            color: #2196F3;
+        }
+
+        .items-count {
+            font-weight: bold;
+            color: #9C27B0;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+
+        @media (max-width: 1200px) {
+            .ranking-table {
+                font-size: 0.8rem;
+            }
+            
+            .ranking-table th,
+            .ranking-table td {
+                padding: 8px 4px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .ranking-table {
+                font-size: 0.7rem;
+            }
+            
+            .ranking-table th,
+            .ranking-table td {
+                padding: 6px 2px;
+            }
+            
+            .player-name {
+                font-size: 0.8rem;
+            }
+            
+            .group-info {
+                font-size: 0.7rem;
+            }
         }
 
         @media (max-width: 768px) {
@@ -298,11 +425,87 @@ $gameDay = getGameDay($dbConnection);
         <h1 class="ranking-title">🏆 Classement Individuel</h1>
 
         <div class="ranking-content">
-            <div class="coming-soon">
-                🚧 Classement Individuel - En cours de développement 🚧
-                <br><br>
-                <small>Cette page sera bientôt disponible avec le classement des joueurs individuels.</small>
-            </div>
+            <?php if (empty($players)): ?>
+                <div class="no-data">
+                    <h3>📊 Aucun joueur trouvé</h3>
+                    <p>Il n'y a actuellement aucun joueur dans le système.</p>
+                </div>
+            <?php else: ?>
+                <div style="text-align: center; color: white; font-size: 1.1rem; margin-bottom: 20px;">
+                    📊 Nb joueurs (TAK & Exo) : <?php echo count($players); ?> | 
+                    ✅ Joueurs activés : <?php echo count(array_filter($players, function($player) { return $player['has_activated']; })); ?>
+                </div>
+
+                <table class="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>🏆</th>
+                            <th>Points</th>
+                            <th>Joueur</th>
+                            <th>Personnage & Pôle</th>
+                            <th>Jour 1</th>
+                            <th>Jour 2</th>
+                            <th>Jour 3</th>
+                            <th>Objets</th>
+                            <th>Total papiers trouvés</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($players as $index => $player): ?>
+                            <?php 
+                            $rank = $index + 1;
+                            $rankClass = '';
+                            if ($rank == 1) $rankClass = 'rank-1';
+                            elseif ($rank == 2) $rankClass = 'rank-2';
+                            elseif ($rank == 3) $rankClass = 'rank-3';
+                            ?>
+                            <tr>
+                                <td class="rank-position <?php echo $rankClass; ?>">
+                                    <?php echo $rank; ?>
+                                </td>
+                                <td class="points">
+                                    <?php echo number_format($player['day1_points'] + $player['day2_points'] + $player['day3_points']); ?>
+                                </td>
+                                <td class="player-name">
+                                    <?php echo formatUserName($player['firstname'], $player['lastname']); ?>
+                                    <?php if (!$player['has_activated']): ?>
+                                        <br><small style="color: #ff6b35;">⚠️ Non activé</small>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="group-info">
+                                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                        <?php if (!empty($player['img_path'])): ?>
+                                            <img src="<?php echo htmlspecialchars($player['img_path']); ?>" 
+                                                 alt="<?php echo htmlspecialchars($player['group_name']); ?>" 
+                                                 style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                                        <?php endif; ?>
+                                        <div>
+                                            <?php echo htmlspecialchars($player['group_name']); ?><br>
+                                            <small><?php echo htmlspecialchars($player['pole_name']); ?></small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="day-points">
+                                    <?php echo number_format($player['day1_points']); ?>
+                                </td>
+                                <td class="day-points">
+                                    <?php echo number_format($player['day2_points']); ?>
+                                </td>
+                                <td class="day-points">
+                                    <?php echo number_format($player['day3_points']); ?>
+                                </td>
+                                <td class="items-count">
+                                    <?php echo $player['items_count']; ?>
+                                </td>
+                                <td class="items-count">
+                                    <?php echo $player['total_papers_found']; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                
+            <?php endif; ?>
         </div>
     </div>
 
