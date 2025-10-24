@@ -2515,7 +2515,7 @@ if ($dbConnection) {
                     // Créer l'encart points
                     const pointsText = document.createElement('div');
                     pointsText.className = 'ranking-text';
-                    pointsText.innerHTML = `🏆 ${teamData.score} pts`;
+                    pointsText.innerHTML = `🏆 ${teamData.score_display || Math.ceil(teamData.score)} pts`;
                     pointsText.id = `points-${teamId}`;
                     
                     // Ajouter au body

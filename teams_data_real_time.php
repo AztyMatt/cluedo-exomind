@@ -96,10 +96,9 @@ function calculateScore($timestampStart, $timestampEnd) {
     // Score de base : 2000 points
     $baseScore = 2000;
     
-    // Pénalité : -100 points par tranche de 15 minutes
-    $penaltyPer15Minutes = 100;
-    $penaltyMinutes = floor($totalMinutes / 15) * 15; // Arrondir à la tranche de 15 minutes
-    $penalty = ($penaltyMinutes / 15) * $penaltyPer15Minutes;
+    // Pénalité : -3 points par minute écoulée
+    $penaltyPerMinute = 3;
+    $penalty = $totalMinutes * $penaltyPerMinute;
     
     // Calculer le score final
     $finalScore = $baseScore - $penalty;
@@ -245,6 +244,7 @@ try {
             
             // Score total = score énigme + points papier doré
             $teams[$index]['score'] = $enigmaScore + $goldenPaperScore;
+            $teams[$index]['score_display'] = ceil($enigmaScore + $goldenPaperScore); // Arrondi à l'entier supérieur pour l'affichage
             $teams[$index]['enigma_score'] = $enigmaScore;
             $teams[$index]['golden_paper_score'] = $goldenPaperScore;
         } else {
@@ -258,6 +258,7 @@ try {
             // Même sans énigme résolue, l'équipe peut avoir des points du papier doré
             $goldenPaperScore = calculateGoldenPaperScore($dbConnection, $team['id'], $selectedDay);
             $teams[$index]['score'] = $goldenPaperScore;
+            $teams[$index]['score_display'] = ceil($goldenPaperScore); // Arrondi à l'entier supérieur pour l'affichage
             $teams[$index]['enigma_score'] = 0;
             $teams[$index]['golden_paper_score'] = $goldenPaperScore;
         }

@@ -173,12 +173,14 @@ if ($dbConnection) {
                     
                     // Calculer le score basé sur la durée
                     $team["day_{$day}_enigma_score"] = calculateScore($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
+                    $team["day_{$day}_enigma_score_display"] = ceil($team["day_{$day}_enigma_score"]); // Arrondi à l'entier supérieur pour l'affichage
                 } else {
                     $team["day_{$day}_enigma_status"] = 0;
                     $team["day_{$day}_datetime_solved"] = null;
                     $team["day_{$day}_timestamp_start"] = null;
                     $team["day_{$day}_timestamp_end"] = null;
                     $team["day_{$day}_enigma_score"] = 0;
+                    $team["day_{$day}_enigma_score_display"] = 0;
                 }
             }
             
@@ -187,6 +189,7 @@ if ($dbConnection) {
             $totalPoints += $team['day_1_enigma_score'] + $team['day_2_enigma_score'] + $team['day_3_enigma_score']; // Points des énigmes
             $totalPoints += ($team['day_1_golden_papers'] + $team['day_2_golden_papers'] + $team['day_3_golden_papers']) * 1500; // Points des papiers dorés
             $team['total_points'] = $totalPoints;
+            $team['total_points_display'] = ceil($totalPoints); // Arrondi à l'entier supérieur pour l'affichage
             
             $teamsWithData[] = $team;
         }

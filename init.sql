@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS `enigmes` (
     id INT AUTO_INCREMENT PRIMARY KEY,
     id_group INT NOT NULL,
     id_day INT NOT NULL,
-    enigm_label VARCHAR(255) NOT NULL,
+    enigm_label TEXT NOT NULL COMMENT 'Texte de l''énigme (jusqu''à 65,535 caractères)',
     enigm_solution VARCHAR(255) NOT NULL,
     status INT NOT NULL DEFAULT 0 COMMENT '0=pas débloqué, 1=en cours de résolution, 2=résolue',
     solved BOOLEAN DEFAULT FALSE,

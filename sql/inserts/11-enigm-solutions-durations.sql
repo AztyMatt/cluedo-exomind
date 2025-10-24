@@ -2,28 +2,17 @@
 -- Chaque énigme aura des timestamps null au départ
 -- Ce fichier doit être exécuté APRÈS 08-enigmes.sql
 
-INSERT INTO `enigm_solutions_durations` (`id_enigm`, `timestamp_start`, `timestamp_end`) VALUES
--- Jour 1 (énigmes ID 1-6)
-(1, NULL, NULL),
-(2, NULL, NULL),
-(3, NULL, NULL),
-(4, NULL, NULL),
-(5, NULL, NULL),
-(6, NULL, NULL),
--- Jour 2 (énigmes ID 7-12)
-(7, NULL, NULL),
-(8, NULL, NULL),
-(9, NULL, NULL),
-(10, NULL, NULL),
-(11, NULL, NULL),
-(12, NULL, NULL),
--- Jour 3 (énigmes ID 13-18)
-(13, NULL, NULL),
-(14, NULL, NULL),
-(15, NULL, NULL),
-(16, NULL, NULL),
-(17, NULL, NULL),
-(18, NULL, NULL)
+-- Insertion automatique des durées pour toutes les énigmes existantes
+INSERT INTO `enigm_solutions_durations` (`id_enigm`, `timestamp_start`, `timestamp_end`)
+SELECT 
+    e.id as id_enigm,
+    NULL as timestamp_start,
+    NULL as timestamp_end
+FROM `enigmes` e
+WHERE NOT EXISTS (
+    SELECT 1 FROM `enigm_solutions_durations` esd 
+    WHERE esd.id_enigm = e.id
+)
 ON DUPLICATE KEY UPDATE 
     `timestamp_start` = VALUES(`timestamp_start`),
     `timestamp_end` = VALUES(`timestamp_end`);

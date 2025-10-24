@@ -92,7 +92,8 @@ INSERT INTO `users` (group_id, firstname, lastname, username, email, activation_
 (6, 'Clémence', 'LAURENT', 'claurent', 'claurent@exomind.fr', 'B6M9T3'),
 (6, 'Johann', 'PETZOLD', 'jpetzold', 'jpetzold@exomind.fr', 'C1N4U7'),
 (6, 'Michael', 'BARUCH', 'mbaruch', 'mbaruch@exomind.fr', 'D5P8V2'),
-(6, 'Thileepan', 'UMAPATHIPILLAI', 'tumapathipillai', 'thileepan@exomind.fr', 'E9Q3W6')
+(6, 'Thileepan', 'UMAPATHIPILLAI', 'tumapathipillai', 'thileepan@exomind.fr', 'E9Q3W6'),
+(6, 'Pierre', 'NICOL', 'pnicol', 'pnicol@exomind.fr', 'F0I7M2')
 ON DUPLICATE KEY UPDATE 
     firstname = VALUES(firstname),
     lastname = VALUES(lastname),

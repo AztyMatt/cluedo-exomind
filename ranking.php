@@ -703,11 +703,12 @@
             const daysHtml = [1, 2, 3].map(day => {
                 const status = team[`day_${day}_enigma_status`];
                 const score = team[`day_${day}_enigma_score`];
+                const scoreDisplay = team[`day_${day}_enigma_score_display`] || Math.ceil(score);
                 const goldenPapers = team[`day_${day}_golden_papers`] || 0;
                 const isResolved = status === 2;
                 const statusClass = isResolved ? 'resolved' : 'not-resolved';
                 const statusText = isResolved ? 'Énigme résolue' : 'Énigme non résolue';
-                const enigmaPoints = isResolved ? score : 0;
+                const enigmaPoints = isResolved ? scoreDisplay : 0;
                 const goldenPoints = goldenPapers * 1500;
                 const totalPoints = enigmaPoints + goldenPoints;
                 
@@ -727,7 +728,7 @@
             
             row.innerHTML = `
                 <td class="rank-cell ${rankClass}">${rankDisplay}</td>
-                <td class="points-cell">${team.total_points} pts</td>
+                <td class="points-cell">${team.total_points_display || Math.ceil(team.total_points)} pts</td>
                 <td class="team-name-cell">
                     <div class="team-info">
                         ${teamImage}

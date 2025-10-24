@@ -157,6 +157,29 @@ if (!$activation_code_cookie || !$dbConnection) {
                     $error_message = "🔒 Votre équipe n'a pas encore trouvé tous les papiers pour ce jour.<br>Papiers trouvés : <strong>$found / $total</strong><br><br>Continuez à chercher !";
                     $show_error = true;
                 } else {
+                    // Démarrer le chrono si ce n'est pas déjà fait
+                    $stmt = $dbConnection->prepare("
+                        SELECT e.id, e.status 
+                        FROM `enigmes` e 
+                        WHERE e.id_group = ? AND e.id_day = ?
+                    ");
+                    $stmt->execute([$user['group_id'], $selectedDay]);
+                    $enigmaCheck = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($enigmaCheck && $enigmaCheck['status'] == 0) {
+                        // Démarrer le chrono : mettre à jour timestamp_start
+                        $stmt = $dbConnection->prepare("
+                            INSERT INTO `enigm_solutions_durations` (id_enigm, timestamp_start) 
+                            VALUES (?, NOW()) 
+                            ON DUPLICATE KEY UPDATE timestamp_start = COALESCE(timestamp_start, NOW())
+                        ");
+                        $stmt->execute([$enigmaCheck['id']]);
+                        
+                        // Mettre à jour le status de l'énigme à 1 (en cours)
+                        $stmt = $dbConnection->prepare("UPDATE `enigmes` SET status = 1 WHERE id = ?");
+                        $stmt->execute([$enigmaCheck['id']]);
+                    }
+                    
                     // Récupérer l'énigme pour ce jour et cette équipe avec les infos du solveur
                     $stmt = $dbConnection->prepare("
                         SELECT e.enigm_label, e.enigm_solution, e.status, e.datetime_solved, 
@@ -612,12 +635,19 @@ $currentDay = $dayLabels[$selectedDay];
                     <?php endif; ?>
                     <div class="solution-boxes">
                         <?php 
-                        $solutionLength = strlen($enigma['enigm_solution']);
+                        $solution = $enigma['enigm_solution'];
                         $isSolved = $enigma['status'] == 2 || $isViewingOtherTeam;
-                        for ($i = 0; $i < $solutionLength; $i++): 
-                            $letter = $isSolved ? strtoupper($enigma['enigm_solution'][$i]) : '';
+                        $index = 0;
+                        for ($i = 0; $i < strlen($solution); $i++): 
+                            $char = $solution[$i];
+                            if ($char === ' ') {
+                                // Ajouter un espace visuel entre les groupes de lettres
+                                echo '<div style="width: 20px;"></div>';
+                                continue;
+                            }
+                            $letter = $isSolved ? strtoupper($char) : '';
                         ?>
-                            <div class="letter-box <?= $isSolved ? 'solved' : '' ?>" data-index="<?= $i ?>">
+                            <div class="letter-box <?= $isSolved ? 'solved' : '' ?>" data-index="<?= $index ?>">
                                 <?php if ($isSolved): ?>
                                     <span style="font-size: 2.5rem; font-weight: bold; color: #fff; text-transform: uppercase;">
                                         <?= htmlspecialchars($letter) ?>
@@ -627,13 +657,15 @@ $currentDay = $dayLabels[$selectedDay];
                                         type="text" 
                                         maxlength="1" 
                                         class="letter-input"
-                                        data-index="<?= $i ?>"
+                                        data-index="<?= $index ?>"
                                         style="width: 100%; height: 100%; background: transparent; border: none; text-align: center; font-size: 2.5rem; font-weight: bold; color: #fff; text-transform: uppercase; outline: none;"
                                         autocomplete="off"
                                     />
                                 <?php endif; ?>
                             </div>
-                        <?php endfor; ?>
+                        <?php 
+                            $index++;
+                        endfor; ?>
                     </div>
                 </div>
 
@@ -815,13 +847,19 @@ $currentDay = $dayLabels[$selectedDay];
                 userSolution += input.value.toUpperCase();
             });
 
-            if (userSolution.length !== solution.length) {
+            // Supprimer les espaces pour la comparaison (solution stockée sans espaces)
+            const solutionWithoutSpaces = solution.replace(/\s+/g, '').toUpperCase();
+            const userSolutionWithoutSpaces = userSolution.replace(/\s+/g, '');
+
+            // Vérifier que toutes les cases sont remplies (seulement les lettres, pas les espaces)
+            const allFilled = Array.from(inputs).every(input => input.value.trim() !== '');
+            if (!allFilled) {
                 showErrorMessage('⚠️ Veuillez remplir toutes les cases !');
                 animateError();
                 return;
             }
 
-            if (userSolution === solution.toUpperCase()) {
+            if (userSolutionWithoutSpaces === solutionWithoutSpaces) {
                 // Solution correcte !
                 showSuccessMessage('🎉 Bravo ! La solution est correcte !');
                 
