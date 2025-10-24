@@ -342,6 +342,7 @@ if ($dbConnection) {
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            position: relative;
         }
 
         .game-description {
@@ -1263,6 +1264,280 @@ if ($dbConnection) {
             padding: 60px 20px;
         }
 
+        /* Conteneur des papiers */
+        .papers-container {
+            position: fixed;
+            top: 20px;
+            right: 250px;
+            background: rgba(128, 128, 128, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            z-index: 1000;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .papers-container:hover {
+            transform: scale(1.02);
+        }
+
+        /* Papier doré avec rotation verticale */
+        .golden-paper {
+            width: 60px;
+            height: 70px;
+            background: url('papier_dore.png') no-repeat center center;
+            background-size: contain;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+            box-sizing: border-box;
+            transform: rotate(5deg);
+            transition: transform 0.3s ease;
+            filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+            cursor: pointer;
+        }
+
+        .golden-paper:hover {
+            transform: rotate(5deg) scale(1.1);
+        }
+
+        .golden-paper-text {
+            font-family: 'Times New Roman', serif;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #8B4513;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            line-height: 1.1;
+            margin: 0;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+        }
+
+        .golden-paper-counter {
+            font-family: 'Times New Roman', serif;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #B8860B;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-top: 2px;
+        }
+
+        /* Papier normal */
+        .normal-paper {
+            width: 60px;
+            height: 70px;
+            background: url('papier.png') no-repeat center center;
+            background-size: contain;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+            box-sizing: border-box;
+            transform: rotate(-3deg);
+            transition: transform 0.3s ease;
+            filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+            cursor: pointer;
+        }
+
+        .normal-paper:hover {
+            transform: rotate(-3deg) scale(1.1);
+        }
+
+        .normal-paper-text {
+            font-family: 'Times New Roman', serif;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #2C3E50;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+            line-height: 1.1;
+            margin: 0;
+        }
+
+        .normal-paper-counter {
+            font-family: 'Times New Roman', serif;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #34495E;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            margin-top: 2px;
+        }
+
+        /* Styles pour la popup des papiers */
+        .papers-popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .papers-popup-overlay.active {
+            display: flex;
+        }
+
+        .papers-popup-content {
+            background: linear-gradient(135deg, rgba(58, 58, 58, 0.95) 0%, rgba(30, 30, 30, 0.95) 100%);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            animation: slideIn 0.3s ease;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .papers-popup-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .papers-popup-close:hover {
+            background: rgba(255, 77, 77, 0.8);
+            transform: rotate(90deg);
+        }
+
+        .papers-popup-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #f093fb;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(240, 147, 251, 0.5);
+        }
+
+        .papers-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .paper-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid var(--team-color);
+            transition: all 0.3s ease;
+        }
+
+        .paper-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(5px);
+        }
+
+        .paper-user-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .paper-user-name {
+            font-weight: bold;
+            color: #fff;
+            font-size: 1.1rem;
+        }
+
+        .paper-team-name {
+            color: var(--team-color);
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .paper-datetime {
+            color: #bbb;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+
+        /* Styles spécifiques pour le papier doré */
+        .golden-paper-content {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .golden-paper-status {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .golden-paper-not-found {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+            border: 2px solid rgba(255, 107, 107, 0.3);
+        }
+
+        .golden-paper-found {
+            color: #51cf66;
+            background: rgba(81, 207, 102, 0.1);
+            border: 2px solid rgba(81, 207, 102, 0.3);
+        }
+
+        .golden-paper-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border-left: 4px solid #ffd700;
+        }
+
+        .golden-paper-winner {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .golden-paper-team {
+            color: #ffd700;
+            font-weight: bold;
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+
+        .golden-paper-time {
+            color: #bbb;
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
         @media (max-width: 1400px) {
             .team-row:first-child,
             .team-row:last-child {
@@ -1344,6 +1619,43 @@ if ($dbConnection) {
             </div>
         </div>
     <?php endif; ?>
+
+    <!-- Conteneur des papiers -->
+    <div class="papers-container">
+        <!-- Papier doré avec rotation verticale -->
+        <div class="golden-paper" id="goldenPaperClickable">
+            <div class="golden-paper-text">Papier doré</div>
+            <div class="golden-paper-counter">0/1</div>
+        </div>
+        
+        <!-- Papier normal avec compteur dynamique -->
+        <div class="normal-paper" id="normalPaperClickable">
+            <div class="normal-paper-text">Papiers</div>
+            <div class="normal-paper-counter" id="totalPapersCounter">0/47</div>
+        </div>
+    </div>
+
+    <!-- Popup des papiers trouvés -->
+    <div id="papersPopup" class="papers-popup-overlay">
+        <div class="papers-popup-content">
+            <button class="papers-popup-close" id="closePapersPopup">&times;</button>
+            <h2 class="papers-popup-title">📄 Historique des Papiers Trouvés (JOUR <span id="papersPopupDay">1</span>)</h2>
+            <div class="papers-list" id="papersList">
+                <!-- Le contenu sera généré dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup du papier doré -->
+    <div id="goldenPaperPopup" class="papers-popup-overlay">
+        <div class="papers-popup-content">
+            <button class="papers-popup-close" id="closeGoldenPaperPopup">&times;</button>
+            <h2 class="papers-popup-title">🏆 Papier Doré (JOUR <span id="goldenPaperPopupDay">1</span>)</h2>
+            <div id="goldenPaperContent">
+                <!-- Le contenu sera généré dynamiquement -->
+            </div>
+        </div>
+    </div>
 
     <!-- Indicateur de mise à jour en temps réel -->
     <div class="live-indicator">
@@ -1604,7 +1916,6 @@ if ($dbConnection) {
     <script>
         // Utiliser le jour calculé par PHP selon la table current_date
         let currentDay = <?= $gameDay ?>;
-        console.log('🚀 Initialisation - currentDay (depuis current_date):', currentDay);
         
         // Informations sur l'équipe de l'utilisateur connecté
         window.currentUserTeam = <?= $userActivated && $userTeam ? json_encode($userTeam) : 'null' ?>;
@@ -1680,7 +1991,6 @@ if ($dbConnection) {
                 currentDay = parseInt(option.dataset.day);
                 
                 // Mettre à jour les données immédiatement via AJAX (sans changer l'URL)
-                console.log('🔄 Changement de jour:', currentDay);
                 updateTeamsData();
             });
         });
@@ -1829,45 +2139,21 @@ if ($dbConnection) {
         }
         
         function updateTeamsData() {
-            console.log('📡 Appel AJAX vers teams_data_real_time?day=' + currentDay);
-            console.log('📡 Valeur de currentDay:', currentDay, '(type:', typeof currentDay, ')');
             fetch('teams_data_real_time?day=' + currentDay)
-                .then(response => {
-                    console.log('📡 Réponse reçue:', response.status, response.statusText);
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
-                    console.log('📡 Données JSON reçues:', data);
                     if (!data.success || !data.teams) {
-                        console.error('❌ Erreur lors de la récupération des données:', data);
                         return;
                     }
-                    
-                    console.log('📊 Données mises à jour:', data.teams.length, 'équipes');
-                    console.log('Équipes reçues:', data.teams.map(t => `${t.name} (ID: ${t.id})`));
-                    
-                    // Debug: vérifier les équipes manquantes
-                    const expectedIds = [1, 2, 3, 4, 5, 6];
-                    const actualIds = data.teams.map(t => parseInt(t.id));
-                    const missingIds = expectedIds.filter(id => !actualIds.includes(id));
-                    if (missingIds.length > 0) {
-                        console.warn('🚨 ÉQUIPES MANQUANTES (IDs):', missingIds);
-                    }
-                    
-                    // Debug: vérifier les cartes HTML existantes
-                    const htmlCards = document.querySelectorAll('.team-card');
-                    console.log('📋 Cartes HTML existantes:', htmlCards.length);
-                    htmlCards.forEach((card, index) => {
-                        const teamId = card.getAttribute('data-team-id');
-                        const teamName = card.querySelector('.team-name')?.textContent;
-                        console.log(`  Carte ${index}: ${teamName} (ID: ${teamId})`);
-                    });
                     
                     // Supprimer toutes les médailles et textes existants avant de recréer
                     document.querySelectorAll('.ranking-medal, .ranking-text, .chrono-text').forEach(element => element.remove());
                     
                     // Sauvegarder les données pour les médailles
                     window.currentTeamsData = data.teams;
+                    
+                    // Calculer le total des papiers trouvés par toutes les équipes
+                    updateTotalPapersCounter(data.teams);
                     
                     // Reconstruire complètement les cartes d'équipe
                     rebuildTeamCards(data.teams);
@@ -1876,17 +2162,149 @@ if ($dbConnection) {
                     setTimeout(positionMedals, 100);
                 })
                 .catch(error => {
-                    console.error('Erreur AJAX:', error);
+                    // Erreur silencieuse
                 });
         }
         
+        // Fonction pour mettre à jour le compteur total des papiers
+        function updateTotalPapersCounter(teams) {
+            let totalPapersFound = 0;
+            let totalPapersToFind = 0;
+            
+            teams.forEach(team => {
+                totalPapersFound += parseInt(team.papers_found) || 0;
+                totalPapersToFind += parseInt(team.total_to_found) || 0;
+            });
+            
+            // Mettre à jour l'affichage
+            const counterElement = document.getElementById('totalPapersCounter');
+            if (counterElement) {
+                counterElement.textContent = `${totalPapersFound}/${totalPapersToFind}`;
+            }
+        }
+        
+        // Fonction pour récupérer l'historique des papiers trouvés
+        function fetchPapersHistory() {
+            fetch(`game_recent_papers.php?day=${currentDay}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.papers) {
+                        // Trier par datetime décroissant (plus récents en premier)
+                        const sortedPapers = data.papers.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+                        window.papersHistory = sortedPapers;
+                    } else {
+                        window.papersHistory = [];
+                    }
+                })
+                .catch(error => {
+                    window.papersHistory = [];
+                });
+        }
+        
+        // Fonction pour afficher la popup des papiers
+        function showPapersPopup() {
+            const popup = document.getElementById('papersPopup');
+            const papersList = document.getElementById('papersList');
+            const daySpan = document.getElementById('papersPopupDay');
+            
+            // Mettre à jour le numéro du jour dans le titre
+            daySpan.textContent = currentDay;
+            
+            if (!window.papersHistory || window.papersHistory.length === 0) {
+                papersList.innerHTML = '<div style="text-align: center; color: #bbb; padding: 20px;">Aucun papier trouvé pour le moment.</div>';
+            } else {
+                let html = '';
+                window.papersHistory.forEach(paper => {
+                    const datetime = new Date(paper.datetime);
+                    const formattedDate = datetime.toLocaleDateString('fr-FR');
+                    const formattedTime = datetime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                    
+                    html += `
+                        <div class="paper-item" style="--team-color: ${paper.team_color || '#888'}">
+                            <div class="paper-user-info">
+                                <span class="paper-user-name">${formatUserName(paper.firstname, paper.lastname)}</span>
+                                <span class="paper-team-name">${paper.team_name}</span>
+                            </div>
+                            <div class="paper-datetime">📅 ${formattedDate} à ${formattedTime}</div>
+                        </div>
+                    `;
+                });
+                papersList.innerHTML = html;
+            }
+            
+            popup.classList.add('active');
+        }
+        
+        // Fonction pour fermer la popup des papiers
+        function hidePapersPopup() {
+            const popup = document.getElementById('papersPopup');
+            popup.classList.remove('active');
+        }
+        
+        // Fonction pour récupérer les informations du papier doré
+        function fetchGoldenPaperInfo() {
+            fetch(`get-golden-paper.php?day=${currentDay}`)
+                .then(response => response.json())
+                .then(data => {
+                    window.goldenPaperInfo = data;
+                })
+                .catch(error => {
+                    window.goldenPaperInfo = null;
+                });
+        }
+        
+        // Fonction pour afficher la popup du papier doré
+        function showGoldenPaperPopup() {
+            const popup = document.getElementById('goldenPaperPopup');
+            const content = document.getElementById('goldenPaperContent');
+            const daySpan = document.getElementById('goldenPaperPopupDay');
+            
+            // Mettre à jour le numéro du jour dans le titre
+            daySpan.textContent = currentDay;
+            
+            if (!window.goldenPaperInfo || !window.goldenPaperInfo.found) {
+                // Papier doré non trouvé
+                content.innerHTML = `
+                    <div class="golden-paper-content">
+                        <div class="golden-paper-status golden-paper-not-found">
+                            ❌ Le papier doré n'a pas été trouvé pour le jour ${currentDay}
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Papier doré trouvé
+                const datetime = new Date(window.goldenPaperInfo.datetime);
+                const formattedDate = datetime.toLocaleDateString('fr-FR');
+                const formattedTime = datetime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                
+                content.innerHTML = `
+                    <div class="golden-paper-content">
+                        <div class="golden-paper-status golden-paper-found">
+                            ✅ Le papier doré a été trouvé pour le jour ${currentDay}
+                        </div>
+                        <div class="golden-paper-info">
+                            <div class="golden-paper-winner">${formatUserName(window.goldenPaperInfo.firstname, window.goldenPaperInfo.lastname)}</div>
+                            <div class="golden-paper-team">${window.goldenPaperInfo.team_name}</div>
+                            <div class="golden-paper-time">📅 ${formattedDate} à ${formattedTime}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            popup.classList.add('active');
+        }
+        
+        // Fonction pour fermer la popup du papier doré
+        function hideGoldenPaperPopup() {
+            const popup = document.getElementById('goldenPaperPopup');
+            popup.classList.remove('active');
+        }
+        
         function rebuildTeamCards(teams) {
-            console.log('🔄 Reconstruction complète des cartes d\'équipe');
             
             // Trouver le conteneur principal des équipes
             const teamsContainer = document.querySelector('.teams-grid');
             if (!teamsContainer) {
-                console.error('❌ Conteneur des équipes (.teams-grid) non trouvé');
                 return;
             }
             
@@ -1908,8 +2326,6 @@ if ($dbConnection) {
                 const secondRow = createTeamRow(secondRowTeams);
                 teamsContainer.appendChild(secondRow);
             }
-            
-            console.log('✅ Cartes reconstruites:', teams.length, 'équipes');
         }
         
         function createTeamRow(teams) {
@@ -2071,7 +2487,6 @@ if ($dbConnection) {
         window.addEventListener('popstate', (event) => {
             if (event.state && event.state.day) {
                 currentDay = event.state.day;
-                console.log('⬅️ Navigation arrière vers jour:', currentDay);
                 
                 // Mettre à jour l'affichage du sélecteur de jour
                 dayOptions.forEach(opt => {
@@ -2095,11 +2510,79 @@ if ($dbConnection) {
             }
         });
         
+        // Event listeners pour la popup des papiers
+        const normalPaperClickable = document.getElementById('normalPaperClickable');
+        const papersPopup = document.getElementById('papersPopup');
+        const closePapersPopup = document.getElementById('closePapersPopup');
+        
+        // Event listeners pour la popup du papier doré
+        const goldenPaperClickable = document.getElementById('goldenPaperClickable');
+        const goldenPaperPopup = document.getElementById('goldenPaperPopup');
+        const closeGoldenPaperPopup = document.getElementById('closeGoldenPaperPopup');
+        
+        // Ouvrir la popup au clic sur le papier normal
+        normalPaperClickable.addEventListener('click', () => {
+            showPapersPopup();
+        });
+        
+        // Ouvrir la popup au clic sur le papier doré
+        goldenPaperClickable.addEventListener('click', () => {
+            showGoldenPaperPopup();
+        });
+        
+        // Fermer la popup des papiers avec le bouton X
+        closePapersPopup.addEventListener('click', () => {
+            hidePapersPopup();
+        });
+        
+        // Fermer la popup du papier doré avec le bouton X
+        closeGoldenPaperPopup.addEventListener('click', () => {
+            hideGoldenPaperPopup();
+        });
+        
+        // Fermer la popup des papiers en cliquant en dehors
+        papersPopup.addEventListener('click', (e) => {
+            if (e.target === papersPopup) {
+                hidePapersPopup();
+            }
+        });
+        
+        // Fermer la popup du papier doré en cliquant en dehors
+        goldenPaperPopup.addEventListener('click', (e) => {
+            if (e.target === goldenPaperPopup) {
+                hideGoldenPaperPopup();
+            }
+        });
+        
+        // Fermer les popups avec la touche Échap
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (papersPopup.classList.contains('active')) {
+                    hidePapersPopup();
+                }
+                if (goldenPaperPopup.classList.contains('active')) {
+                    hideGoldenPaperPopup();
+                }
+            }
+        });
+        
         // Lancer la première mise à jour immédiatement
         updateTeamsData();
         
+        // Récupérer l'historique des papiers au chargement
+        fetchPapersHistory();
+        
+        // Récupérer les infos du papier doré au chargement
+        fetchGoldenPaperInfo();
+        
         // Puis mettre à jour toutes les 10 secondes
         setInterval(updateTeamsData, 10000);
+        
+        // Mettre à jour l'historique des papiers toutes les 30 secondes
+        setInterval(fetchPapersHistory, 30000);
+        
+        // Mettre à jour les infos du papier doré toutes les 30 secondes
+        setInterval(fetchGoldenPaperInfo, 30000);
         
         // Mettre à jour les positions des médailles lors du scroll et resize
         window.addEventListener('scroll', updateMedalPositions);
@@ -2107,8 +2590,6 @@ if ($dbConnection) {
         
         // Positionner les médailles au chargement initial
         setTimeout(positionMedals, 500);
-        
-        console.log('🔄 Mise à jour automatique activée (toutes les 10 secondes)');
     </script>
 </body>
 </html>
