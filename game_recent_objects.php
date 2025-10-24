@@ -14,7 +14,7 @@ $day = isset($_GET['day']) ? (int)$_GET['day'] : 1;
 $day = max(1, min(3, $day)); // Limiter entre 1 et 3
 
 try {
-    // Requête pour récupérer les objets trouvés récemment avec les informations du joueur et de l'équipe
+    // Requête pour récupérer les objets placés récemment avec les informations du joueur et de l'équipe
     $query = "
         SELECT 
             i.id,
@@ -27,8 +27,8 @@ try {
             g.name as team_name,
             g.color as team_color
         FROM items i
-        INNER JOIN users u ON i.solved_by = u.id
-        INNER JOIN groups g ON u.group_id = g.id
+        INNER JOIN users u ON i.id_solved_user = u.id
+        INNER JOIN `groups` g ON u.group_id = g.id
         WHERE i.solved = 1 
         AND i.datetime_solved IS NOT NULL
         ORDER BY i.datetime_solved DESC

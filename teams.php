@@ -2467,6 +2467,9 @@ if ($dbConnection) {
                 
                 // Mettre à jour les données immédiatement via AJAX (sans changer l'URL)
                 updateTeamsData();
+                
+                // Récupérer l'historique des papiers pour le nouveau jour
+                fetchPapersHistory();
             });
         });
 
@@ -2868,7 +2871,7 @@ if ($dbConnection) {
         
         // Fonction pour récupérer les objets trouvés
         function fetchObjectsHistory() {
-            fetch(`game_recent_objects.php?day=${currentDay}`)
+            fetch(`game_recent_objects.php`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.objects) {
@@ -3152,6 +3155,9 @@ if ($dbConnection) {
                 
                 // Mettre à jour les données
                 updateTeamsData();
+                
+                // Récupérer l'historique des papiers pour le nouveau jour
+                fetchPapersHistory();
             }
         });
         

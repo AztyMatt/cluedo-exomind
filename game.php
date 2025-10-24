@@ -3907,10 +3907,10 @@ if ($show_activation_form) {
                     ${itemData.itemTitle || 'Objet'}
                 </div>
                 <div style="font-size: 1.1rem; margin-bottom: 10px; color: white;">
-                    Trouvé par <strong>${playerName}</strong>
+                    Placé par <strong>${playerName}</strong>
                 </div>
                 <div style="font-size: 1rem; color: #ccc; margin-bottom: 10px;">
-                    <strong>Objet :</strong> ${itemData.itemSubtitle || 'Sous-titre non disponible'}
+                    <strong>Description :</strong> ${itemData.itemSubtitle || 'Sous-titre non disponible'}
                 </div>
                 <div style="font-size: 1rem; color: #ccc;">
                     <strong>Solution :</strong> ${itemData.solvedTitle || 'Solution non disponible'}
