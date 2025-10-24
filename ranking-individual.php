@@ -1,140 +1,5 @@
 <?php
-// Connexion à la base de données
-require_once __DIR__ . '/db-connection.php';
-$dbConnection = getDBConnection();
-
-// Vérifier la connexion avant de continuer
-if (!$dbConnection) {
-    error_log("Erreur critique: Impossible de se connecter à la base de données");
-    die("Erreur de connexion à la base de données");
-}
-
-// Fonction pour calculer le jour du jeu basé sur la date courante
-function getGameDay($dbConnection) {
-    if (!$dbConnection) {
-        error_log("Erreur: Connexion à la base de données échouée dans getGameDay()");
-        return 1; // Retourner jour 1 par défaut
-    }
-    
-    try {
-        // Récupérer la date courante de la base de données
-        $query = "SELECT `date` FROM `current_date` WHERE `id` = 1";
-        $stmt = $dbConnection->prepare($query);
-        $stmt->execute();
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($result && isset($result['date'])) {
-            $currentDate = new DateTime($result['date']);
-        } else {
-            // Si pas de date en base, utiliser la date actuelle
-            $currentDate = new DateTime();
-        }
-        
-        // Date de référence : 27 octobre 2025 = Jour 1
-        $referenceDate = new DateTime('2025-10-27');
-        
-        // Calculer la différence en jours
-        $diff = $currentDate->diff($referenceDate);
-        $daysDiff = $diff->days;
-        
-        // Si la date courante est avant le 27/10/2025, retourner jour 1
-        if ($currentDate < $referenceDate) {
-            return 1;
-        }
-        
-        // Calculer le jour : 27/10 = jour 1, 28/10 = jour 2, 29/10 = jour 3
-        $gameDay = $daysDiff + 1;
-        
-        // Limiter à jour 3 maximum, sinon retourner jour 1
-        if ($gameDay > 3) {
-            return 1;
-        }
-        
-        return $gameDay;
-        
-    } catch (Exception $e) {
-        // En cas d'erreur, retourner jour 1 par défaut
-        return 1;
-    }
-}
-
-// Fonction pour formater le nom : Prénom NOM
-function formatUserName($firstname, $lastname) {
-    // Formater : première lettre majuscule pour le prénom, tout en majuscules pour le nom
-    $formattedFirstName = ucfirst(strtolower($firstname));
-    $formattedLastName = strtoupper($lastname);
-    
-    return $formattedFirstName . ' ' . $formattedLastName;
-}
-
-// Calculer le jour du jeu
-$gameDay = getGameDay($dbConnection);
-
-// Test simple d'abord - récupérer tous les utilisateurs avec nombre de papiers trouvés, objets trouvés et papiers en or par jour
-$simpleQuery = "SELECT u.id, u.firstname, u.lastname, u.has_activated, g.name as group_name, g.pole_name, g.img_path, 
-                COALESCE(papers_count.total_papers, 0) as total_papers_found,
-                COALESCE(items_count.total_items, 0) as total_items_found,
-                COALESCE(golden_day1.golden_papers, 0) as golden_papers_day1,
-                COALESCE(golden_day2.golden_papers, 0) as golden_papers_day2,
-                COALESCE(golden_day3.golden_papers, 0) as golden_papers_day3
-                FROM users u 
-                LEFT JOIN `groups` g ON u.group_id = g.id 
-                LEFT JOIN (
-                    SELECT pf.id_player, COUNT(*) as total_papers 
-                    FROM papers_found_user pf
-                    INNER JOIN papers p ON pf.id_paper = p.id
-                    WHERE p.paper_type = 0
-                    GROUP BY pf.id_player
-                ) papers_count ON u.id = papers_count.id_player
-                LEFT JOIN (
-                    SELECT id_solved_user, COUNT(*) as total_items 
-                    FROM items 
-                    WHERE solved = 1
-                    GROUP BY id_solved_user
-                ) items_count ON u.id = items_count.id_solved_user
-                LEFT JOIN (
-                    SELECT pf.id_player, COUNT(*) as golden_papers
-                    FROM papers_found_user pf
-                    INNER JOIN papers p ON pf.id_paper = p.id
-                    WHERE p.paper_type = 1 AND pf.id_day = 1
-                    GROUP BY pf.id_player
-                ) golden_day1 ON u.id = golden_day1.id_player
-                LEFT JOIN (
-                    SELECT pf.id_player, COUNT(*) as golden_papers
-                    FROM papers_found_user pf
-                    INNER JOIN papers p ON pf.id_paper = p.id
-                    WHERE p.paper_type = 1 AND pf.id_day = 2
-                    GROUP BY pf.id_player
-                ) golden_day2 ON u.id = golden_day2.id_player
-                LEFT JOIN (
-                    SELECT pf.id_player, COUNT(*) as golden_papers
-                    FROM papers_found_user pf
-                    INNER JOIN papers p ON pf.id_paper = p.id
-                    WHERE p.paper_type = 1 AND pf.id_day = 3
-                    GROUP BY pf.id_player
-                ) golden_day3 ON u.id = golden_day3.id_player
-                ORDER BY u.lastname ASC, u.firstname ASC";
-
-try {
-    $stmt = $dbConnection->prepare($simpleQuery);
-    $stmt->execute();
-    $players = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Ajouter des colonnes vides pour la compatibilité avec l'affichage et calculer les points bonus
-    foreach ($players as &$player) {
-        $player['day1_points'] = $player['golden_papers_day1'] * 1000; // 1000 points par papier en or jour 1
-        $player['day2_points'] = $player['golden_papers_day2'] * 1000; // 1000 points par papier en or jour 2
-        $player['day3_points'] = $player['golden_papers_day3'] * 1000; // 1000 points par papier en or jour 3
-        $player['items_count'] = $player['total_items_found'];
-        $player['items_bonus_points'] = $player['total_items_found'] * 500; // 500 points par objet trouvé
-        $player['golden_papers_total'] = $player['golden_papers_day1'] + $player['golden_papers_day2'] + $player['golden_papers_day3'];
-        $player['golden_papers_bonus_points'] = $player['golden_papers_total'] * 1000; // 1000 points par papier en or total
-    }
-    
-} catch (PDOException $e) {
-    $players = [];
-}
-
+// Page de classement individuel avec rafraîchissement automatique via AJAX
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -356,11 +221,76 @@ try {
             font-weight: bold;
             font-size: 1.1rem;
             color: #ff6b35;
+            text-align: center;
+            vertical-align: middle;
+            padding: 8px;
         }
 
         .rank-1 { color: #ffd700; }
         .rank-2 { color: #c0c0c0; }
         .rank-3 { color: #cd7f32; }
+
+        /* Styles de médaille pour les lignes */
+        .ranking-table tr.medal-1 {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.05)) !important;
+            border-left: 4px solid #ffd700;
+        }
+
+        .ranking-table tr.medal-2 {
+            background: linear-gradient(135deg, rgba(192, 192, 192, 0.1), rgba(192, 192, 192, 0.05)) !important;
+            border-left: 4px solid #c0c0c0;
+        }
+
+        .ranking-table tr.medal-3 {
+            background: linear-gradient(135deg, rgba(205, 127, 50, 0.1), rgba(205, 127, 50, 0.05)) !important;
+            border-left: 4px solid #cd7f32;
+        }
+
+        /* Style des numéros de médaille */
+        .rank-position.rank-1 {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            color: #000;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+            border: 2px solid #ffb300;
+            margin: 0 auto;
+        }
+
+        .rank-position.rank-2 {
+            background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
+            color: #000;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(192, 192, 192, 0.3);
+            border: 2px solid #a0a0a0;
+            margin: 0 auto;
+        }
+
+        .rank-position.rank-3 {
+            background: linear-gradient(135deg, #cd7f32, #daa520);
+            color: #fff;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(205, 127, 50, 0.3);
+            border: 2px solid #8b4513;
+            margin: 0 auto;
+        }
 
         .player-name {
             font-weight: bold;
@@ -431,9 +361,30 @@ try {
             font-weight: bold;
         }
 
+        .normal-paper-text {
+            color: #6B7280;
+            font-weight: bold;
+        }
+
+        .golden-paper-text-dark {
+            color: #B8860B;
+            font-weight: bold;
+        }
+
         .golden-bonus-points {
             background: #FFD700;
             color: #333;
+            padding: 3px 6px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+        }
+
+        .normal-bonus-points {
+            background: #4B5563;
+            color: white;
             padding: 3px 6px;
             border-radius: 10px;
             font-size: 0.7rem;
@@ -447,6 +398,19 @@ try {
             padding: 40px;
             color: #666;
             font-style: italic;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .ranking-table tr {
+            transition: all 0.3s ease;
+        }
+
+        .ranking-table tr.updating {
+            background: rgba(255, 107, 53, 0.2);
         }
 
         @media (max-width: 1200px) {
@@ -515,121 +479,248 @@ try {
         <h1 class="ranking-title">🏆 Classement Individuel</h1>
 
         <div class="ranking-content">
-            <?php if (empty($players)): ?>
-                <div class="no-data">
-                    <h3>📊 Aucun joueur trouvé</h3>
-                    <p>Il n'y a actuellement aucun joueur dans le système.</p>
-                </div>
-            <?php else: ?>
-                <div style="text-align: center; color: white; font-size: 1.1rem; margin-bottom: 20px;">
-                    📊 Nb joueurs (TAK & Exo) : <?php echo count($players); ?> | 
-                    ✅ Joueurs activés : <?php echo count(array_filter($players, function($player) { return $player['has_activated']; })); ?>
-                </div>
-
-                <table class="ranking-table">
-                    <thead>
-                        <tr>
-                            <th>🏆</th>
-                            <th>Points</th>
-                            <th>Joueur</th>
-                            <th>Personnage & Pôle</th>
-                            <th>Jour 1</th>
-                            <th>Jour 2</th>
-                            <th>Jour 3</th>
-                            <th>Objets</th>
-                            <th>Total papiers trouvés</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($players as $index => $player): ?>
-                            <?php 
-                            $rank = $index + 1;
-                            $rankClass = '';
-                            if ($rank == 1) $rankClass = 'rank-1';
-                            elseif ($rank == 2) $rankClass = 'rank-2';
-                            elseif ($rank == 3) $rankClass = 'rank-3';
-                            ?>
-                            <tr>
-                                <td class="rank-position <?php echo $rankClass; ?>">
-                                    <?php echo $rank; ?>
-                                </td>
-                                <td class="points">
-                                    <?php echo number_format($player['day1_points'] + $player['day2_points'] + $player['day3_points'] + $player['items_bonus_points']); ?>
-                                </td>
-                                <td class="player-name">
-                                    <?php echo formatUserName($player['firstname'], $player['lastname']); ?>
-                                    <?php if (!$player['has_activated']): ?>
-                                        <br><small style="color: #ff6b35;">⚠️ Non activé</small>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="group-info">
-                                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                                        <?php if (!empty($player['img_path'])): ?>
-                                            <img src="<?php echo htmlspecialchars($player['img_path']); ?>" 
-                                                 alt="<?php echo htmlspecialchars($player['group_name']); ?>" 
-                                                 style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-                                        <?php endif; ?>
-                                        <div>
-                                            <?php echo htmlspecialchars($player['group_name']); ?><br>
-                                            <small><?php echo htmlspecialchars($player['pole_name']); ?></small>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="day-points">
-                                    <div class="day-content">
-                                        <?php echo number_format($player['day1_points']); ?>
-                                        <?php if ($player['golden_papers_day1'] > 0): ?>
-                                            <div class="golden-paper-info">
-                                                <span class="golden-paper-text">Papier en or trouvé</span>
-                                                <span class="golden-bonus-points">+<?php echo number_format($player['golden_papers_day1'] * 1000); ?> pts</span>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                                <td class="day-points">
-                                    <div class="day-content">
-                                        <?php echo number_format($player['day2_points']); ?>
-                                        <?php if ($player['golden_papers_day2'] > 0): ?>
-                                            <div class="golden-paper-info">
-                                                <span class="golden-paper-text">Papier en or trouvé</span>
-                                                <span class="golden-bonus-points">+<?php echo number_format($player['golden_papers_day2'] * 1000); ?> pts</span>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                                <td class="day-points">
-                                    <div class="day-content">
-                                        <?php echo number_format($player['day3_points']); ?>
-                                        <?php if ($player['golden_papers_day3'] > 0): ?>
-                                            <div class="golden-paper-info">
-                                                <span class="golden-paper-text">Papier en or trouvé</span>
-                                                <span class="golden-bonus-points">+<?php echo number_format($player['golden_papers_day3'] * 1000); ?> pts</span>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                                <td class="items-count">
-                                    <div class="items-bonus">
-                                        <span class="items-number"><?php echo $player['items_count']; ?></span>
-                                        <?php if ($player['items_count'] > 0): ?>
-                                            <span class="bonus-points">+<?php echo number_format($player['items_bonus_points']); ?> pts</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                                <td class="items-count">
-                                    <?php echo $player['total_papers_found']; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-                
-            <?php endif; ?>
+            <!-- Indicateur de chargement -->
+            <div id="loading-indicator" style="text-align: center; color: white; font-size: 1.2rem; padding: 40px;">
+                <div style="display: inline-block; animation: spin 1s linear infinite; font-size: 2rem;">⏳</div>
+                <br>Chargement du classement...
+            </div>
+            
+            <!-- Statistiques -->
+            <div id="stats-container" style="text-align: center; color: white; font-size: 1.1rem; margin-bottom: 20px; display: none;">
+                📊 Nb joueurs (TAK & Exo) : <span id="total-players">0</span> | 
+                ✅ Joueurs activés : <span id="activated-players">0</span>
+            </div>
+            
+            <!-- Message d'erreur -->
+            <div id="error-message" class="no-data" style="display: none;">
+                <h3>❌ Erreur de chargement</h3>
+                <p>Impossible de charger les données du classement.</p>
+                <button onclick="loadRankingData()" style="margin-top: 10px; padding: 10px 20px; background: #ff6b35; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    🔄 Réessayer
+                </button>
+            </div>
+            
+            <!-- Tableau de classement -->
+            <table id="ranking-table" class="ranking-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>🏆</th>
+                        <th>Points</th>
+                        <th>Joueur</th>
+                        <th>Personnage & Pôle</th>
+                        <th>Jour 1</th>
+                        <th>Jour 2</th>
+                        <th>Jour 3</th>
+                        <th>Objets</th>
+                        <th>Total papiers trouvés</th>
+                    </tr>
+                </thead>
+                <tbody id="ranking-tbody">
+                    <!-- Le contenu sera généré dynamiquement -->
+                </tbody>
+            </table>
         </div>
     </div>
 
     <script>
-        // Page de classement individuel - pas de boutons de navigation supplémentaires
+        let refreshInterval;
+        let isUpdating = false;
+
+        // Fonction pour charger les données du classement
+        async function loadRankingData() {
+            if (isUpdating) return;
+            
+            isUpdating = true;
+            
+            try {
+                const response = await fetch('ajax_classement_individuel.php');
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateRankingTable(data);
+                    hideError();
+                } else {
+                    showError();
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement:', error);
+                showError();
+            } finally {
+                isUpdating = false;
+            }
+        }
+
+        // Fonction pour mettre à jour le tableau de classement
+        function updateRankingTable(data) {
+            const { players, total_players, activated_players } = data;
+            
+            // Mettre à jour les statistiques
+            document.getElementById('total-players').textContent = total_players;
+            document.getElementById('activated-players').textContent = activated_players;
+            
+            // Générer le contenu du tableau
+            const tbody = document.getElementById('ranking-tbody');
+            tbody.innerHTML = '';
+            
+            if (players.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="no-data">Aucun joueur trouvé</td></tr>';
+            } else {
+                players.forEach(player => {
+                    const row = createPlayerRow(player);
+                    tbody.appendChild(row);
+                });
+            }
+            
+            // Afficher les éléments
+            document.getElementById('loading-indicator').style.display = 'none';
+            document.getElementById('stats-container').style.display = 'block';
+            document.getElementById('ranking-table').style.display = 'table';
+        }
+
+        // Fonction pour calculer les points des papiers normaux par jour
+        function calculateNormalPapersPoints(dayPoints, papersCount) {
+            if (papersCount === 0) return 0;
+            
+            // Calculer les points moyens par papier
+            const avgPointsPerPaper = Math.round(dayPoints / papersCount);
+            return avgPointsPerPaper * papersCount;
+        }
+
+        // Fonction pour créer une ligne de joueur
+        function createPlayerRow(player) {
+            const row = document.createElement('tr');
+            
+            // Déterminer la classe de rang et de médaille
+            let rankClass = '';
+            let medalClass = '';
+            
+            if (player.rank === 1) {
+                rankClass = 'rank-1';
+                medalClass = 'medal-1';
+            } else if (player.rank === 2) {
+                rankClass = 'rank-2';
+                medalClass = 'medal-2';
+            } else if (player.rank === 3) {
+                rankClass = 'rank-3';
+                medalClass = 'medal-3';
+            }
+            
+            // Ajouter la classe de médaille à la ligne
+            if (medalClass) {
+                row.classList.add(medalClass);
+            }
+            
+            // Calculer les points totaux
+            const totalPoints = player.day1_points + player.day2_points + player.day3_points + player.items_bonus_points;
+            
+            // Calculer les points des papiers normaux par jour
+            const day1NormalPoints = calculateNormalPapersPoints(player.day1_points - (player.golden_papers_day1 * 1000), player.day1_papers_count);
+            const day2NormalPoints = calculateNormalPapersPoints(player.day2_points - (player.golden_papers_day2 * 1000), player.day2_papers_count);
+            const day3NormalPoints = calculateNormalPapersPoints(player.day3_points - (player.golden_papers_day3 * 1000), player.day3_papers_count);
+            
+            row.innerHTML = `
+                <td class="rank-position ${rankClass}">
+                    ${player.total_points > 0 ? player.rank : '-'}
+                </td>
+                <td class="points">
+                    ${totalPoints.toLocaleString()}
+                </td>
+                <td class="player-name">
+                    ${player.formatted_name}
+                    ${!player.has_activated ? '<br><small style="color: #ff6b35;">⚠️ Non activé</small>' : ''}
+                </td>
+                <td class="group-info">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        ${player.img_path ? `<img src="${player.img_path}" alt="${player.group_name}" style="width: 40px; border-radius: 8px; object-fit: cover;">` : ''}
+                        <div>
+                            ${player.group_name}<br>
+                            <small>${player.pole_name}</small>
+                        </div>
+                    </div>
+                </td>
+                <td class="day-points">
+                    <div class="day-content">
+                        ${player.day1_points.toLocaleString()}
+                        ${player.day1_papers_count > 0 ? `<div class="golden-paper-info"><span class="normal-paper-text">${player.day1_papers_count} papier(s)</span><span class="normal-bonus-points">+${day1NormalPoints.toLocaleString()} pts</span></div>` : ''}
+                        ${player.golden_papers_day1 > 0 ? `<div class="golden-paper-info"><span class="golden-paper-text-dark">${player.golden_papers_day1} papier(s) en or</span><span class="golden-bonus-points">+${(player.golden_papers_day1 * 1500).toLocaleString()} pts</span></div>` : ''}
+                    </div>
+                </td>
+                <td class="day-points">
+                    <div class="day-content">
+                        ${player.day2_points.toLocaleString()}
+                        ${player.day2_papers_count > 0 ? `<div class="golden-paper-info"><span class="normal-paper-text">${player.day2_papers_count} papier(s)</span><span class="normal-bonus-points">+${day2NormalPoints.toLocaleString()} pts</span></div>` : ''}
+                        ${player.golden_papers_day2 > 0 ? `<div class="golden-paper-info"><span class="golden-paper-text-dark">${player.golden_papers_day2} papier(s) en or</span><span class="golden-bonus-points">+${(player.golden_papers_day2 * 1500).toLocaleString()} pts</span></div>` : ''}
+                    </div>
+                </td>
+                <td class="day-points">
+                    <div class="day-content">
+                        ${player.day3_points.toLocaleString()}
+                        ${player.day3_papers_count > 0 ? `<div class="golden-paper-info"><span class="normal-paper-text">${player.day3_papers_count} papier(s)</span><span class="normal-bonus-points">+${day3NormalPoints.toLocaleString()} pts</span></div>` : ''}
+                        ${player.golden_papers_day3 > 0 ? `<div class="golden-paper-info"><span class="golden-paper-text-dark">${player.golden_papers_day3} papier(s) en or</span><span class="golden-bonus-points">+${(player.golden_papers_day3 * 1500).toLocaleString()} pts</span></div>` : ''}
+                    </div>
+                </td>
+                <td class="items-count">
+                    <div class="items-bonus">
+                        <span class="items-number">${player.items_count}</span>
+                        ${player.items_count > 0 ? `<span class="bonus-points">+${player.items_bonus_points.toLocaleString()} pts</span>` : ''}
+                    </div>
+                </td>
+                <td class="items-count">
+                    ${player.total_papers_found}
+                </td>
+            `;
+            
+            return row;
+        }
+
+        // Fonction pour afficher l'erreur
+        function showError() {
+            document.getElementById('loading-indicator').style.display = 'none';
+            document.getElementById('stats-container').style.display = 'none';
+            document.getElementById('ranking-table').style.display = 'none';
+            document.getElementById('error-message').style.display = 'block';
+        }
+
+        // Fonction pour masquer l'erreur
+        function hideError() {
+            document.getElementById('error-message').style.display = 'none';
+        }
+
+        // Fonction pour démarrer le rafraîchissement automatique
+        function startAutoRefresh() {
+            // Charger immédiatement
+            loadRankingData();
+            
+            // Puis toutes les 10 secondes
+            refreshInterval = setInterval(loadRankingData, 10000);
+        }
+
+        // Fonction pour arrêter le rafraîchissement automatique
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+
+        // Démarrer le rafraîchissement automatique au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            startAutoRefresh();
+        });
+
+        // Arrêter le rafraîchissement quand la page n'est plus visible
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopAutoRefresh();
+            } else {
+                startAutoRefresh();
+            }
+        });
+
+        // Arrêter le rafraîchissement avant de quitter la page
+        window.addEventListener('beforeunload', function() {
+            stopAutoRefresh();
+        });
     </script>
 </body>
 </html>

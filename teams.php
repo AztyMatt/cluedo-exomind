@@ -2119,7 +2119,7 @@ if ($dbConnection) {
             <button class="objects-popup-close" id="closeObjectsPopup">&times;</button>
             <h2 class="objects-popup-title">🎯 Objets Placés</h2>
             <p style="font-style: italic; margin: 10px 0; color: #FFFFFF; font-size: 0.9rem;">
-                Les équipes ont chacune 3 objets à placer au bon endroit sur l'ensemble des trois jours. Chaque objet placé rapporte +750 points à son équipe.
+                Les équipes ont chacune 3 objets à placer au bon endroit sur l'ensemble des trois jours. Chaque objet placé rapporte +500 points à son équipe.
             </p>
             <div class="objects-list" id="objectsList">
                 <!-- Le contenu sera généré dynamiquement -->
