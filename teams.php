@@ -403,6 +403,8 @@ if ($dbConnection) {
         .btn-rules {
             background: #ffdf29;
             color: #073545;
+            padding: 18px 50px;
+            font-size: 1.3rem;
         }
 
         .btn-rules:hover {
@@ -412,15 +414,85 @@ if ($dbConnection) {
         .btn-ranking {
             background: #ff6b35;
             color: white;
+            padding: 10px 25px;
+            font-size: 0.9rem;
         }
 
         .btn-ranking:hover {
             background: #e55a2b;
         }
 
+        .btn-individual {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 25px;
+            font-size: 0.9rem;
+        }
+
+        .btn-individual:hover {
+            background: #45a049;
+        }
+
+        .ranking-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .ranking-buttons-fixed {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .ranking-buttons-fixed .btn-ranking,
+        .ranking-buttons-fixed .btn-individual {
+            padding: 8px 20px;
+            font-size: 0.8rem;
+            min-width: 120px;
+        }
+
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .ranking-buttons-small {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .ranking-buttons-small .btn-ranking,
+        .ranking-buttons-small .btn-individual {
+            padding: 8px 20px;
+            font-size: 0.8rem;
+            min-width: 120px;
+        }
+
+        .btn-ranking-top {
+            border-radius: 12px 12px 0 0;
+            margin-bottom: 0;
+        }
+
+        .btn-ranking-bottom {
+            border-radius: 0 0 12px 12px;
+            margin-top: 0;
+        }
+
         .btn-play {
             background: #073545;
             color: white;
+            padding: 18px 50px;
+            font-size: 1.3rem;
         }
 
         .btn-play:hover {
@@ -1867,6 +1939,12 @@ if ($dbConnection) {
         </div>
     </div>
 
+    <!-- Boutons de classement fixes en haut à gauche -->
+    <div class="ranking-buttons-fixed">
+        <a href="ranking.php" class="game-button btn-ranking btn-ranking-top">🏆 Équipes</a>
+        <a href="ranking-individual.php" class="game-button btn-individual btn-ranking-bottom">👤 Individuel</a>
+    </div>
+
     <!-- Indicateur de mise à jour en temps réel -->
     <div class="live-indicator">
         <div class="live-pulse"></div>
@@ -1878,7 +1956,6 @@ if ($dbConnection) {
 
         <div class="buttons-container">
             <button id="rulesBtn" class="game-button btn-rules">Règles du jeu</button>
-            <a href="ranking.php" class="game-button btn-ranking">🏆 Classement</a>
             <a href="game.php" class="game-button btn-play">Jouer</a>
         </div>
 
