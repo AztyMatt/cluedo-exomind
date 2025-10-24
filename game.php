@@ -126,6 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         // Si le papier a déjà été trouvé par quelqu'un, ne pas comptabiliser la découverte
         if ($paperAlreadyFound && $paperAlreadyFound['count'] > 0) {
+            http_response_code(400); // Bad Request
             echo json_encode(['success' => false, 'message' => 'Papier déjà résolu - non comptabilisé']);
             exit;
         }
@@ -2167,7 +2168,16 @@ if ($show_activation_form) {
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: 'action=paper_found&paper_id=' + paperId + '&day_id=' + <?php echo $currentGameDay; ?>
                 })
-                .then(response => response.json())
+                .then(response => {
+                    // Vérifier si c'est une erreur 400 (Bad Request)
+                    if (response.status === 400) {
+                        showPaperAlreadyFoundMessage();
+                        obj.isProcessing = false;
+                        obj.evented = true;
+                        return Promise.reject('Paper already found by another user');
+                    }
+                    return response.json();
+                })
                 .then(result => {
                     if (result.success) {
                         if (result.new_find) {
@@ -2498,6 +2508,64 @@ if ($show_activation_form) {
             }
         });
         
+        // Fonction pour afficher le message "Papier déjà trouvé par un autre utilisateur"
+        function showPaperAlreadyFoundMessage() {
+            // Créer l'élément de message
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(255, 68, 68, 0.95);
+                color: white;
+                padding: 20px 40px;
+                border-radius: 15px;
+                font-size: 1.4rem;
+                font-weight: bold;
+                z-index: 10000;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+                animation: blinkRed 2s ease-in-out;
+                text-align: center;
+                max-width: 400px;
+                word-wrap: break-word;
+            `;
+            messageDiv.textContent = 'Un autre utilisateur a déjà trouvé le papier';
+            
+            // Ajouter l'animation CSS
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes blinkRed {
+                    0%, 100% { 
+                        opacity: 1; 
+                        transform: translate(-50%, -50%) scale(1);
+                    }
+                    25%, 75% { 
+                        opacity: 0.7; 
+                        transform: translate(-50%, -50%) scale(1.05);
+                    }
+                    50% { 
+                        opacity: 1; 
+                        transform: translate(-50%, -50%) scale(1.1);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Ajouter au DOM
+            document.body.appendChild(messageDiv);
+            
+            // Supprimer après 3 secondes
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+                if (style.parentNode) {
+                    style.parentNode.removeChild(style);
+                }
+            }, 3000);
+        }
+
         // Fonction pour afficher les félicitations avec confettis
         function showCongratulations() {
             const congratsOverlay = document.getElementById('congrats-overlay');
