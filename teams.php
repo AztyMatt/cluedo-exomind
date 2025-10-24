@@ -1286,7 +1286,7 @@ if ($dbConnection) {
             transform: scale(1.02);
         }
 
-        /* Papier doré avec rotation verticale */
+        /* Papier doré */
         .golden-paper {
             width: 60px;
             height: 70px;
@@ -1298,27 +1298,23 @@ if ($dbConnection) {
             justify-content: center;
             padding: 5px;
             box-sizing: border-box;
-            transform: rotate(5deg);
             transition: transform 0.3s ease;
             filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
             cursor: pointer;
         }
 
         .golden-paper:hover {
-            transform: rotate(5deg) scale(1.1);
+            transform: scale(1.1);
         }
 
         .golden-paper-text {
             font-family: 'Times New Roman', serif;
             font-size: 0.8rem;
             font-weight: bold;
-            color: #8B4513;
+            color: #B8860B;
             text-align: center;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
             line-height: 1.1;
             margin: 0;
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
         }
 
         .golden-paper-counter {
@@ -1327,8 +1323,7 @@ if ($dbConnection) {
             font-weight: bold;
             color: #B8860B;
             text-align: center;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-            margin-top: 2px;
+            margin-top: 3px;
         }
 
         /* Papier normal */
@@ -1357,9 +1352,8 @@ if ($dbConnection) {
             font-family: 'Times New Roman', serif;
             font-size: 0.8rem;
             font-weight: bold;
-            color: #2C3E50;
+            color: #000000;
             text-align: center;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
             line-height: 1.1;
             margin: 0;
         }
@@ -1368,10 +1362,60 @@ if ($dbConnection) {
             font-family: 'Times New Roman', serif;
             font-size: 1rem;
             font-weight: bold;
-            color: #34495E;
+            color: #000000;
             text-align: center;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-            margin-top: 2px;
+            margin-top: 3px;
+        }
+
+        /* Conteneur des objets */
+        .objects-container {
+            position: fixed;
+            top: 20px;
+            right: 430px;
+            background: rgba(128, 128, 128, 0.2);
+            border-radius: 15px;
+            padding: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+            cursor: pointer;
+            width: 120px;
+            height: 100px;
+            box-sizing: border-box;
+        }
+
+        .objects-container:hover {
+            transform: scale(1.02);
+        }
+
+        .objects-icon {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .objects-text {
+            font-family: 'Times New Roman', serif;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #FFFFFF;
+            text-align: center;
+            line-height: 1.1;
+            margin: 0;
+        }
+
+        .objects-counter {
+            font-family: 'Times New Roman', serif;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #FFFFFF;
+            text-align: center;
+            margin-top: 5px;
         }
 
         /* Styles pour la popup des papiers */
@@ -1538,6 +1582,145 @@ if ($dbConnection) {
             font-style: italic;
         }
 
+        /* Styles pour la popup des objets */
+        .objects-popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .objects-popup-overlay.active {
+            display: flex;
+        }
+
+        .objects-popup-content {
+            background: linear-gradient(135deg, rgba(58, 58, 58, 0.95) 0%, rgba(30, 30, 30, 0.95) 100%);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 700px;
+            width: 90%;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            animation: slideIn 0.3s ease;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .objects-popup-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .objects-popup-close:hover {
+            background: rgba(255, 77, 77, 0.8);
+            transform: rotate(90deg);
+        }
+
+        .objects-popup-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #f093fb;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(240, 147, 251, 0.5);
+        }
+
+        .objects-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .object-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            border-left: 4px solid var(--team-color);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .object-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(5px);
+        }
+
+        .object-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 2px solid var(--team-color);
+            flex-shrink: 0;
+        }
+
+        .object-info {
+            flex: 1;
+        }
+
+        .object-name {
+            font-weight: bold;
+            color: #fff;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .object-subtitle {
+            color: #bbb;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .object-user-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .object-user-name {
+            font-weight: bold;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .object-team-name {
+            color: var(--team-color);
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .object-datetime {
+            color: #bbb;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+
         @media (max-width: 1400px) {
             .team-row:first-child,
             .team-row:last-child {
@@ -1620,6 +1803,13 @@ if ($dbConnection) {
         </div>
     <?php endif; ?>
 
+    <!-- Conteneur des objets -->
+    <div class="objects-container" id="objectsClickable">
+        <div class="objects-icon">📦</div>
+        <div class="objects-text">Objets</div>
+        <div class="objects-counter" id="totalObjectsCounter">0/18</div>
+    </div>
+
     <!-- Conteneur des papiers -->
     <div class="papers-container">
         <!-- Papier doré avec rotation verticale -->
@@ -1640,6 +1830,9 @@ if ($dbConnection) {
         <div class="papers-popup-content">
             <button class="papers-popup-close" id="closePapersPopup">&times;</button>
             <h2 class="papers-popup-title">📄 Historique des Papiers Trouvés (JOUR <span id="papersPopupDay">1</span>)</h2>
+            <p style="font-style: italic; margin: 10px 0; color: #FFFFFF; font-size: 0.9rem;">
+                Il y a un ensemble de X papiers répartis sur ce jour. Chaque papier trouvé ne peut plus être trouvé par une autre équipe. Les équipes ne peuvent pas trouver plus de papier que ce que leur quotat leur permet chaque jour (afin d'en laisser pour les autres)
+            </p>
             <div class="papers-list" id="papersList">
                 <!-- Le contenu sera généré dynamiquement -->
             </div>
@@ -1651,7 +1844,24 @@ if ($dbConnection) {
         <div class="papers-popup-content">
             <button class="papers-popup-close" id="closeGoldenPaperPopup">&times;</button>
             <h2 class="papers-popup-title">🏆 Papier Doré (JOUR <span id="goldenPaperPopupDay">1</span>)</h2>
+            <p style="font-style: italic; margin: 10px 0; color: #FFFFFF; font-size: 0.9rem;">
+                Il y a UN seul et unique papier doré qui apparait chaque jour. L'équipe qui le trouve remporte 1500 points. Une fois le papier d'or trouvé chaque jour par une équipe, aucune autre équipe ne peut le trouver.
+            </p>
             <div id="goldenPaperContent">
+                <!-- Le contenu sera généré dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup des objets trouvés -->
+    <div id="objectsPopup" class="objects-popup-overlay">
+        <div class="objects-popup-content">
+            <button class="objects-popup-close" id="closeObjectsPopup">&times;</button>
+            <h2 class="objects-popup-title">🎯 Objets Trouvés</h2>
+            <p style="font-style: italic; margin: 10px 0; color: #FFFFFF; font-size: 0.9rem;">
+                Les équipes ont chacune 3 objets à placer au bon endroit sur l'ensemble des trois jours. Chaque objet placé rapporte +750 points à son équipe.
+            </p>
+            <div class="objects-list" id="objectsList">
                 <!-- Le contenu sera généré dynamiquement -->
             </div>
         </div>
@@ -2155,6 +2365,9 @@ if ($dbConnection) {
                     // Calculer le total des papiers trouvés par toutes les équipes
                     updateTotalPapersCounter(data.teams);
                     
+                    // Calculer le total des objets trouvés par toutes les équipes
+                    updateTotalObjectsCounter(data.teams);
+                    
                     // Reconstruire complètement les cartes d'équipe
                     rebuildTeamCards(data.teams);
                     
@@ -2297,6 +2510,85 @@ if ($dbConnection) {
         // Fonction pour fermer la popup du papier doré
         function hideGoldenPaperPopup() {
             const popup = document.getElementById('goldenPaperPopup');
+            popup.classList.remove('active');
+        }
+        
+        // Fonction pour récupérer les objets trouvés
+        function fetchObjectsHistory() {
+            fetch(`game_recent_objects.php?day=${currentDay}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.objects) {
+                        // Trier par datetime décroissant (plus récents en premier)
+                        const sortedObjects = data.objects.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+                        window.objectsHistory = sortedObjects;
+                    } else {
+                        window.objectsHistory = [];
+                    }
+                })
+                .catch(error => {
+                    window.objectsHistory = [];
+                });
+        }
+        
+        // Fonction pour mettre à jour le compteur total des objets
+        function updateTotalObjectsCounter(teams) {
+            let totalObjectsFound = 0;
+            const totalObjectsToFind = 18; // Total fixe de 18 objets
+            
+            teams.forEach(team => {
+                if (team.items && team.items.length > 0) {
+                    team.items.forEach(item => {
+                        if (item.solved) totalObjectsFound++;
+                    });
+                }
+            });
+            
+            // Mettre à jour l'affichage
+            const counterElement = document.getElementById('totalObjectsCounter');
+            if (counterElement) {
+                counterElement.textContent = `${totalObjectsFound}/${totalObjectsToFind}`;
+            }
+        }
+        
+        // Fonction pour afficher la popup des objets
+        function showObjectsPopup() {
+            const popup = document.getElementById('objectsPopup');
+            const objectsList = document.getElementById('objectsList');
+            
+            if (!window.objectsHistory || window.objectsHistory.length === 0) {
+                objectsList.innerHTML = '<div style="text-align: center; color: #bbb; padding: 20px;">Personne n\'a encore réussi à placer un objet.</div>';
+            } else {
+                let html = '';
+                window.objectsHistory.forEach(object => {
+                    const datetime = new Date(object.datetime);
+                    const formattedDate = datetime.toLocaleDateString('fr-FR');
+                    const formattedTime = datetime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                    
+                    html += `
+                        <div class="object-item" style="--team-color: ${object.team_color || '#888'}">
+                            <img src="${object.path}" alt="${object.title}" class="object-image">
+                            <div class="object-info">
+                                <div class="object-name">${object.title}</div>
+                                <div class="object-subtitle">${object.subtitle}</div>
+                                <div class="object-user-info">
+                                    <span class="object-user-name">${formatUserName(object.firstname, object.lastname)}</span>
+                                    <span class="object-team-name">${object.team_name}</span>
+                                </div>
+                                <div class="object-datetime">📅 ${formattedDate} à ${formattedTime}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                objectsList.innerHTML = html;
+            }
+            
+            popup.classList.add('active');
+        }
+        
+        // Fonction pour fermer la popup des objets
+        function hideObjectsPopup() {
+            const popup = document.getElementById('objectsPopup');
             popup.classList.remove('active');
         }
         
@@ -2520,6 +2812,11 @@ if ($dbConnection) {
         const goldenPaperPopup = document.getElementById('goldenPaperPopup');
         const closeGoldenPaperPopup = document.getElementById('closeGoldenPaperPopup');
         
+        // Event listeners pour la popup des objets
+        const objectsClickable = document.getElementById('objectsClickable');
+        const objectsPopup = document.getElementById('objectsPopup');
+        const closeObjectsPopup = document.getElementById('closeObjectsPopup');
+        
         // Ouvrir la popup au clic sur le papier normal
         normalPaperClickable.addEventListener('click', () => {
             showPapersPopup();
@@ -2530,6 +2827,11 @@ if ($dbConnection) {
             showGoldenPaperPopup();
         });
         
+        // Ouvrir la popup au clic sur les objets
+        objectsClickable.addEventListener('click', () => {
+            showObjectsPopup();
+        });
+        
         // Fermer la popup des papiers avec le bouton X
         closePapersPopup.addEventListener('click', () => {
             hidePapersPopup();
@@ -2538,6 +2840,11 @@ if ($dbConnection) {
         // Fermer la popup du papier doré avec le bouton X
         closeGoldenPaperPopup.addEventListener('click', () => {
             hideGoldenPaperPopup();
+        });
+        
+        // Fermer la popup des objets avec le bouton X
+        closeObjectsPopup.addEventListener('click', () => {
+            hideObjectsPopup();
         });
         
         // Fermer la popup des papiers en cliquant en dehors
@@ -2554,6 +2861,13 @@ if ($dbConnection) {
             }
         });
         
+        // Fermer la popup des objets en cliquant en dehors
+        objectsPopup.addEventListener('click', (e) => {
+            if (e.target === objectsPopup) {
+                hideObjectsPopup();
+            }
+        });
+        
         // Fermer les popups avec la touche Échap
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -2562,6 +2876,9 @@ if ($dbConnection) {
                 }
                 if (goldenPaperPopup.classList.contains('active')) {
                     hideGoldenPaperPopup();
+                }
+                if (objectsPopup.classList.contains('active')) {
+                    hideObjectsPopup();
                 }
             }
         });
@@ -2575,6 +2892,9 @@ if ($dbConnection) {
         // Récupérer les infos du papier doré au chargement
         fetchGoldenPaperInfo();
         
+        // Récupérer l'historique des objets au chargement
+        fetchObjectsHistory();
+        
         // Puis mettre à jour toutes les 10 secondes
         setInterval(updateTeamsData, 10000);
         
@@ -2583,6 +2903,9 @@ if ($dbConnection) {
         
         // Mettre à jour les infos du papier doré toutes les 30 secondes
         setInterval(fetchGoldenPaperInfo, 30000);
+        
+        // Mettre à jour l'historique des objets toutes les 30 secondes
+        setInterval(fetchObjectsHistory, 30000);
         
         // Mettre à jour les positions des médailles lors du scroll et resize
         window.addEventListener('scroll', updateMedalPositions);
