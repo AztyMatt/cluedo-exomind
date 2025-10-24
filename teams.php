@@ -745,6 +745,7 @@ if ($dbConnection) {
             visibility: hidden;
             transform: translateY(-10px);
             transition: all 0.3s ease;
+            z-index: 9999;
         }
 
         .day-dropdown.active {
@@ -782,6 +783,10 @@ if ($dbConnection) {
 
         .day-indicator.active .day-arrow {
             transform: rotate(180deg);
+        }
+
+        .day-indicator.active {
+            z-index: 10000;
         }
         
         /* Indicateur de mise à jour en temps réel */
@@ -835,7 +840,9 @@ if ($dbConnection) {
             z-index: 1000;
             backdrop-filter: blur(10px);
             color: white;
-            width: 200px;
+            width: 220px;
+            min-width: 180px;
+            max-width: 250px;
             box-sizing: border-box;
         }
         
@@ -846,36 +853,50 @@ if ($dbConnection) {
         .user-info {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
+            width: 100%;
+            min-width: 0;
         }
 
         .user-avatar {
-            width: 45px;
-            height: 45px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background: linear-gradient(135deg, <?= htmlspecialchars($userTeam['team_color'] ?? '#888') ?>, rgba(255,255,255,0.3));
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             border: 2px solid <?= htmlspecialchars($userTeam['team_color'] ?? '#888') ?>;
             flex-shrink: 0;
         }
 
+        .user-details {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+
         .user-details h2 {
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             color: #fff;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 150px;
+            width: 100%;
+            max-width: 100%;
         }
 
         .user-team {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: <?= htmlspecialchars($userTeam['team_color'] ?? '#888') ?>;
             font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            max-width: 100%;
         }
 
         .day-number {
@@ -885,12 +906,20 @@ if ($dbConnection) {
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
 
         .day-objective {
             font-size: 0.9rem;
             color: #3a3a3a;
             font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
 
         .teams-grid {
@@ -1037,6 +1066,10 @@ if ($dbConnection) {
             transition: all 0.3s ease;
             position: relative;
             padding-left: 20px;
+            min-width: 0;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
         }
 
         .user-item.active {
@@ -1091,6 +1124,18 @@ if ($dbConnection) {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            min-width: 0;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .user-name span:first-child {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+            margin-right: 8px;
+            max-width: calc(100% - 40px);
         }
 
         .user-papers-count {
