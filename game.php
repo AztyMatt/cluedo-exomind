@@ -66,6 +66,14 @@ if (file_exists($paperPath)) {
     $paperData = 'data:image/png;base64,' . $paperData;
 }
 
+// Charger l'image papier doré et la convertir en base64
+$paperDorePath = 'papier_dore.png';
+$paperDoreData = '';
+if (file_exists($paperDorePath)) {
+    $paperDoreData = base64_encode(file_get_contents($paperDorePath));
+    $paperDoreData = 'data:image/png;base64,' . $paperDoreData;
+}
+
 // Charger l'image flèche et la convertir en base64
 $arrowPath = 'arrow.png';
 $arrowData = '';
@@ -218,10 +226,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $photoId = $photo['id'];
             $result = [];
             
+            // D'abord récupérer TOUS les papiers dorés de toutes les photos pour déterminer l'ordre global
+            $stmt = $dbConnection->prepare("SELECT id FROM `papers` WHERE paper_type = 1 ORDER BY id ASC");
+            $stmt->execute();
+            $allGoldenPapers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Créer un mapping ID -> jour global
+            $goldenPaperDayMap = [];
+            foreach ($allGoldenPapers as $index => $paper) {
+                $goldenPaperDayMap[$paper['id']] = $index + 1; // Jour 1, 2, 3...
+            }
+            
             // Charger tous les papers de cette photo
-            $stmt = $dbConnection->prepare("SELECT id, position_left, position_top, scale_x, scale_y, angle, z_index FROM `papers` WHERE photo_id = ? ORDER BY z_index ASC, id ASC");
+            $stmt = $dbConnection->prepare("SELECT id, position_left, position_top, scale_x, scale_y, angle, z_index, paper_type FROM `papers` WHERE photo_id = ? ORDER BY z_index ASC, id ASC");
             $stmt->execute([$photoId]);
-            $papers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $allPapers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Séparer papiers blancs et dorés
+            $papers = [];
+            $goldenPapers = [];
+            
+            foreach ($allPapers as $paper) {
+                if ($paper['paper_type'] == 0) {
+                    // Papiers blancs : toujours affichés
+                    $papers[] = $paper;
+                } else {
+                    // Papiers dorés : collecter pour traitement spécial
+                    $goldenPapers[] = $paper;
+                }
+            }
+            
+            // Trier les papiers dorés par ID croissant
+            usort($goldenPapers, function($a, $b) {
+                return $a['id'] - $b['id'];
+            });
+            
+            // Traiter chaque papier doré selon la logique jour/trouvé
+            foreach ($goldenPapers as $goldenPaper) {
+                $dayForThisPaper = $goldenPaperDayMap[$goldenPaper['id']]; // Utiliser le mapping global
+                
+                // Vérifier si ce papier doré a été trouvé (peu importe le jour)
+                $stmt = $dbConnection->prepare("SELECT COUNT(*) as found FROM `papers_found_user` WHERE id_paper = ?");
+                $stmt->execute([$goldenPaper['id']]);
+                $foundResult = $stmt->fetch(PDO::FETCH_ASSOC);
+                $isFound = $foundResult['found'] > 0;
+                
+                if ($dayForThisPaper == $currentGameDay) {
+                    // Papier du jour actuel : TOUJOURS l'afficher (quoi qu'il arrive)
+                    $papers[] = $goldenPaper;
+                } else if ($dayForThisPaper < $currentGameDay) {
+                    // Papier d'un jour précédent : l'afficher seulement s'il a été trouvé
+                    if ($isFound) {
+                        $papers[] = $goldenPaper;
+                    }
+                } else {
+                    // Papier d'un jour futur : ne jamais l'afficher
+                }
+            }
             
             foreach ($papers as $paper) {
                 $result[] = [
@@ -232,7 +293,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     'scaleX' => (float)$paper['scale_x'],
                     'scaleY' => (float)$paper['scale_y'],
                     'angle' => (float)$paper['angle'],
-                    'zIndex' => (int)$paper['z_index']
+                    'zIndex' => (int)$paper['z_index'],
+                    'paperType' => (int)$paper['paper_type']
                 ];
             }
             
@@ -1783,6 +1845,7 @@ if ($show_activation_form) {
         // Variables PHP injectées en JavaScript
         const roomImages = <?php echo json_encode($roomImages); ?>;
         const paperDataUrl = <?php echo json_encode($paperData); ?>;
+        const paperDoreDataUrl = <?php echo json_encode($paperDoreData); ?>;
         const arrowDataUrl = <?php echo json_encode($arrowData); ?>;
         const currentPhotoId = <?php echo isset($photoId) ? $photoId : 'null'; ?>;
         
@@ -2198,6 +2261,14 @@ if ($show_activation_form) {
                 }
                 
                 console.log(`📂 Chargement de ${savedObjects.length} objets`);
+                
+                // Debug des papiers dorés
+                const goldenPapers = savedObjects.filter(obj => obj.type === 'paper' && obj.paperType === 1);
+                console.log(`🏆 Papiers dorés trouvés: ${goldenPapers.length}`);
+                goldenPapers.forEach((paper, index) => {
+                    const dayForThisPaper = index + 1;
+                    console.log(`Papier doré ID ${paper.id}: Jour assigné = ${dayForThisPaper}, Jour actuel = ${<?php echo $currentGameDay; ?>}`);
+                });
                 
                 // foundPapersTeam et totalPapers seront mis à jour via AJAX depuis la BDD
                 // foundPapersMe reste local et persistant entre les photos
@@ -2644,9 +2715,13 @@ if ($show_activation_form) {
         }
         
         function recreatePaper(paperData) {
-            if (!paperDataUrl) return;
+            // Choisir l'image selon le type de papier
+            const paperType = paperData.paperType || 0;
+            const paperImageUrl = paperType === 1 ? paperDoreDataUrl : paperDataUrl;
             
-            fabric.Image.fromURL(paperDataUrl, (paperImg) => {
+            if (!paperImageUrl) return;
+            
+            fabric.Image.fromURL(paperImageUrl, (paperImg) => {
                 paperImg.set({
                     left: 0,
                     top: 0,
