@@ -715,7 +715,7 @@ if ($dbConnection) {
             padding: 15px 20px;
             border-radius: 12px;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-            z-index: 999999;
+            z-index: 1000;
             border: 2px solid rgba(150, 150, 150, 0.5);
             backdrop-filter: blur(10px);
             text-align: center;
@@ -1356,7 +1356,7 @@ if ($dbConnection) {
             color: white;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
-            z-index: 999999;
+            z-index: 1000;
             border: 3px solid rgba(255, 255, 255, 0.3);
             backdrop-filter: blur(5px);
             animation: medalGlow 2s ease-in-out infinite alternate;
@@ -1370,7 +1370,7 @@ if ($dbConnection) {
             font-weight: bold;
             color: white;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-            z-index: 999999;
+            z-index: 1000;
             pointer-events: none;
             letter-spacing: 2px;
             text-transform: uppercase;
@@ -1387,7 +1387,7 @@ if ($dbConnection) {
             font-size: 1.2rem;
             font-weight: bold;
             color: white;
-            z-index: 999999;
+            z-index: 1000;
             pointer-events: none;
             background: rgba(0, 0, 0, 0.7);
             padding: 6px 10px;
@@ -1779,23 +1779,68 @@ if ($dbConnection) {
         }
 
         .golden-paper-winner {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             font-weight: bold;
             color: #fff;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .golden-paper-team {
-            color: #ffd700;
+            color: #fff;
             font-weight: bold;
-            font-size: 1rem;
-            margin-bottom: 10px;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
         }
 
         .golden-paper-time {
             color: #bbb;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             font-style: italic;
+            margin-bottom: 12px;
+        }
+
+        .golden-paper-character {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .golden-paper-character img {
+            height: 130px;
+            object-fit: cover;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            border: none;
+        }
+
+        .golden-paper-character-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .golden-paper-character-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .golden-paper-points {
+            color: #fff;
+            font-weight: bold;
+            font-size: 1.2rem;
+            padding: 8px 15px;
+            border-radius: 20px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            margin-top: 10px;
         }
 
         /* Styles pour la popup des objets */
@@ -2752,6 +2797,20 @@ if ($dbConnection) {
             }
         }
         
+        // Fonction pour obtenir l'image du personnage selon le nom de l'équipe
+        function getCharacterImage(teamName) {
+            const characterMap = {
+                'Colonel Moutarde': 'assets/img/colonnel_moutarde.png',
+                'Madame Leblanc': 'assets/img/madame_leblanc.png',
+                'Madame Pervenche': 'assets/img/madame_pervenche.png',
+                'Mademoiselle Rose': 'assets/img/mademoiselle_rose.png',
+                'Professeur Violet': 'assets/img/professeur_violet.png',
+                'Révérend Olive': 'assets/img/reverend_olive.png'
+            };
+            
+            return characterMap[teamName] || 'assets/img/logo.png'; // Image par défaut si pas trouvé
+        }
+
         // Fonction pour afficher la popup du papier doré
         function showGoldenPaperPopup() {
             const popup = document.getElementById('goldenPaperPopup');
@@ -2781,10 +2840,18 @@ if ($dbConnection) {
                         <div class="golden-paper-status golden-paper-found">
                             ✅ Le papier doré a été trouvé pour le jour ${currentDay}
                         </div>
-                        <div class="golden-paper-info">
-                            <div class="golden-paper-winner">${formatUserName(window.goldenPaperInfo.firstname, window.goldenPaperInfo.lastname)}</div>
-                            <div class="golden-paper-team">${window.goldenPaperInfo.team_name}</div>
-                            <div class="golden-paper-time">📅 ${formattedDate} à ${formattedTime}</div>
+                        <div class="golden-paper-character">
+                            <div class="golden-paper-character-info" style="background-color: ${window.goldenPaperInfo.team_color || 'rgba(255, 255, 255, 0.1)'};">
+                                <img src="${getCharacterImage(window.goldenPaperInfo.team_name)}" alt="${window.goldenPaperInfo.team_name}" />
+                                <div class="golden-paper-character-details">
+                                    <div class="golden-paper-winner">${formatUserName(window.goldenPaperInfo.firstname, window.goldenPaperInfo.lastname)}</div>
+                                    <div class="golden-paper-team">${window.goldenPaperInfo.team_name}</div>
+                                    <div class="golden-paper-time">📅 ${formattedDate} à ${formattedTime}</div>
+                                    <div class="golden-paper-points">
+                                        🏆 +1500 points pour l'équipe
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
