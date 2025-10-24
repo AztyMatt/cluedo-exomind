@@ -1099,9 +1099,11 @@ if ($dbConnection) {
         }
 
         .item-miniature:hover {
-            transform: scale(1.1);
-            border-color: rgba(255, 255, 255, 0.8);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transform: scale(1.5);
+            border-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            position: relative;
         }
 
         .item-miniature img {
@@ -1478,10 +1480,9 @@ if ($dbConnection) {
         .papers-popup-title {
             font-size: 1.8rem;
             font-weight: bold;
-            color: #f093fb;
+            color: #FFD700;
             margin-bottom: 20px;
             text-align: center;
-            text-shadow: 0 2px 10px rgba(240, 147, 251, 0.5);
         }
 
         .papers-list {
@@ -1642,10 +1643,9 @@ if ($dbConnection) {
         .objects-popup-title {
             font-size: 1.8rem;
             font-weight: bold;
-            color: #f093fb;
+            color: #FFD700;
             margin-bottom: 20px;
             text-align: center;
-            text-shadow: 0 2px 10px rgba(240, 147, 251, 0.5);
         }
 
         .objects-list {
@@ -1806,7 +1806,7 @@ if ($dbConnection) {
     <!-- Conteneur des objets -->
     <div class="objects-container" id="objectsClickable">
         <div class="objects-icon">📦</div>
-        <div class="objects-text">Objets</div>
+        <div class="objects-text">Objets placés</div>
         <div class="objects-counter" id="totalObjectsCounter">0/18</div>
     </div>
 
@@ -1857,7 +1857,7 @@ if ($dbConnection) {
     <div id="objectsPopup" class="objects-popup-overlay">
         <div class="objects-popup-content">
             <button class="objects-popup-close" id="closeObjectsPopup">&times;</button>
-            <h2 class="objects-popup-title">🎯 Objets Trouvés</h2>
+            <h2 class="objects-popup-title">🎯 Objets Placés</h2>
             <p style="font-style: italic; margin: 10px 0; color: #FFFFFF; font-size: 0.9rem;">
                 Les équipes ont chacune 3 objets à placer au bon endroit sur l'ensemble des trois jours. Chaque objet placé rapporte +750 points à son équipe.
             </p>
