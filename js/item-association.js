@@ -121,44 +121,33 @@ function confirmItemAssociation() {
   // Fermer la modale
   closeItemAssociationModal();
   
-  console.log(`✅ Item ${selectedItemId} associé au masque ${currentMaskForItemAssociation.maskData.dbId}`);
 }
 
 // Ajouter l'image de l'item au masque
 function addItemImageToMask(maskObject, itemId) {
-  console.log(`🎯 Ajout de l'image de l'item ${itemId} au masque ${maskObject.maskData.dbId}`);
   
   // Supprimer l'ancienne image d'item s'il y en a une
   removeExistingItemImage(maskObject);
   
   // Créer l'image de l'item
   const imageUrl = `/assets/img/items/${itemId}.png`;
-  console.log(`🖼️ Tentative de chargement de l'image: ${imageUrl}`);
   
   fabric.Image.fromURL(imageUrl, (itemImg) => {
-    console.log(`📸 Image de l'item ${itemId} chargée avec succès`);
-    console.log(`📐 Dimensions originales de l'image:`, itemImg.width, 'x', itemImg.height);
     
     // Calculer la position et la taille pour centrer l'image sur le masque
     const maskBounds = maskObject.getBoundingRect();
     const itemSize = Math.min(maskBounds.width, maskBounds.height) * 1.5; // 150% de la taille du masque (encore plus grand)
     
-    console.log(`📏 Masque bounds:`, maskBounds);
-    console.log(`📏 Masque position:`, maskObject.left, maskObject.top);
-    console.log(`📏 Taille item calculée:`, itemSize);
-    console.log(`📐 Dimensions image originale:`, itemImg.width, 'x', itemImg.height);
     
     // Calculer les nouvelles dimensions
     const scaleX = itemSize / itemImg.width;
     const scaleY = itemSize / itemImg.height;
     
-    console.log(`🔍 Scale calculé:`, scaleX, 'x', scaleY);
     
     // Utiliser la position du masque plutôt que ses bounds
     const centerX = maskObject.left + (maskObject.width * maskObject.scaleX) / 2;
     const centerY = maskObject.top + (maskObject.height * maskObject.scaleY) / 2;
     
-    console.log(`🎯 Centre du masque:`, centerX, centerY);
     
     itemImg.set({
       left: centerX - (itemSize / 2),
@@ -179,8 +168,6 @@ function addItemImageToMask(maskObject, itemId) {
       })
     });
     
-    console.log(`📍 Position finale:`, itemImg.left, itemImg.top);
-    console.log(`📏 Taille finale:`, itemImg.width * scaleX, 'x', itemImg.height * scaleY);
     
     // Calculer le z-index pour être au-dessus du masque
     const maskZIndex = maskObject.maskData.zIndex || 0;
@@ -197,7 +184,6 @@ function addItemImageToMask(maskObject, itemId) {
       zIndex: itemZIndex
     });
     
-    console.log(`🎨 Z-index masque: ${maskZIndex}, Z-index item: ${itemZIndex}`);
     
     // Ajouter l'image au canvas
     canvas.add(itemImg);
@@ -209,13 +195,10 @@ function addItemImageToMask(maskObject, itemId) {
     canvas.renderAll();
     
     // Vérifier que l'image est bien ajoutée
-    console.log(`🔍 Objets sur le canvas:`, canvas.getObjects().length);
-    console.log(`🎯 Image ajoutée avec ID:`, itemImg.id);
     
     // Sauvegarder la référence dans le masque
     maskObject.itemImage = itemImg;
     
-    console.log(`✅ Image de l'item ${itemId} ajoutée au masque avec succès`);
   }, {
     crossOrigin: 'anonymous'
   });
@@ -223,19 +206,15 @@ function addItemImageToMask(maskObject, itemId) {
   // Gestion d'erreur si l'image ne se charge pas
   setTimeout(() => {
     if (!maskObject.itemImage) {
-      console.error(`❌ Échec du chargement de l'image ${imageUrl}`);
-      console.log(`🔍 Vérifiez que le fichier existe: ${imageUrl}`);
     }
   }, 3000);
 }
 
 // Supprimer toutes les images d'items d'un masque spécifique
 function removeAllItemImagesForMask(maskId) {
-  console.log(`🗑️ Suppression de toutes les images d'items pour le masque ${maskId}`);
   
   canvas.getObjects().forEach(obj => {
     if (obj.itemData && obj.itemData.isItemImage && obj.itemData.maskId === maskId) {
-      console.log(`🗑️ Suppression de l'image d'item ${obj.itemData.itemId} du masque ${maskId}`);
       canvas.remove(obj);
     }
   });
@@ -251,7 +230,6 @@ function removeAllItemImagesForMask(maskId) {
 // Supprimer l'ancienne image d'item s'il y en a une
 function removeExistingItemImage(maskObject) {
   if (maskObject.itemImage) {
-    console.log(`🗑️ Suppression de l'ancienne image d'item du masque ${maskObject.maskData.dbId}`);
     canvas.remove(maskObject.itemImage);
     maskObject.itemImage = null;
   }
@@ -259,7 +237,6 @@ function removeExistingItemImage(maskObject) {
   // Aussi supprimer toute image d'item orpheline
   canvas.getObjects().forEach(obj => {
     if (obj.itemData && obj.itemData.isItemImage && obj.itemData.maskId === maskObject.maskData.dbId) {
-      console.log(`🗑️ Suppression d'une image d'item orpheline pour le masque ${maskObject.maskData.dbId}`);
       canvas.remove(obj);
     }
   });
@@ -267,7 +244,6 @@ function removeExistingItemImage(maskObject) {
 
 // Sauvegarder l'association item-masque en base de données
 function saveItemMaskAssociation(itemId, maskId) {
-  console.log(`💾 Sauvegarde de l'association item ${itemId} -> masque ${maskId}`);
   
   // Supprimer visuellement toutes les images d'items de ce masque
   removeAllItemImagesForMask(maskId);
@@ -290,7 +266,6 @@ function saveItemMaskAssociation(itemId, maskId) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      console.log('✅ Association sauvegardée avec succès');
       // Optionnel : afficher un message de succès
       showSuccessMessage('Item associé au masque avec succès !');
     } else {
@@ -368,15 +343,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Charger les images d'items pour les masques existants
 function loadExistingItemImages() {
-  console.log('🔍 Chargement des images d\'items pour les masques existants...');
   
   // Cette fonction sera appelée après le chargement des masques
   // Elle cherche tous les masques et charge leurs images d'items associées
   const masks = canvas.getObjects().filter(obj => obj.maskData && obj.maskData.isMask && obj.maskData.dbId);
-  console.log(`📋 ${masks.length} masques trouvés`);
   
   masks.forEach((mask, index) => {
-    console.log(`🎭 Masque ${index + 1}: ID ${mask.maskData.dbId}`);
     // Vérifier si ce masque a un item associé
     checkAndLoadItemForMask(mask);
   });
@@ -384,7 +356,6 @@ function loadExistingItemImages() {
 
 // Vérifier et charger l'item associé à un masque
 function checkAndLoadItemForMask(maskObject) {
-  console.log(`🔍 Vérification de l'item pour le masque ID: ${maskObject.maskData.dbId}`);
   
   // Faire une requête pour vérifier si ce masque a un item associé
   fetch(window.location.href, {
@@ -396,13 +367,9 @@ function checkAndLoadItemForMask(maskObject) {
   })
   .then(response => response.json())
   .then(data => {
-    console.log(`📡 Réponse pour masque ${maskObject.maskData.dbId}:`, data);
     if (data.success && data.item_id) {
-      console.log(`✅ Item ${data.item_id} trouvé pour le masque ${maskObject.maskData.dbId}`);
       // Charger l'image de l'item
       addItemImageToMask(maskObject, data.item_id);
-    } else {
-      console.log(`ℹ️ Aucun item associé au masque ${maskObject.maskData.dbId}`);
     }
   })
   .catch(error => {
@@ -417,17 +384,14 @@ window.loadExistingItemImages = loadExistingItemImages;
 
 // Fonction de test manuel (accessible depuis la console)
 window.testLoadItems = function() {
-  console.log('🧪 Test manuel du chargement des items...');
   loadExistingItemImages();
 };
 
 // Appel automatique après le chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('📋 item-association.js chargé');
   
   // Attendre que les masques soient chargés (délai court)
   setTimeout(() => {
-    console.log('🚀 Chargement des images d\'items...');
     if (typeof loadExistingItemImages === 'function') {
       loadExistingItemImages();
     } else {
@@ -439,7 +403,6 @@ document.addEventListener('DOMContentLoaded', function() {
 // Appel alternatif quand le canvas est prêt
 if (typeof canvas !== 'undefined') {
   canvas.on('canvas:ready', function() {
-    console.log('🎨 Canvas prêt, chargement immédiat des images d\'items...');
     loadExistingItemImages();
   });
 }

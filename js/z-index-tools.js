@@ -6,30 +6,30 @@ document.getElementById("bringForward").onclick = function() {
   
   const activeObject = canvas.getActiveObject();
   if (!activeObject) {
-    console.log("❌ Aucun objet sélectionné");
+("❌ Aucun objet sélectionné");
     return;
   }
   
   if (activeObject === backgroundImage) {
-    console.log("❌ Impossible de déplacer l'image de fond");
+("❌ Impossible de déplacer l'image de fond");
     return;
   }
   
-  console.log("Ordre AVANT:", canvas.getObjects().indexOf(activeObject));
+("Ordre AVANT:", canvas.getObjects().indexOf(activeObject));
   
   activeObject.bringToFront();
   
-  console.log("Ordre APRÈS:", canvas.getObjects().indexOf(activeObject));
-  console.log("Nombre total d'objets:", canvas.getObjects().length);
+("Ordre APRÈS:", canvas.getObjects().indexOf(activeObject));
+("Nombre total d'objets:", canvas.getObjects().length);
   
-  console.log("Ordre complet des objets:");
+("Ordre complet des objets:");
   canvas.getObjects().forEach((obj, idx) => {
     if (obj === backgroundImage) {
-      console.log(`  ${idx}: Image de fond`);
+(`  ${idx}: Image de fond`);
     } else if (obj === activeObject) {
-      console.log(`  ${idx}: >>> OBJET SÉLECTIONNÉ <<<`);
+(`  ${idx}: >>> OBJET SÉLECTIONNÉ <<<`);
     } else {
-      console.log(`  ${idx}: Autre objet`);
+(`  ${idx}: Autre objet`);
     }
   });
   
@@ -45,7 +45,7 @@ document.getElementById("bringForward").onclick = function() {
     canvas.renderAll();
   }, 10);
   
-  console.log("✅ Objet mis au premier plan");
+("✅ Objet mis au premier plan");
 };
 
 document.getElementById("sendBackward").onclick = function() {
@@ -54,16 +54,16 @@ document.getElementById("sendBackward").onclick = function() {
   
   const activeObject = canvas.getActiveObject();
   if (!activeObject) {
-    console.log("❌ Aucun objet sélectionné");
+("❌ Aucun objet sélectionné");
     return;
   }
   
   if (activeObject === backgroundImage) {
-    console.log("❌ Impossible de déplacer l'image de fond");
+("❌ Impossible de déplacer l'image de fond");
     return;
   }
   
-  console.log("Ordre AVANT:", canvas.getObjects().indexOf(activeObject));
+("Ordre AVANT:", canvas.getObjects().indexOf(activeObject));
   
   activeObject.sendToBack();
   
@@ -71,17 +71,17 @@ document.getElementById("sendBackward").onclick = function() {
     backgroundImage.sendToBack();
   }
   
-  console.log("Ordre APRÈS:", canvas.getObjects().indexOf(activeObject));
-  console.log("Nombre total d'objets:", canvas.getObjects().length);
+("Ordre APRÈS:", canvas.getObjects().indexOf(activeObject));
+("Nombre total d'objets:", canvas.getObjects().length);
   
-  console.log("Ordre complet des objets:");
+("Ordre complet des objets:");
   canvas.getObjects().forEach((obj, idx) => {
     if (obj === backgroundImage) {
-      console.log(`  ${idx}: Image de fond`);
+(`  ${idx}: Image de fond`);
     } else if (obj === activeObject) {
-      console.log(`  ${idx}: >>> OBJET SÉLECTIONNÉ <<<`);
+(`  ${idx}: >>> OBJET SÉLECTIONNÉ <<<`);
     } else {
-      console.log(`  ${idx}: Autre objet`);
+(`  ${idx}: Autre objet`);
     }
   });
   
@@ -97,6 +97,6 @@ document.getElementById("sendBackward").onclick = function() {
     canvas.renderAll();
   }, 10);
   
-  console.log("✅ Objet mis en arrière-plan");
+("✅ Objet mis en arrière-plan");
 };
 

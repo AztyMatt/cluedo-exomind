@@ -38,7 +38,6 @@ function triggerAutoSave() {
   
   // Programmer une nouvelle sauvegarde
   window.autoSaveTimeout = setTimeout(() => {
-    console.log('💾 Sauvegarde automatique...');
     showAutoSaveIndicator();
     saveToServer(true); // true = mode silencieux (pas d'alert)
   }, AUTO_SAVE_DELAY);
@@ -50,12 +49,10 @@ function saveCanvasState() {
 }
 
 function saveToServer(silent = false) {
-  console.log('💾 saveToServer appelé avec currentBackgroundKey:', currentBackgroundKey);
   
   // IMPORTANT: Ne pas sauvegarder si on est en train de charger depuis le serveur
   // Cela évite de sauvegarder avec le mauvais currentBackgroundKey pendant un changement de photo
   if (isLoadingFromServer) {
-    console.log('⚠️ Sauvegarde annulée car chargement en cours');
     return;
   }
   
@@ -126,15 +123,15 @@ function saveToServer(silent = false) {
       top: editingMask.top,
       zIndex: editingZIndex
     });
-    console.log('💾 Mask en cours d\'édition sauvegardé avec modifications (ID:', editingMask.maskData.dbId || 'nouveau', ',', currentPoints.length, 'points, z-index:', editingZIndex + ')');
+('💾 Mask en cours d\'édition sauvegardé avec modifications (ID:', editingMask.maskData.dbId || 'nouveau', ',', currentPoints.length, 'points, z-index:', editingZIndex + ')');
   }
 
   const dataToSave = JSON.stringify(objectsToSave, null, 2);
   
   // Log détaillé pour vérifier les z-index
-  console.log('📊 Objets à sauvegarder avec z-index:');
+('📊 Objets à sauvegarder avec z-index:');
   objectsToSave.forEach((obj, idx) => {
-    console.log(`  [${idx}] ${obj.type} - ID: ${obj.id || 'nouveau'}, z-index: ${obj.zIndex}`);
+(`  [${idx}] ${obj.type} - ID: ${obj.id || 'nouveau'}, z-index: ${obj.zIndex}`);
   });
 
   fetch(window.location.href, {
@@ -145,7 +142,7 @@ function saveToServer(silent = false) {
   .then(response => response.json())
   .then(result => {
     if (result.success) {
-      console.log('✅ Sauvegardé pour', currentBackgroundKey, '(', objectsToSave.length, 'objets)');
+('✅ Sauvegardé pour', currentBackgroundKey, '(', objectsToSave.length, 'objets)');
       
       // Mettre à jour les IDs et z-index dans les objets du canvas
       if (result.ids) {
@@ -158,15 +155,15 @@ function saveToServer(silent = false) {
             if (idInfo.type === 'mask' && obj.maskData && obj.maskData.isMask) {
               obj.maskData.dbId = idInfo.id;
               // Le z-index a déjà été mis à jour avant la sauvegarde
-              console.log('🔄 Mask mis à jour - ID:', idInfo.id, 'z-index:', obj.maskData.zIndex);
+('🔄 Mask mis à jour - ID:', idInfo.id, 'z-index:', obj.maskData.zIndex);
             } else if (idInfo.type === 'arrow' && obj.isArrow) {
               obj.dbId = idInfo.id;
               // Le z-index a déjà été mis à jour avant la sauvegarde
-              console.log('🔄 Arrow mis à jour - ID:', idInfo.id, 'z-index:', obj.zIndex);
+('🔄 Arrow mis à jour - ID:', idInfo.id, 'z-index:', obj.zIndex);
             } else if (idInfo.type === 'paper' && obj._objects && obj._objects.length >= 2) {
               obj.dbId = idInfo.id;
               // Le z-index a déjà été mis à jour avant la sauvegarde
-              console.log('🔄 Paper mis à jour - ID:', idInfo.id, 'z-index:', obj.zIndex);
+('🔄 Paper mis à jour - ID:', idInfo.id, 'z-index:', obj.zIndex);
             }
           }
           canvasIndex++;
@@ -200,13 +197,13 @@ function saveToServer(silent = false) {
 }
 
 function loadFromServer() {
-  console.log('📂 loadFromServer appelé avec currentBackgroundKey:', currentBackgroundKey);
+('📂 loadFromServer appelé avec currentBackgroundKey:', currentBackgroundKey);
   
   // Annuler toute sauvegarde automatique en attente
   if (window.autoSaveTimeout) {
     clearTimeout(window.autoSaveTimeout);
     window.autoSaveTimeout = null;
-    console.log('⏹️ Timer de sauvegarde automatique annulé (loadFromServer)');
+('⏹️ Timer de sauvegarde automatique annulé (loadFromServer)');
   }
   
   // Activer le flag pour désactiver la sauvegarde automatique pendant le chargement
@@ -224,30 +221,30 @@ function loadFromServer() {
     const source = result && result.source ? result.source : 'unknown';
     
     if (!dataStr) {
-      console.log('ℹ️ Rien à charger pour', currentBackgroundKey);
+('ℹ️ Rien à charger pour', currentBackgroundKey);
       // Réactiver la sauvegarde automatique avec un délai
       setTimeout(() => {
         isLoadingFromServer = false;
-        console.log('🔓 Sauvegarde automatique réactivée (pas de données)');
+('🔓 Sauvegarde automatique réactivée (pas de données)');
       }, 100);
       return;
     }
     let savedObjects = [];
     try { savedObjects = JSON.parse(dataStr) || []; } catch(e) { savedObjects = []; }
     if (!Array.isArray(savedObjects) || savedObjects.length === 0) {
-      console.log('ℹ️ Aucune entrée pour', currentBackgroundKey, '(source:', source + ')');
+('ℹ️ Aucune entrée pour', currentBackgroundKey, '(source:', source + ')');
       canvas.renderAll();
       // Réactiver la sauvegarde automatique avec un délai
       setTimeout(() => {
         isLoadingFromServer = false;
-        console.log('🔓 Sauvegarde automatique réactivée (tableau vide)');
+('🔓 Sauvegarde automatique réactivée (tableau vide)');
       }, 100);
       return;
     }
     
     // Afficher la source des données
     const sourceEmoji = source === 'database' ? '🗄️' : (source === 'json' ? '📄' : '❓');
-    console.log(`📂 ${sourceEmoji} Chargement de ${savedObjects.length} objets pour ${currentBackgroundKey} depuis ${source.toUpperCase()}`);
+(`📂 ${sourceEmoji} Chargement de ${savedObjects.length} objets pour ${currentBackgroundKey} depuis ${source.toUpperCase()}`);
     
     let loaded = 0;
     const totalObjects = savedObjects.length;
@@ -257,19 +254,19 @@ function loadFromServer() {
         recreateMask(objData, () => { 
           loaded++; 
           if (loaded === totalObjects) {
-            console.log('✅ Tous les objets chargés !');
+('✅ Tous les objets chargés !');
             // Réactiver la sauvegarde automatique avec un délai pour laisser les événements se terminer
             // Cela évite qu'un événement object:added déclenche une sauvegarde juste après le chargement
             setTimeout(() => {
               isLoadingFromServer = false;
-              console.log('🔓 Sauvegarde automatique réactivée');
+('🔓 Sauvegarde automatique réactivée');
               
               // Charger les images d'items pour les masques existants
               if (typeof window.loadExistingItemImages === 'function') {
-                console.log('🎯 Appel de loadExistingItemImages depuis save-load.js');
+('🎯 Appel de loadExistingItemImages depuis save-load.js');
                 window.loadExistingItemImages();
               } else {
-                console.log('⚠️ loadExistingItemImages pas encore disponible, délai de 1 seconde...');
+('⚠️ loadExistingItemImages pas encore disponible, délai de 1 seconde...');
                 setTimeout(() => {
                   if (typeof window.loadExistingItemImages === 'function') {
                     window.loadExistingItemImages();
@@ -283,11 +280,11 @@ function loadFromServer() {
         recreateArrow(objData, () => { 
           loaded++; 
           if (loaded === totalObjects) {
-            console.log('✅ Tous les objets chargés !');
+('✅ Tous les objets chargés !');
             // Réactiver la sauvegarde automatique avec un délai pour laisser les événements se terminer
             setTimeout(() => {
               isLoadingFromServer = false;
-              console.log('🔓 Sauvegarde automatique réactivée');
+('🔓 Sauvegarde automatique réactivée');
             }, 100);
           }
         });
@@ -295,11 +292,11 @@ function loadFromServer() {
         recreatePaper(objData, () => { 
           loaded++; 
           if (loaded === totalObjects) {
-            console.log('✅ Tous les objets chargés !');
+('✅ Tous les objets chargés !');
             // Réactiver la sauvegarde automatique avec un délai pour laisser les événements se terminer
             setTimeout(() => {
               isLoadingFromServer = false;
-              console.log('🔓 Sauvegarde automatique réactivée');
+('🔓 Sauvegarde automatique réactivée');
             }, 100);
           }
         });
@@ -311,7 +308,7 @@ function loadFromServer() {
     // Réactiver la sauvegarde automatique même en cas d'erreur, avec un délai
     setTimeout(() => {
       isLoadingFromServer = false;
-      console.log('🔓 Sauvegarde automatique réactivée (après erreur)');
+('🔓 Sauvegarde automatique réactivée (après erreur)');
     }, 100);
   });
 }
@@ -323,7 +320,7 @@ function loadFromServer() {
 
 // Déclencher la sauvegarde après modification d'objets
 canvas.on('object:modified', function(e) {
-  console.log('📝 Objet modifié, déclenchement de la sauvegarde automatique');
+('📝 Objet modifié, déclenchement de la sauvegarde automatique');
   triggerAutoSave();
 });
 
@@ -331,7 +328,7 @@ canvas.on('object:modified', function(e) {
 canvas.on('object:added', function(e) {
   // Ne pas sauvegarder lors du chargement initial (backgroundImage)
   if (e.target === backgroundImage) return;
-  console.log('➕ Objet ajouté, déclenchement de la sauvegarde automatique');
+('➕ Objet ajouté, déclenchement de la sauvegarde automatique');
   triggerAutoSave();
 });
 
@@ -342,11 +339,11 @@ canvas.on('object:removed', function(e) {
   
   // Ne pas sauvegarder si on supprime un papier en mode player (suppression temporaire pour comptage)
   if (typeof isRemovingPaperInPlayerMode !== 'undefined' && isRemovingPaperInPlayerMode) {
-    console.log('➖ Papier supprimé en mode player - PAS de sauvegarde en BDD');
+('➖ Papier supprimé en mode player - PAS de sauvegarde en BDD');
     return;
   }
   
-  console.log('➖ Objet supprimé, déclenchement de la sauvegarde automatique');
+('➖ Objet supprimé, déclenchement de la sauvegarde automatique');
   triggerAutoSave();
 });
 

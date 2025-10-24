@@ -125,7 +125,7 @@ function finalizePaperPlacement(opt) {
     canvas.defaultCursor = 'move';
     canvas.hoverCursor = 'move';
     canvas.requestRenderAll();
-    console.log("✅ Papier " + (paperType === 1 ? "doré" : "blanc") + " ajouté !");
+("✅ Papier " + (paperType === 1 ? "doré" : "blanc") + " ajouté !");
   });
 }
 
@@ -173,7 +173,7 @@ document.getElementById("addPaper").onclick = function() {
     updatePaperPlaceholderSize();
   };
   window.addEventListener('mousemove', paperPlaceholderMoveHandler);
-  console.log("👆 Placez le papier blanc avec un clic.");
+("👆 Placez le papier blanc avec un clic.");
 };
 
 // Bouton Ajouter Papier Doré
@@ -220,7 +220,7 @@ document.getElementById("addPaperDore").onclick = function() {
     updatePaperPlaceholderSize();
   };
   window.addEventListener('mousemove', paperPlaceholderMoveHandler);
-  console.log("👆 Placez le papier doré avec un clic.");
+("👆 Placez le papier doré avec un clic.");
 };
 
 // Fonction pour recréer un papier (utilisée au chargement)

@@ -150,7 +150,7 @@ canvas.on('mouse:down', function(opt) {
       });
       
       if (targetPath) {
-        console.log('🎯 Navigation globale vers:', obj.targetPhotoName, '(mode player)');
+('🎯 Navigation globale vers:', obj.targetPhotoName, '(mode player)');
         setBackgroundImage(targetPath);
         
         // Réinitialiser le curseur après le changement de photo
@@ -183,7 +183,7 @@ canvas.on('mouse:down', function(opt) {
       canvas.discardActiveObject();
       
       // Console.log temporaire pour préparer le terrain pour le comptage
-      console.log('📄 Papier cliqué en mode player - ID:', obj.id || 'sans ID', 'Position:', { left: obj.left, top: obj.top });
+('📄 Papier cliqué en mode player - ID:', obj.id || 'sans ID', 'Position:', { left: obj.left, top: obj.top });
       
       // Supprimer le papier du canvas (pas de la BDD)
       // Activer le flag pour empêcher la sauvegarde automatique
@@ -195,7 +195,7 @@ canvas.on('mouse:down', function(opt) {
         isRemovingPaperInPlayerMode = false;
       }, 10);
       
-      console.log('🗑️ Papier supprimé du canvas (pas de la BDD)');
+('🗑️ Papier supprimé du canvas (pas de la BDD)');
       
       return false;
     }

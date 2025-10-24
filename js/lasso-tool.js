@@ -113,7 +113,7 @@ document.getElementById("toggleLasso").onclick = function() {
   
   // Si on désactive le lasso en mode édition, valider les changements
   if (isLassoMode && isEditingMode && points.length >= 3) {
-    console.log("💾 Validation des modifications (désactivation du lasso)...");
+("💾 Validation des modifications (désactivation du lasso)...");
     createCutout();
     return;
   }
@@ -165,7 +165,7 @@ document.getElementById("editMask").onclick = function() {
   
   // Si on est déjà en mode édition, sortir du mode et valider les changements
   if (isEditingMode) {
-    console.log("💾 Finalisation du mode édition...");
+("💾 Finalisation du mode édition...");
     if (points.length >= 3) {
       createCutout();
     } else {
@@ -210,7 +210,7 @@ document.getElementById("editMask").onclick = function() {
     return;
   }
   
-  console.log("✏️ Édition du masque...");
+("✏️ Édition du masque...");
   
   points = JSON.parse(JSON.stringify(activeObject.maskData.originalPoints));
   curveHandles = JSON.parse(JSON.stringify(activeObject.maskData.curveHandles));
@@ -236,7 +236,7 @@ document.getElementById("editMask").onclick = function() {
     updateButtonStates();
   }
   
-  console.log("✅ Vous pouvez maintenant modifier les points et courbes. Cliquez à nouveau sur 'Modifier le tracé' pour finaliser.");
+("✅ Vous pouvez maintenant modifier les points et courbes. Cliquez à nouveau sur 'Modifier le tracé' pour finaliser.");
 };
 
 // Gestion des clics pour dessiner le lasso
@@ -263,7 +263,7 @@ canvas.on("mouse:down", (opt) => {
     // Démarrer l'auto-pan maintenant qu'on a commencé à tracer
     startAutoPan();
     
-    console.log("Premier point placé");
+("Premier point placé");
     return;
   }
   
@@ -283,7 +283,7 @@ canvas.on("mouse:down", (opt) => {
         draggingPointIndex = i;
         // Démarrer l'auto-pan quand on commence à glisser un point
         startAutoPan();
-        console.log(`Glissement du point ${i}`);
+(`Glissement du point ${i}`);
         return;
       }
     }
@@ -310,7 +310,7 @@ canvas.on("mouse:down", (opt) => {
         draggingSegmentIndex = i;
         // Démarrer l'auto-pan quand on commence à glisser une poignée
         startAutoPan();
-        console.log(`Glissement de la poignée du segment ${i}`);
+(`Glissement de la poignée du segment ${i}`);
         return;
       }
     }
@@ -326,7 +326,7 @@ canvas.on("mouse:down", (opt) => {
   );
   
   if (distToFirst < closeTolerance && points.length >= 3) {
-    console.log("Polygone fermé. Création du masque...");
+("Polygone fermé. Création du masque...");
     
     if (previewLine) {
       canvas.remove(previewLine);
@@ -367,13 +367,13 @@ canvas.on("mouse:down", (opt) => {
   tempCircles.push(circle);
   
   points.push({ x: pointer.x, y: pointer.y });
-  console.log("Point ajouté, total:", points.length);
+("Point ajouté, total:", points.length);
 });
 
 // Double-clic pour fermer le polygone
 canvas.on("mouse:dblclick", (opt) => {
   if (!isLassoMode || points.length < 3 || polygonClosed) return;
-  console.log("Polygone fermé. Création du masque...");
+("Polygone fermé. Création du masque...");
   
   if (previewLine) {
     canvas.remove(previewLine);
@@ -589,7 +589,7 @@ function createCutout() {
   }
   
   const savedFinalPoints = finalPoints.length > 0 ? finalPoints : savedPoints;
-  console.log("✅ Courbes appliquées:", savedPoints.length, "points originaux →", savedFinalPoints.length, "points avec courbes");
+("✅ Courbes appliquées:", savedPoints.length, "points originaux →", savedFinalPoints.length, "points avec courbes");
   
   const clipPolygon = new fabric.Polygon(savedFinalPoints, {
     fill: "transparent",
@@ -597,7 +597,7 @@ function createCutout() {
   });
   const bounds = clipPolygon.getBoundingRect();
   
-  console.log("Création de l'image découpée...", savedFinalPoints.length, "points");
+("Création de l'image découpée...", savedFinalPoints.length, "points");
   
   const tempCanvas = document.createElement('canvas');
   const ctx = tempCanvas.getContext('2d');
@@ -715,7 +715,7 @@ function createCutout() {
       updateButtonStates();
     }
     
-    console.log("✅ Masque créé !");
+("✅ Masque créé !");
     saveCanvasState();
   });
   

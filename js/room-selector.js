@@ -28,13 +28,13 @@ function setBackgroundImage(src) {
   const canvasContainer = document.getElementById('canvas-container');
   const newKey = pathToKey(src);
   
-  console.log('🔄 setBackgroundImage - src:', src, 'newKey:', newKey, 'oldKey:', currentBackgroundKey);
+('🔄 setBackgroundImage - src:', src, 'newKey:', newKey, 'oldKey:', currentBackgroundKey);
   
   // Vérifier si c'est un changement de photo (pas le chargement initial)
   const isChanging = currentBackgroundKey && currentBackgroundKey !== newKey;
   
   currentBackgroundKey = newKey;
-  console.log('✅ currentBackgroundKey mis à jour à:', currentBackgroundKey);
+('✅ currentBackgroundKey mis à jour à:', currentBackgroundKey);
   
   // Si on change de photo, appliquer une transition
   if (isChanging && canvasContainer) {
@@ -58,7 +58,7 @@ function loadNewImage(src, canvasContainer) {
   if (window.autoSaveTimeout) {
     clearTimeout(window.autoSaveTimeout);
     window.autoSaveTimeout = null;
-    console.log('⏹️ Timer de sauvegarde automatique annulé (changement de photo)');
+('⏹️ Timer de sauvegarde automatique annulé (changement de photo)');
   }
   
   canvas.getObjects().slice().forEach(o => canvas.remove(o));
@@ -82,7 +82,7 @@ function loadNewImage(src, canvasContainer) {
       applyBaseViewport();
       isAtBaseZoom = true;
       canvas.requestRenderAll();
-      console.log('✅ Image de fond remplacée:', src, 'clé:', currentBackgroundKey);
+('✅ Image de fond remplacée:', src, 'clé:', currentBackgroundKey);
       loadFromServer();
       
       // Fade in

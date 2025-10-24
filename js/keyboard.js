@@ -23,7 +23,7 @@ document.addEventListener('keydown', (e) => {
     }
     arrowPreviewAngle += rotation;
     updateArrowPlaceholderSize();
-    console.log("↻ Rotation de la flèche:", arrowPreviewAngle + "°");
+("↻ Rotation de la flèche:", arrowPreviewAngle + "°");
     e.preventDefault();
     return;
   }
@@ -32,7 +32,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && isLassoMode && points.length > 0) {
     // En mode édition, valider les changements
     if (isEditingMode) {
-      console.log("💾 Validation des modifications (Échap)...");
+("💾 Validation des modifications (Échap)...");
       if (points.length >= 3 && typeof createCutout !== 'undefined') {
         createCutout();
       } else {
@@ -60,7 +60,7 @@ document.addEventListener('keydown', (e) => {
       }
     } else {
       // En mode traçage normal, annuler
-      console.log("Tracé annulé");
+("Tracé annulé");
       
       if (editingMask) {
         canvas.add(editingMask);
@@ -108,7 +108,7 @@ document.addEventListener('keydown', (e) => {
   
   // Touche C pour changer la destination d'une flèche
   if ((e.key === 'c' || e.key === 'C') && activeObject.isArrow && !isPlayerMode) {
-    console.log('🎯 Ouverture de la modale pour changer la destination de la flèche');
+('🎯 Ouverture de la modale pour changer la destination de la flèche');
     if (typeof showArrowTargetModal === 'function') {
       showArrowTargetModal('arrow', activeObject);
     }
@@ -123,7 +123,7 @@ document.addEventListener('keydown', (e) => {
       const centerX = imgWidth / 2;
       activeObject.set({ left: centerX });
       canvas.renderAll();
-      console.log('🎯 Flèche centrée au milieu de la ligne');
+('🎯 Flèche centrée au milieu de la ligne');
       
       // Déclencher une sauvegarde automatique
       if (typeof saveCanvasState === 'function') {
@@ -146,9 +146,9 @@ document.addEventListener('keydown', (e) => {
       });
       
       if (arrowFreeMoveMode) {
-        console.log('🔓 Mode déplacement libre ACTIVÉ pour la flèche (appuyez sur X pour désactiver)');
+('🔓 Mode déplacement libre ACTIVÉ pour la flèche (appuyez sur X pour désactiver)');
       } else {
-        console.log('🔒 Mode déplacement libre DÉSACTIVÉ pour la flèche');
+('🔒 Mode déplacement libre DÉSACTIVÉ pour la flèche');
         
         // Ramener la flèche sur la ligne contrainte
         if (typeof backgroundImage !== 'undefined' && backgroundImage) {
@@ -204,7 +204,7 @@ document.addEventListener('keydown', (e) => {
     case 'Backspace':
       canvas.remove(activeObject);
       canvas.renderAll();
-      console.log("✅ Objet supprimé");
+("✅ Objet supprimé");
       e.preventDefault();
       break;
   }

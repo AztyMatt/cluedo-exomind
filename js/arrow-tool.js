@@ -12,7 +12,7 @@ let arrowFreeMoveMode = false; // Mode de déplacement libre activé/désactivé
 canvas.on('selection:cleared', function() {
   if (arrowFreeMoveMode) {
     arrowFreeMoveMode = false;
-    console.log('🔒 Mode déplacement libre désactivé (désélection)');
+('🔒 Mode déplacement libre désactivé (désélection)');
   }
 });
 
@@ -22,7 +22,7 @@ canvas.on('selection:created', function(e) {
   if (obj && obj.isArrow) {
     arrowFreeMoveMode = obj.freePlacement || false;
     if (arrowFreeMoveMode) {
-      console.log('🔓 Flèche en mode libre détectée');
+('🔓 Flèche en mode libre détectée');
     }
   }
 });
@@ -33,11 +33,11 @@ canvas.on('selection:updated', function(e) {
   if (obj && obj.isArrow) {
     arrowFreeMoveMode = obj.freePlacement || false;
     if (arrowFreeMoveMode) {
-      console.log('🔓 Flèche en mode libre détectée');
+('🔓 Flèche en mode libre détectée');
     }
   } else if (arrowFreeMoveMode) {
     arrowFreeMoveMode = false;
-    console.log('🔒 Mode déplacement libre désactivé (changement de sélection)');
+('🔒 Mode déplacement libre désactivé (changement de sélection)');
   }
 });
 
@@ -230,7 +230,7 @@ document.getElementById("addArrow").onclick = function() {
     updateArrowPlaceholderSize();
   };
   window.addEventListener('mousemove', arrowPlaceholderMoveHandler);
-  console.log("👆 Placez la flèche avec un clic (position verticale automatique). Utilisez ← → pour la tourner.");
+("👆 Placez la flèche avec un clic (position verticale automatique). Utilisez ← → pour la tourner.");
 };
 
 // Fonction pour recréer une flèche (utilisée au chargement)
@@ -290,7 +290,7 @@ function recreateArrow(arrowData, callback) {
           });
           
           if (targetPath) {
-            console.log('🎯 Navigation vers:', this.targetPhotoName);
+('🎯 Navigation vers:', this.targetPhotoName);
             setBackgroundImage(targetPath);
           } else {
             console.warn('⚠️ Photo cible non trouvée:', this.targetPhotoName);
@@ -309,7 +309,7 @@ function recreateArrow(arrowData, callback) {
         });
         
         if (targetPath) {
-          console.log('🎯 Navigation vers:', this.targetPhotoName, '(shift+clic)');
+('🎯 Navigation vers:', this.targetPhotoName, '(shift+clic)');
           setBackgroundImage(targetPath);
         } else {
           console.warn('⚠️ Photo cible non trouvée:', this.targetPhotoName);
@@ -453,7 +453,7 @@ function showArrowTargetModal(mode = 'arrow', arrowToEdit = null) {
     const targetIndex = carouselImages.findIndex(img => img.name === editingArrow.targetPhotoName);
     if (targetIndex !== -1) {
       carouselCurrentIndex = targetIndex;
-      console.log('📍 Démarrage du carrousel sur la photo cible de la flèche:', editingArrow.targetPhotoName);
+('📍 Démarrage du carrousel sur la photo cible de la flèche:', editingArrow.targetPhotoName);
     }
   }
   // Sinon, démarrer sur la photo actuellement affichée
@@ -461,7 +461,7 @@ function showArrowTargetModal(mode = 'arrow', arrowToEdit = null) {
     const currentIndex = carouselImages.findIndex(img => img.name === currentBackgroundKey);
     if (currentIndex !== -1) {
       carouselCurrentIndex = currentIndex;
-      console.log('📍 Démarrage du carrousel sur la photo actuelle:', currentBackgroundKey, 'index:', currentIndex);
+('📍 Démarrage du carrousel sur la photo actuelle:', currentBackgroundKey, 'index:', currentIndex);
     }
   }
   
@@ -543,7 +543,7 @@ function createArrowWithTarget(targetPhotoName) {
     zIndex: pendingArrowData.zIndex
   };
   
-  console.log("🎯 Création de la flèche avec données:", arrowData, "vers", targetPhotoName);
+("🎯 Création de la flèche avec données:", arrowData, "vers", targetPhotoName);
   
   fabric.Image.fromURL(arrowDataUrl, (arrowImg) => {
     arrowImg.set({
@@ -594,7 +594,7 @@ function createArrowWithTarget(targetPhotoName) {
           });
           
           if (targetPath) {
-            console.log('🎯 Navigation vers:', this.targetPhotoName);
+('🎯 Navigation vers:', this.targetPhotoName);
             setBackgroundImage(targetPath);
           } else {
             console.warn('⚠️ Photo cible non trouvée:', this.targetPhotoName);
@@ -613,7 +613,7 @@ function createArrowWithTarget(targetPhotoName) {
         });
         
         if (targetPath) {
-          console.log('🎯 Navigation vers:', this.targetPhotoName, '(shift+clic)');
+('🎯 Navigation vers:', this.targetPhotoName, '(shift+clic)');
           setBackgroundImage(targetPath);
         } else {
           console.warn('⚠️ Photo cible non trouvée:', this.targetPhotoName);
@@ -677,7 +677,7 @@ function createArrowWithTarget(targetPhotoName) {
     canvas.defaultCursor = 'move';
     canvas.hoverCursor = 'move';
     canvas.renderAll();
-    console.log("✅ Flèche ajoutée avec angle:", arrowData.angle + "° vers", targetPhotoName);
+("✅ Flèche ajoutée avec angle:", arrowData.angle + "° vers", targetPhotoName);
   });
   
   // Réinitialiser APRÈS avoir copié les données
@@ -697,7 +697,7 @@ document.getElementById('confirmArrowBtn').onclick = function() {
     if (editingArrow) {
       // Mode édition : modifier la destination de la flèche existante
       editingArrow.targetPhotoName = selectedImage.name;
-      console.log('✏️ Destination de la flèche modifiée vers:', selectedImage.name);
+('✏️ Destination de la flèche modifiée vers:', selectedImage.name);
       canvas.renderAll();
       
       // Déclencher la sauvegarde automatique

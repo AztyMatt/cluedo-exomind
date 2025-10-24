@@ -91,7 +91,7 @@ document.getElementById("modeToggle").onclick = () => {
     canvas.defaultCursor = 'grab';
     canvas.hoverCursor = 'grab'; // Le curseur changera en pointer au survol des flèches
     
-    console.log("🎮 Mode Player activé - Bordures masquées, édition désactivée, zoom réinitialisé, flèches et papiers cliquables, zoom/pan activés");
+("🎮 Mode Player activé - Bordures masquées, édition désactivée, zoom réinitialisé, flèches et papiers cliquables, zoom/pan activés");
   } else {
     // On est en mode Editor, afficher "Player Mode" pour indiquer qu'on peut basculer en mode Player
     icon.textContent = "🎮";
@@ -149,7 +149,7 @@ document.getElementById("modeToggle").onclick = () => {
     canvas.defaultCursor = 'default';
     canvas.hoverCursor = 'move';
     
-    console.log("🛠️ Mode Editor activé - Bordures visibles, édition activée");
+("🛠️ Mode Editor activé - Bordures visibles, édition activée");
   }
   
   toggleBordersVisibility();

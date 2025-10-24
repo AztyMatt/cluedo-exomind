@@ -2114,7 +2114,7 @@ if ($show_activation_form) {
                 });
                 
                 if (targetPath) {
-                    console.log('🎯 Navigation vers:', obj.targetPhotoName);
+('🎯 Navigation vers:', obj.targetPhotoName);
                     setBackgroundImage(targetPath);
                     
                     setTimeout(() => {
@@ -2145,13 +2145,13 @@ if ($show_activation_form) {
                 
                 // Vérifier si le papier a déjà été trouvé
                 if (obj.isFound) {
-                    console.log('ℹ️ Papier déjà trouvé - ID:', paperId);
+('ℹ️ Papier déjà trouvé - ID:', paperId);
                     return false;
                 }
                 
                 // Vérifier le quota SAUF si l'équipe a déjà trouvé tous ses papiers
                 if (quotaReached && foundPapersTeam < totalPapers) {
-                    console.log('🔒 Quota atteint ! Impossible de trouver plus de papiers');
+('🔒 Quota atteint ! Impossible de trouver plus de papiers');
                     showQuotaWarning();
                     return false;
                 }
@@ -2160,7 +2160,7 @@ if ($show_activation_form) {
                 obj.isProcessing = true;
                 obj.evented = false; // Désactiver temporairement les événements
                 
-                console.log('📄 Papier ramassé - ID:', paperId);
+('📄 Papier ramassé - ID:', paperId);
                 
                 // Envoyer au serveur pour enregistrer dans papers_found_user
                 fetch(window.location.href, {
@@ -2181,11 +2181,11 @@ if ($show_activation_form) {
                 .then(result => {
                     if (result.success) {
                         if (result.new_find) {
-                            console.log('✅ Papier enregistré en BDD');
+('✅ Papier enregistré en BDD');
                             
                             // Vérifier si c'est un papier doré pour l'explosion spéciale
                             if (result.is_golden_paper) {
-                                console.log('🏆 PAPIER DORÉ TROUVÉ ! MEGA EXPLOSION !');
+('🏆 PAPIER DORÉ TROUVÉ ! MEGA EXPLOSION !');
                                 launchGoldenPaperExplosion();
                             } else {
                                 // ANIMATION DE FÉLICITATIONS + CONFETTIS (UNIQUEMENT pour les papiers normaux)
@@ -2199,7 +2199,7 @@ if ($show_activation_form) {
                                 // Vérifier si le quota est maintenant atteint
                                 if (quotaPerUser > 0 && foundPapersMe >= quotaPerUser) {
                                     quotaReached = true;
-                                    console.log('🔒 Quota personnel atteint:', foundPapersMe, '/', quotaPerUser);
+('🔒 Quota personnel atteint:', foundPapersMe, '/', quotaPerUser);
                                 }
                                 
                                 updatePaperCount();
@@ -2212,7 +2212,7 @@ if ($show_activation_form) {
                             
                             // Vérifier si l'énigme a été débloquée (UNIQUEMENT pour les papiers normaux)
                             if (result.enigma_unlocked && !result.is_golden_paper) {
-                                console.log('🔓 ÉNIGME DÉBLOQUÉE ! Tous les papiers normaux ont été trouvés !');
+('🔓 ÉNIGME DÉBLOQUÉE ! Tous les papiers normaux ont été trouvés !');
                                 
                                 // Afficher une notification spéciale après les félicitations
                                 setTimeout(() => {
@@ -2234,7 +2234,7 @@ if ($show_activation_form) {
                             // Mettre à jour les données de l'équipe après un délai
                             setTimeout(updateGameData, 500);
                         } else {
-                            console.log('ℹ️ Papier déjà trouvé précédemment - Le papier reste non-cliquable');
+('ℹ️ Papier déjà trouvé précédemment - Le papier reste non-cliquable');
                             // Marquer définitivement comme trouvé
                             obj.isFound = true;
                             obj.isProcessing = false;
@@ -2268,7 +2268,7 @@ if ($show_activation_form) {
             if (!src) return;
             
             currentBackgroundKey = pathToKey(src);
-            console.log('🔄 Chargement de:', src, 'clé:', currentBackgroundKey);
+('🔄 Chargement de:', src, 'clé:', currentBackgroundKey);
             
             const canvasContainer = document.getElementById('game-canvas-container');
             const loadingLogo = document.getElementById('loading-logo');
@@ -2305,7 +2305,7 @@ if ($show_activation_form) {
                     applyBaseViewport();
                     isAtBaseZoom = true;
                     canvas.requestRenderAll();
-                    console.log('✅ Image de fond chargée:', src);
+('✅ Image de fond chargée:', src);
                         
                         // Charger les données et masquer le fondu quand tout est prêt
                         loadFromServer().then(() => {
@@ -2322,7 +2322,7 @@ if ($show_activation_form) {
         
         // ========== CHARGEMENT DES DONNÉES ==========
         function loadFromServer() {
-            console.log('📂 Chargement des données pour:', currentBackgroundKey);
+('📂 Chargement des données pour:', currentBackgroundKey);
             
             return fetch(window.location.href, {
                 method: 'POST',
@@ -2334,7 +2334,7 @@ if ($show_activation_form) {
                 const dataStr = result && result.success ? result.data : null;
                 
                 if (!dataStr) {
-                    console.log('ℹ️ Aucune donnée pour', currentBackgroundKey);
+('ℹ️ Aucune donnée pour', currentBackgroundKey);
                     return Promise.resolve();
                 }
                 
@@ -2342,18 +2342,18 @@ if ($show_activation_form) {
                 try { savedObjects = JSON.parse(dataStr) || []; } catch(e) { savedObjects = []; }
                 
                 if (!Array.isArray(savedObjects) || savedObjects.length === 0) {
-                    console.log('ℹ️ Tableau vide pour', currentBackgroundKey);
+('ℹ️ Tableau vide pour', currentBackgroundKey);
                     return Promise.resolve();
                 }
                 
-                console.log(`📂 Chargement de ${savedObjects.length} objets`);
+(`📂 Chargement de ${savedObjects.length} objets`);
                 
                 // Debug des papiers dorés
                 const goldenPapers = savedObjects.filter(obj => obj.type === 'paper' && obj.paperType === 1);
-                console.log(`🏆 Papiers dorés trouvés: ${goldenPapers.length}`);
+(`🏆 Papiers dorés trouvés: ${goldenPapers.length}`);
                 goldenPapers.forEach((paper, index) => {
                     const dayForThisPaper = index + 1;
-                    console.log(`Papier doré ID ${paper.id}: Jour assigné = ${dayForThisPaper}, Jour actuel = ${<?php echo $currentGameDay; ?>}`);
+(`Papier doré ID ${paper.id}: Jour assigné = ${dayForThisPaper}, Jour actuel = ${<?php echo $currentGameDay; ?>}`);
                 });
                 
                 // foundPapersTeam et totalPapers seront mis à jour via AJAX depuis la BDD
@@ -2398,7 +2398,7 @@ if ($show_activation_form) {
                         // Appliquer le style "trouvé" pour tous les papiers trouvés, peu importe le jour
                         applyFoundStyle(foundPaper.id_paper, foundPaper.found_by_display, foundPaper.found_at, foundPaper.team_color, foundPaper.team_img, foundPaper.team_pole, false, foundPaper.is_golden_paper);
                     });
-                    console.log('🏁 Drapeaux appliqués pour', data.found_papers.length, 'papiers trouvés sur tous les jours');
+('🏁 Drapeaux appliqués pour', data.found_papers.length, 'papiers trouvés sur tous les jours');
                 }
             })
             .catch(error => {
@@ -2816,7 +2816,7 @@ if ($show_activation_form) {
             
             // Marquer comme trouvé pour éviter de re-styler (sauf si c'est le premier appel)
             if (paper.isFound && !paper.isProcessing) {
-                console.log('⚠️ Papier déjà stylisé - ID:', paperId);
+('⚠️ Papier déjà stylisé - ID:', paperId);
                 return;
             }
             
@@ -2945,7 +2945,7 @@ if ($show_activation_form) {
                 canvas.bringToFront(flag);
                 canvas.renderAll();
                 
-                console.log('✨ Style "trouvé" appliqué au PAPIER DORÉ ID', paperId, '- Auréole dorée et drapeau doré au centre');
+('✨ Style "trouvé" appliqué au PAPIER DORÉ ID', paperId, '- Auréole dorée et drapeau doré au centre');
             } else {
                 // Pour les papiers normaux : créer un drapeau rouge classique
                 const flagBg = new fabric.Circle({
@@ -2997,7 +2997,7 @@ if ($show_activation_form) {
                 canvas.bringToFront(flag);
                 canvas.renderAll();
                 
-                console.log('✨ Style "trouvé" appliqué au papier ID', paperId, '- Point et drapeau au centre');
+('✨ Style "trouvé" appliqué au papier ID', paperId, '- Point et drapeau au centre');
             }
         }
         
@@ -3197,11 +3197,11 @@ if ($show_activation_form) {
                     
                     // Vérifier si l'équipe a atteint son quota (prioritaire sur le quota individuel)
                     if (foundPapersTeam >= totalPapers) {
-                        console.log('🎯 Quota équipe atteint ! Masquage des papiers non trouvés...');
+('🎯 Quota équipe atteint ! Masquage des papiers non trouvés...');
                         hideUnfoundPapers();
                     }
                     
-                    console.log('📊 Données jeu mises à jour - Équipe:', foundPapersTeam, '/', totalPapers, '| Moi:', foundPapersMe, '| Quota:', quotaPerUser === 0 ? 'illimité' : quotaPerUser, '| Atteint:', quotaReached, '| Énigme:', data.enigma_status);
+('📊 Données jeu mises à jour - Équipe:', foundPapersTeam, '/', totalPapers, '| Moi:', foundPapersMe, '| Quota:', quotaPerUser === 0 ? 'illimité' : quotaPerUser, '| Atteint:', quotaReached, '| Énigme:', data.enigma_status);
                 })
                 .catch(error => {
                     console.error('Erreur AJAX game:', error);
@@ -3241,12 +3241,12 @@ if ($show_activation_form) {
                         evented: false,
                         selectable: false
                     });
-                    console.log('👻 Papier ID', paper.paperId, 'masqué (non trouvé)');
+('👻 Papier ID', paper.paperId, 'masqué (non trouvé)');
                 }
             });
             
             canvas.renderAll();
-            console.log('✅ Tous les papiers non trouvés ont été masqués');
+('✅ Tous les papiers non trouvés ont été masqués');
         }
         
         // ========== INITIALISATION ==========
@@ -3272,17 +3272,17 @@ if ($show_activation_form) {
         const shownNotifications = new Set();
         
         function checkRecentPapers() {
-            console.log('🔍 Vérification des papiers récents...');
+('🔍 Vérification des papiers récents...');
             fetch('game_notifications.php?day=' + <?php echo $currentGameDay; ?>)
                 .then(response => {
-                    console.log('🔍 Réponse HTTP:', response.status, response.statusText);
+('🔍 Réponse HTTP:', response.status, response.statusText);
                     return response.json();
                 })
                 .then(data => {
-                    console.log('📊 Données notifications reçues:', data);
+('📊 Données notifications reçues:', data);
                     
                     if (!data.success || !data.papers) {
-                        console.log('❌ Pas de données valides:', data);
+('❌ Pas de données valides:', data);
                         return;
                     }
                     
@@ -3291,36 +3291,36 @@ if ($show_activation_form) {
                         const paperDate = new Date(paper.datetime);
                         const now = new Date();
                         const secondsAgo = (now - paperDate) / 1000;
-                        console.log(`📄 Papier ${paper.id} (type: ${paper.paper_type}) trouvé il y a ${secondsAgo.toFixed(1)} secondes par ${paper.display_name}`);
+(`📄 Papier ${paper.id} (type: ${paper.paper_type}) trouvé il y a ${secondsAgo.toFixed(1)} secondes par ${paper.display_name}`);
                         return true; // Afficher tous les papiers, pas de filtre temporel
                     });
                     
-                    console.log(`🔔 ${recentPapers.length} papiers récents trouvés`);
-                    console.log(`🔔 Papiers récents:`, recentPapers);
+(`🔔 ${recentPapers.length} papiers récents trouvés`);
+(`🔔 Papiers récents:`, recentPapers);
                     
                     // Afficher les nouvelles notifications (UNIQUEMENT les papiers normaux)
                     recentPapers.forEach(paper => {
-                        console.log(`🔍 Traitement du papier ${paper.id} (type: ${paper.paper_type})`);
+(`🔍 Traitement du papier ${paper.id} (type: ${paper.paper_type})`);
                         
                         // Ne traiter QUE les papiers normaux (paper_type = 0)
                         if (paper.paper_type !== 0) {
-                            console.log(`⏭️ Papier doré ignoré par checkRecentPapers (géré par checkGoldenPaperFound)`);
+(`⏭️ Papier doré ignoré par checkRecentPapers (géré par checkGoldenPaperFound)`);
                             return;
                         }
                         
-                        console.log(`🔍 Papier normal détecté, vérification si déjà affiché...`);
-                        console.log(`🔍 Notifications déjà affichées:`, Array.from(shownNotifications));
+(`🔍 Papier normal détecté, vérification si déjà affiché...`);
+(`🔍 Notifications déjà affichées:`, Array.from(shownNotifications));
                         
                         // Ne pas afficher si déjà montré
                         if (!shownNotifications.has(paper.id)) {
-                            console.log(`🔔 Nouvelle notification pour ${paper.display_name} - AJOUT AU SET`);
+(`🔔 Nouvelle notification pour ${paper.display_name} - AJOUT AU SET`);
                             shownNotifications.add(paper.id);
                             
                             // Papier classique - utiliser la notification normale
-                            console.log(`🔔 Appel de showNotification() pour ${paper.display_name}`);
+(`🔔 Appel de showNotification() pour ${paper.display_name}`);
                             showNotification(paper);
                         } else {
-                            console.log(`⏭️ Notification déjà affichée pour ${paper.display_name} (ID: ${paper.id})`);
+(`⏭️ Notification déjà affichée pour ${paper.display_name} (ID: ${paper.id})`);
                         }
                     });
                 })
@@ -3330,7 +3330,7 @@ if ($show_activation_form) {
         }
         
         function showNotification(paper) {
-            console.log(`🎯 showNotification() appelée pour ${paper.display_name}`);
+(`🎯 showNotification() appelée pour ${paper.display_name}`);
             const container = document.getElementById('notifications-container');
             
             if (!container) {
@@ -3338,7 +3338,7 @@ if ($show_activation_form) {
                 return;
             }
             
-            console.log(`🎯 Conteneur trouvé, création de la notification...`);
+(`🎯 Conteneur trouvé, création de la notification...`);
             
             // Créer l'élément de notification
             const notif = document.createElement('div');
@@ -3367,10 +3367,10 @@ if ($show_activation_form) {
             // Ajouter au conteneur
             container.appendChild(notif);
             
-            console.log('🔔 Notification affichée pour', paper.display_name);
-            console.log('🔔 Notification ajoutée au DOM, élément:', notif);
-            console.log('🔔 Conteneur notifications:', container);
-            console.log('🔔 Conteneur contient maintenant', container.children.length, 'notifications');
+('🔔 Notification affichée pour', paper.display_name);
+('🔔 Notification ajoutée au DOM, élément:', notif);
+('🔔 Conteneur notifications:', container);
+('🔔 Conteneur contient maintenant', container.children.length, 'notifications');
             
             // Masquer et supprimer après 20 secondes
             setTimeout(() => {
@@ -3492,7 +3492,7 @@ if ($show_activation_form) {
                 }
             }, 3000);
             
-            console.log('🎆 Confettis et notification d\'objet trouvé affichés');
+('🎆 Confettis et notification d\'objet trouvé affichés');
         }
         
         // Vérifier les papiers récents toutes les 5 secondes
@@ -3501,20 +3501,20 @@ if ($show_activation_form) {
         // Première vérification après 2 secondes
         setTimeout(checkRecentPapers, 2000);
         
-        console.log('✅ Système de notifications papiers normaux activé');
+('✅ Système de notifications papiers normaux activé');
         
         // Bouton de test pour vider les notifications déjà affichées (à supprimer en production)
         window.clearNotifications = function() {
             shownNotifications.clear();
-            console.log('🧹 Notifications déjà affichées vidées');
+('🧹 Notifications déjà affichées vidées');
         };
         
         window.clearGoldenNotifications = function() {
             shownGoldenPaperNotifications.clear();
-            console.log('🧹 Notifications papiers dorés déjà affichées vidées');
+('🧹 Notifications papiers dorés déjà affichées vidées');
         };
         
-        console.log('🧪 Fonctions de test disponibles : clearNotifications() et clearGoldenNotifications()');
+('🧪 Fonctions de test disponibles : clearNotifications() et clearGoldenNotifications()');
         
         // ========== SYSTÈME DE NOTIFICATIONS PAPIERS DORÉS ==========
         
@@ -3522,17 +3522,17 @@ if ($show_activation_form) {
         const shownGoldenPaperNotifications = new Set();
         
         function checkGoldenPaperFound() {
-            console.log('🏆 Vérification des papiers dorés...');
+('🏆 Vérification des papiers dorés...');
             fetch('golden-paper-notification.php?day=' + <?php echo $currentGameDay; ?>)
                 .then(response => {
-                    console.log('🏆 Réponse HTTP:', response.status, response.statusText);
+('🏆 Réponse HTTP:', response.status, response.statusText);
                     return response.json();
                 })
                 .then(data => {
-                    console.log('🏆 Données papier doré reçues:', data);
+('🏆 Données papier doré reçues:', data);
                     
                     if (!data.success || !data.found) {
-                        console.log('🏆 Pas de papier doré trouvé récemment');
+('🏆 Pas de papier doré trouvé récemment');
                         return;
                     }
                     
@@ -3658,7 +3658,7 @@ if ($show_activation_form) {
         // Vérifier les papiers dorés trouvés toutes les 3 secondes
         setInterval(checkGoldenPaperFound, 3000);
         
-        console.log('✅ Système de notifications papiers dorés activé');
+('✅ Système de notifications papiers dorés activé');
         
         // Fonction pour mettre à jour l'heure des notifications persistantes
         function updateNotificationTimes() {
@@ -3744,7 +3744,7 @@ if ($show_activation_form) {
             // Ajouter au conteneur
             container.appendChild(notif);
             
-            console.log('🔔 Notification objet affichée pour', object.display_name);
+('🔔 Notification objet affichée pour', object.display_name);
             
             // Masquer et supprimer après 20 secondes
             setTimeout(() => {
@@ -4078,9 +4078,9 @@ if ($show_activation_form) {
             })
             .then(response => response.json())
             .then(data => {
-                console.log('🔍 Réponse get-all-solved-items:', data);
+('🔍 Réponse get-all-solved-items:', data);
                 if (data.success && data.items) {
-                    console.log('📊 Nombre d\'objets résolus reçus:', data.items.length);
+('📊 Nombre d\'objets résolus reçus:', data.items.length);
                     updateSolvedItemsUI(data.items);
                 } else {
                     console.warn('⚠️ Aucun objet résolu trouvé ou erreur dans la réponse');
@@ -4185,12 +4185,12 @@ if ($show_activation_form) {
                 imagePath = 'assets/img/items/' + solvedItem.id + '.png';
             }
 
-            console.log('🎯 Chargement de l\'image:', imagePath);
+('🎯 Chargement de l\'image:', imagePath);
 
             // Charger l'image de l'objet
             fabric.Image.fromURL(imagePath, function(img) {
                 if (!img) {
-                    console.log('❌ Impossible de charger l\'image:', imagePath);
+('❌ Impossible de charger l\'image:', imagePath);
                     return;
                 }
 
@@ -4273,13 +4273,13 @@ if ($show_activation_form) {
             })
             .then(response => response.json())
             .then(data => {
-                console.log('🔍 Chargement initial - Objets résolus:', data);
+('🔍 Chargement initial - Objets résolus:', data);
                 if (data.success && data.items) {
                     data.items.forEach(solvedItem => {
                         // Appliquer le style "résolu" pour tous les objets résolus
                         displaySolvedItemOnCanvas(solvedItem);
                     });
-                    console.log('🎯 Drapeaux appliqués pour', data.items.length, 'objets résolus au chargement');
+('🎯 Drapeaux appliqués pour', data.items.length, 'objets résolus au chargement');
                 }
             })
             .catch(error => {
@@ -4293,8 +4293,8 @@ if ($show_activation_form) {
         // Charger tous les objets résolus existants au démarrage (comme pour les papiers)
         setTimeout(checkAllSolvedItemsOnLoad, 2000);
         
-        console.log('🔄 Mise à jour automatique activée (données: 10s, papiers trouvés: 15s, notifications: 5s, objets: 3s)');
-        console.log('🎯 Système curseur-objet activé - Affichage de TOUS les objets résolus');
+('🔄 Mise à jour automatique activée (données: 10s, papiers trouvés: 15s, notifications: 5s, objets: 3s)');
+('🎯 Système curseur-objet activé - Affichage de TOUS les objets résolus');
     </script>
     <?php endif; ?>
 </body>
