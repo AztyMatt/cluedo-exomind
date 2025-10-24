@@ -41,10 +41,12 @@ try {
             g.color as team_color,
             g.img_path as team_img,
             g.pole_name as team_pole,
-            pfu.created_at
+            pfu.created_at,
+            p.paper_type
         FROM `papers_found_user` pfu
         JOIN `users` u ON pfu.id_player = u.id
         LEFT JOIN `groups` g ON u.group_id = g.id
+        JOIN `papers` p ON pfu.id_paper = p.id
         ORDER BY pfu.created_at DESC
     ");
     $stmt->execute();
@@ -65,7 +67,8 @@ try {
             'team_name' => $paper['team_name'],
             'team_color' => $paper['team_color'],
             'team_img' => $paper['team_img'],
-            'team_pole' => $paper['team_pole']
+            'team_pole' => $paper['team_pole'],
+            'is_golden_paper' => $paper['paper_type'] == 1
         ];
     }
     

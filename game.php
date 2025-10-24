@@ -113,6 +113,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             exit;
         }
         
+        // Vérifier d'abord si c'est un papier doré
+        $stmt = $dbConnection->prepare("SELECT paper_type FROM `papers` WHERE id = ?");
+        $stmt->execute([$paperId]);
+        $paperInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+        $isGoldenPaper = $paperInfo && $paperInfo['paper_type'] == 1;
+        
         // Insérer dans papers_found_user (ou ignorer si déjà trouvé)
         $stmt = $dbConnection->prepare("INSERT IGNORE INTO `papers_found_user` (id_paper, id_player, id_day) VALUES (?, ?, ?)");
         $stmt->execute([$paperId, $playerId, $dayId]);
@@ -126,17 +132,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $user = $stmt->fetch(PDO::FETCH_ASSOC);
                     
                     if ($user && $user['group_id']) {
-                        // Incrémenter total_founded dans total_papers_found_group
-                        $stmt = $dbConnection->prepare("UPDATE `total_papers_found_group` SET total_founded = total_founded + 1 WHERE id_group = ? AND id_day = ?");
-                        $stmt->execute([$user['group_id'], $dayId]);
+                        // Incrémenter total_founded dans total_papers_found_group UNIQUEMENT si ce n'est PAS un papier doré
+                        if (!$isGoldenPaper) {
+                            $stmt = $dbConnection->prepare("UPDATE `total_papers_found_group` SET total_founded = total_founded + 1 WHERE id_group = ? AND id_day = ?");
+                            $stmt->execute([$user['group_id'], $dayId]);
+                        }
                         
                         // CHRONOMÉTRAGE : Si c'est le premier papier trouvé pour cette énigme, démarrer le chrono
                         $stmt = $dbConnection->prepare("SELECT id FROM `enigmes` WHERE id_group = ? AND id_day = ?");
                         $stmt->execute([$user['group_id'], $dayId]);
                         $enigma = $stmt->fetch(PDO::FETCH_ASSOC);
                         
-                        if ($enigma) {
+                        if ($enigma && !$isGoldenPaper) {
                             // Vérifier si c'est le premier papier trouvé (total_founded = 1 après l'incrémentation)
+                            // UNIQUEMENT pour les papiers normaux (pas les papiers dorés)
                             $stmt = $dbConnection->prepare("SELECT total_founded FROM `total_papers_found_group` WHERE id_group = ? AND id_day = ?");
                             $stmt->execute([$user['group_id'], $dayId]);
                             $paperStats = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -152,21 +161,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             }
                         }
                 
-                // Vérifier si tous les papiers ont été trouvés
-                $stmt = $dbConnection->prepare("SELECT total_to_found, total_founded FROM `total_papers_found_group` WHERE id_group = ? AND id_day = ?");
-                $stmt->execute([$user['group_id'], $dayId]);
-                $paperStats = $stmt->fetch(PDO::FETCH_ASSOC);
-                
+                // Vérifier si tous les papiers ont été trouvés (UNIQUEMENT les papiers normaux, pas les papiers dorés)
                 $enigmaUnlocked = false;
-                if ($paperStats && $paperStats['total_founded'] >= $paperStats['total_to_found']) {
-                    // Tous les papiers ont été trouvés ! Débloquer l'énigme
-                    // Mettre à jour le status de l'énigme de 0 à 1 (uniquement si actuellement à 0)
-                    $stmt = $dbConnection->prepare("UPDATE `enigmes` SET status = 1 WHERE id_group = ? AND id_day = ? AND status = 0");
+                if (!$isGoldenPaper) {
+                    $stmt = $dbConnection->prepare("SELECT total_to_found, total_founded FROM `total_papers_found_group` WHERE id_group = ? AND id_day = ?");
                     $stmt->execute([$user['group_id'], $dayId]);
+                    $paperStats = $stmt->fetch(PDO::FETCH_ASSOC);
                     
-                    if ($stmt->rowCount() > 0) {
-                        $enigmaUnlocked = true;
-                        error_log("🔓 Énigme débloquée pour le groupe " . $user['group_id'] . " au jour " . $dayId);
+                    if ($paperStats && $paperStats['total_founded'] >= $paperStats['total_to_found']) {
+                        // Tous les papiers normaux ont été trouvés ! Débloquer l'énigme
+                        // Mettre à jour le status de l'énigme de 0 à 1 (uniquement si actuellement à 0)
+                        $stmt = $dbConnection->prepare("UPDATE `enigmes` SET status = 1 WHERE id_group = ? AND id_day = ? AND status = 0");
+                        $stmt->execute([$user['group_id'], $dayId]);
+                        
+                        if ($stmt->rowCount() > 0) {
+                            $enigmaUnlocked = true;
+                            error_log("🔓 Énigme débloquée pour le groupe " . $user['group_id'] . " au jour " . $dayId);
+                        }
                     }
                 }
                 
@@ -179,20 +190,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $datetime = $paperFound ? strtotime($paperFound['created_at']) : time();
                 $formattedDateTime = date('d/m/Y', $datetime) . ' à ' . date('H:i:s', $datetime);
                 
-                echo json_encode([
-                    'success' => true, 
-                    'message' => 'Papier enregistré', 
-                    'new_find' => true,
-                    'found_by' => $user['username'],
-                    'found_by_display' => ucfirst(strtolower($user['firstname'])) . ' ' . strtoupper($user['lastname']),
-                    'found_at' => $formattedDateTime,
-                    'team_color' => $user['color'],
-                    'team_img' => $user['img_path'],
-                    'team_pole' => $user['pole_name'],
-                    'enigma_unlocked' => $enigmaUnlocked,
-                    'papers_found' => $paperStats ? (int)$paperStats['total_founded'] : 0,
-                    'papers_total' => $paperStats ? (int)$paperStats['total_to_found'] : 0
-                ]);
+                // Pour les papiers dorés, ne pas inclure les statistiques de papiers normaux
+                if ($isGoldenPaper) {
+                    echo json_encode([
+                        'success' => true, 
+                        'message' => 'Papier doré enregistré', 
+                        'new_find' => true,
+                        'found_by' => $user['username'],
+                        'found_by_display' => ucfirst(strtolower($user['firstname'])) . ' ' . strtoupper($user['lastname']),
+                        'found_at' => $formattedDateTime,
+                        'team_color' => $user['color'],
+                        'team_img' => $user['img_path'],
+                        'team_pole' => $user['pole_name'],
+                        'enigma_unlocked' => false, // Les papiers dorés ne débloquent jamais l'énigme
+                        'is_golden_paper' => true
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => true, 
+                        'message' => 'Papier enregistré', 
+                        'new_find' => true,
+                        'found_by' => $user['username'],
+                        'found_by_display' => ucfirst(strtolower($user['firstname'])) . ' ' . strtoupper($user['lastname']),
+                        'found_at' => $formattedDateTime,
+                        'team_color' => $user['color'],
+                        'team_img' => $user['img_path'],
+                        'team_pole' => $user['pole_name'],
+                        'enigma_unlocked' => $enigmaUnlocked,
+                        'papers_found' => $paperStats ? (int)$paperStats['total_founded'] : 0,
+                        'papers_total' => $paperStats ? (int)$paperStats['total_to_found'] : 0,
+                        'is_golden_paper' => false
+                    ]);
+                }
             } else {
                 echo json_encode(['success' => true, 'message' => 'Papier enregistré (pas de groupe)', 'new_find' => true]);
             }
@@ -2106,27 +2135,36 @@ if ($show_activation_form) {
                         if (result.new_find) {
                             console.log('✅ Papier enregistré en BDD');
                             
-                            // ANIMATION DE FÉLICITATIONS + CONFETTIS
-                            showCongratulations();
-                            
-                            foundPapersMe++; // Incrémenter le compteur local
-                            
-                            // Vérifier si le quota est maintenant atteint
-                            if (quotaPerUser > 0 && foundPapersMe >= quotaPerUser) {
-                                quotaReached = true;
-                                console.log('🔒 Quota personnel atteint:', foundPapersMe, '/', quotaPerUser);
+                            // Vérifier si c'est un papier doré pour l'explosion spéciale
+                            if (result.is_golden_paper) {
+                                console.log('🏆 PAPIER DORÉ TROUVÉ ! MEGA EXPLOSION !');
+                                launchGoldenPaperExplosion();
+                            } else {
+                                // ANIMATION DE FÉLICITATIONS + CONFETTIS (UNIQUEMENT pour les papiers normaux)
+                                showCongratulations();
                             }
                             
-                            updatePaperCount();
+                            // Incrémenter le compteur local UNIQUEMENT pour les papiers normaux
+                            if (!result.is_golden_paper) {
+                                foundPapersMe++; // Incrémenter le compteur local
+                                
+                                // Vérifier si le quota est maintenant atteint
+                                if (quotaPerUser > 0 && foundPapersMe >= quotaPerUser) {
+                                    quotaReached = true;
+                                    console.log('🔒 Quota personnel atteint:', foundPapersMe, '/', quotaPerUser);
+                                }
+                                
+                                updatePaperCount();
+                            }
                             
                             // Appliquer immédiatement le style "trouvé" au papier
                             if (result.found_by_display && result.found_at && result.team_color) {
-                                applyFoundStyle(paperId, result.found_by_display, result.found_at, result.team_color, result.team_img, result.team_pole, true);
+                                applyFoundStyle(paperId, result.found_by_display, result.found_at, result.team_color, result.team_img, result.team_pole, true, result.is_golden_paper);
                             }
                             
-                            // Vérifier si l'énigme a été débloquée
-                            if (result.enigma_unlocked) {
-                                console.log('🔓 ÉNIGME DÉBLOQUÉE ! Tous les papiers ont été trouvés !');
+                            // Vérifier si l'énigme a été débloquée (UNIQUEMENT pour les papiers normaux)
+                            if (result.enigma_unlocked && !result.is_golden_paper) {
+                                console.log('🔓 ÉNIGME DÉBLOQUÉE ! Tous les papiers normaux ont été trouvés !');
                                 
                                 // Afficher une notification spéciale après les félicitations
                                 setTimeout(() => {
@@ -2310,7 +2348,7 @@ if ($show_activation_form) {
                 if (data.success && data.found_papers) {
                     data.found_papers.forEach(foundPaper => {
                         // Appliquer le style "trouvé" pour tous les papiers trouvés, peu importe le jour
-                        applyFoundStyle(foundPaper.id_paper, foundPaper.found_by_display, foundPaper.found_at, foundPaper.team_color, foundPaper.team_img, foundPaper.team_pole, false);
+                        applyFoundStyle(foundPaper.id_paper, foundPaper.found_by_display, foundPaper.found_at, foundPaper.team_color, foundPaper.team_img, foundPaper.team_pole, false, foundPaper.is_golden_paper);
                     });
                     console.log('🏁 Drapeaux appliqués pour', data.found_papers.length, 'papiers trouvés sur tous les jours');
                 }
@@ -2321,7 +2359,7 @@ if ($show_activation_form) {
         }
         
         // Fonction pour afficher la pop-up d'information
-        function showPaperPopup(foundBy, foundAt, teamColor, teamImg = null, teamPole = null) {
+        function showPaperPopup(foundBy, foundAt, teamColor, teamImg = null, teamPole = null, isGoldenPaper = false) {
             const popup = document.getElementById('paper-info-popup');
             const overlay = document.getElementById('popup-overlay');
             const content = document.getElementById('popup-content');
@@ -2345,18 +2383,42 @@ if ($show_activation_form) {
                 `;
             }
             
-            htmlContent += `
-                <div style="font-size: 1.2rem; margin-bottom: 15px;">
-                    Trouvé par <strong>${foundBy}</strong>
-                </div>
-                <div style="font-size: 1rem; color: #ccc;">
-                    ${foundAt}
-                </div>
-            `;
+            if (isGoldenPaper) {
+                // Message spécial pour les papiers dorés
+                const currentDay = <?php echo $currentGameDay; ?>;
+                htmlContent += `
+                    <div style="font-size: 1.4rem; margin-bottom: 15px; color: #FFD700; font-weight: bold;">
+                        ✨ Papier doré trouvé ✨
+                    </div>
+                    <div style="font-size: 1.1rem; margin-bottom: 15px; color: #FFD700; font-weight: bold;">
+                        Jour ${currentDay}
+                    </div>
+                    <div style="font-size: 1.2rem; margin-bottom: 15px;">
+                        Trouvé par <strong>${foundBy}</strong>
+                    </div>
+                    <div style="font-size: 1rem; color: #ccc;">
+                        ${foundAt}
+                    </div>
+                `;
+            } else {
+                // Message normal pour les papiers classiques
+                htmlContent += `
+                    <div style="font-size: 1.2rem; margin-bottom: 15px;">
+                        Trouvé par <strong>${foundBy}</strong>
+                    </div>
+                    <div style="font-size: 1rem; color: #ccc;">
+                        ${foundAt}
+                    </div>
+                `;
+            }
             
             content.innerHTML = htmlContent;
             
-            popup.style.borderColor = teamColor || '#888';
+            if (isGoldenPaper) {
+                popup.style.borderColor = '#FFD700';
+            } else {
+                popup.style.borderColor = teamColor || '#888';
+            }
             popup.classList.add('show');
             overlay.classList.add('show');
         }
@@ -2489,8 +2551,153 @@ if ($show_activation_form) {
             }, 300);
         }
         
+        // Fonction pour lancer une MEGA EXPLOSION de confettis dorés (pour le papier doré)
+        function launchGoldenPaperExplosion() {
+            const duration = 8000; // Plus long pour une explosion plus spectaculaire
+            const animationEnd = Date.now() + duration;
+            
+            // Explosion initiale massive
+            confetti({
+                particleCount: 150,
+                angle: 90,
+                spread: 360,
+                origin: { x: 0.5, y: 0.5 },
+                colors: ['#FFD700', '#FFA500', '#FFFF00', '#FF8C00', '#FF6B35', '#FFD23F'],
+                shapes: ['circle', 'square', 'triangle'],
+                scalar: 2.5,
+                zIndex: 40000
+            });
+            
+            // Explosions secondaires
+            setTimeout(() => {
+                confetti({
+                    particleCount: 100,
+                    angle: 45,
+                    spread: 120,
+                    origin: { x: 0.2, y: 0.3 },
+                    colors: ['#FFD700', '#FFA500', '#FFFF00'],
+                    shapes: ['circle', 'square'],
+                    scalar: 2,
+                    zIndex: 40000
+                });
+            }, 500);
+            
+            setTimeout(() => {
+                confetti({
+                    particleCount: 100,
+                    angle: 135,
+                    spread: 120,
+                    origin: { x: 0.8, y: 0.3 },
+                    colors: ['#FFD700', '#FFA500', '#FFFF00'],
+                    shapes: ['circle', 'square'],
+                    scalar: 2,
+                    zIndex: 40000
+                });
+            }, 1000);
+            
+            setTimeout(() => {
+                confetti({
+                    particleCount: 100,
+                    angle: 225,
+                    spread: 120,
+                    origin: { x: 0.2, y: 0.7 },
+                    colors: ['#FFD700', '#FFA500', '#FFFF00'],
+                    shapes: ['circle', 'square'],
+                    scalar: 2,
+                    zIndex: 40000
+                });
+            }, 1500);
+            
+            setTimeout(() => {
+                confetti({
+                    particleCount: 100,
+                    angle: 315,
+                    spread: 120,
+                    origin: { x: 0.8, y: 0.7 },
+                    colors: ['#FFD700', '#FFA500', '#FFFF00'],
+                    shapes: ['circle', 'square'],
+                    scalar: 2,
+                    zIndex: 40000
+                });
+            }, 2000);
+            
+            // Confettis continus pendant la durée
+            const interval = setInterval(function() {
+                const timeLeft = animationEnd - Date.now();
+                
+                if (timeLeft <= 0) {
+                    return clearInterval(interval);
+                }
+
+                const particleCount = 20 * (timeLeft / duration);
+                
+                // Confettis dorés depuis le centre
+                confetti({
+                    particleCount,
+                    angle: 90,
+                    spread: 360,
+                    origin: { x: 0.5, y: 0.5 },
+                    colors: ['#FFD700', '#FFA500', '#FFFF00', '#FF8C00'],
+                    shapes: ['circle', 'square'],
+                    scalar: 1.5,
+                    zIndex: 40000
+                });
+            }, 200);
+            
+            // Notification spéciale pour le papier doré
+            showGoldenPaperNotification();
+        }
+        
+        // Fonction pour afficher la notification spéciale du papier doré
+        function showGoldenPaperNotification() {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #FFD700, #FFA500);
+                color: #000;
+                padding: 30px 50px;
+                border-radius: 20px;
+                font-size: 2rem;
+                font-weight: bold;
+                text-align: center;
+                z-index: 50000;
+                box-shadow: 0 20px 60px rgba(255, 215, 0, 0.8);
+                animation: goldenPulse 2s ease-in-out;
+                border: 4px solid #FF8C00;
+            `;
+            
+            notification.innerHTML = '🏆 PAPIER DORÉ TROUVÉ ! 🏆';
+            
+            // Ajouter l'animation CSS
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes goldenPulse {
+                    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+                    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+                    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Ajouter la notification au DOM
+            document.body.appendChild(notification);
+            
+            // Supprimer la notification après 4 secondes
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+                if (style.parentNode) {
+                    style.parentNode.removeChild(style);
+                }
+            }, 4000);
+        }
+        
         // Appliquer le style "trouvé" à un papier
-        function applyFoundStyle(paperId, foundBy, foundAt, teamColor, teamImg = null, teamPole = null, animate = true) {
+        function applyFoundStyle(paperId, foundBy, foundAt, teamColor, teamImg = null, teamPole = null, animate = true, isGoldenPaper = false) {
             // Trouver le papier sur le canvas
             const papers = canvas.getObjects().filter(obj => obj.isPaper && obj.paperId === paperId);
             
@@ -2535,57 +2742,157 @@ if ($show_activation_form) {
                 })
             });
             
-            // 2. Créer un drapeau avec cercle de couleur AU CENTRE du papier
-            const flagBg = new fabric.Circle({
-                radius: 30,
-                fill: teamColor || '#888',
-                originX: 'center',
-                originY: 'center',
-                shadow: new fabric.Shadow({
-                    color: 'rgba(0,0,0,0.7)',
-                    blur: 12,
-                    offsetX: 0,
-                    offsetY: 4
-                })
-            });
-            
-            const flagEmoji = new fabric.Text('🚩', {
-                fontSize: 35,
-                originX: 'center',
-                originY: 'center',
-                left: 0,
-                top: 0
-            });
-            
-            const flag = new fabric.Group([flagBg, flagEmoji], {
-                left: paper.left,
-                top: paper.top,
-                originX: 'center',
-                originY: 'center',
-                selectable: false,
-                evented: true,
-                hoverCursor: 'pointer'
-            });
-            
-            // Ajouter l'événement de clic sur le drapeau
-            flag.on('mousedown', function(opt) {
-                opt.e.preventDefault();
-                opt.e.stopPropagation();
-                showPaperPopup(foundBy, foundAt, teamColor, teamImg, teamPole);
-                return false;
-            });
-            
-            // Stocker les références
-            paper.foundDot = dot;
-            paper.foundFlag = flag;
-            
-            // Ajouter au canvas
-            canvas.add(dot);
-            canvas.add(flag);
-            canvas.bringToFront(flag);
-            canvas.renderAll();
-            
-            console.log('✨ Style "trouvé" appliqué au papier ID', paperId, '- Point et drapeau au centre');
+            if (isGoldenPaper) {
+                // Pour les papiers dorés : créer une auréole dorée avec un drapeau doré
+                
+                // Créer l'auréole dorée (cercle externe avec effet de halo)
+                const outerHalo = new fabric.Circle({
+                    radius: 60,
+                    fill: 'transparent',
+                    stroke: '#FFD700',
+                    strokeWidth: 8,
+                    originX: 'center',
+                    originY: 'center',
+                    opacity: 0.8,
+                    shadow: new fabric.Shadow({
+                        color: '#FFD700',
+                        blur: 20,
+                        offsetX: 0,
+                        offsetY: 0
+                    })
+                });
+                
+                const innerHalo = new fabric.Circle({
+                    radius: 45,
+                    fill: 'transparent',
+                    stroke: '#FFA500',
+                    strokeWidth: 4,
+                    originX: 'center',
+                    originY: 'center',
+                    opacity: 0.9,
+                    shadow: new fabric.Shadow({
+                        color: '#FFA500',
+                        blur: 15,
+                        offsetX: 0,
+                        offsetY: 0
+                    })
+                });
+                
+                // Créer le drapeau doré avec rond plus grand
+                const flagBg = new fabric.Circle({
+                    radius: 45,
+                    fill: '#FFD700',
+                    originX: 'center',
+                    originY: 'center',
+                    shadow: new fabric.Shadow({
+                        color: 'rgba(255, 215, 0, 0.8)',
+                        blur: 15,
+                        offsetX: 0,
+                        offsetY: 4
+                    })
+                });
+                
+                const flagEmoji = new fabric.Text('🟨', {
+                    fontSize: 50,
+                    originX: 'center',
+                    originY: 'center',
+                    left: 0,
+                    top: 0
+                });
+                
+                const flag = new fabric.Group([flagBg, flagEmoji], {
+                    left: paper.left,
+                    top: paper.top,
+                    originX: 'center',
+                    originY: 'center',
+                    selectable: false,
+                    evented: true,
+                    hoverCursor: 'pointer'
+                });
+                
+                const halo = new fabric.Group([outerHalo, innerHalo], {
+                    left: paper.left,
+                    top: paper.top,
+                    originX: 'center',
+                    originY: 'center',
+                    selectable: false,
+                    evented: false
+                });
+                
+                // Ajouter l'événement de clic sur le drapeau
+                flag.on('mousedown', function(opt) {
+                    opt.e.preventDefault();
+                    opt.e.stopPropagation();
+                    showPaperPopup(foundBy, foundAt, teamColor, teamImg, teamPole, true); // true = papier doré
+                    return false;
+                });
+                
+                // Stocker les références
+                paper.foundDot = dot;
+                paper.foundFlag = flag;
+                paper.foundHalo = halo;
+                
+                // Ajouter au canvas
+                canvas.add(dot);
+                canvas.add(halo);
+                canvas.add(flag);
+                canvas.bringToFront(flag);
+                canvas.renderAll();
+                
+                console.log('✨ Style "trouvé" appliqué au PAPIER DORÉ ID', paperId, '- Auréole dorée et drapeau doré au centre');
+            } else {
+                // Pour les papiers normaux : créer un drapeau rouge classique
+                const flagBg = new fabric.Circle({
+                    radius: 30,
+                    fill: teamColor || '#888',
+                    originX: 'center',
+                    originY: 'center',
+                    shadow: new fabric.Shadow({
+                        color: 'rgba(0,0,0,0.7)',
+                        blur: 12,
+                        offsetX: 0,
+                        offsetY: 4
+                    })
+                });
+                
+                const flagEmoji = new fabric.Text('🚩', {
+                    fontSize: 35,
+                    originX: 'center',
+                    originY: 'center',
+                    left: 0,
+                    top: 0
+                });
+                
+                const flag = new fabric.Group([flagBg, flagEmoji], {
+                    left: paper.left,
+                    top: paper.top,
+                    originX: 'center',
+                    originY: 'center',
+                    selectable: false,
+                    evented: true,
+                    hoverCursor: 'pointer'
+                });
+                
+                // Ajouter l'événement de clic sur le drapeau
+                flag.on('mousedown', function(opt) {
+                    opt.e.preventDefault();
+                    opt.e.stopPropagation();
+                    showPaperPopup(foundBy, foundAt, teamColor, teamImg, teamPole);
+                    return false;
+                });
+                
+                // Stocker les références
+                paper.foundDot = dot;
+                paper.foundFlag = flag;
+                
+                // Ajouter au canvas
+                canvas.add(dot);
+                canvas.add(flag);
+                canvas.bringToFront(flag);
+                canvas.renderAll();
+                
+                console.log('✨ Style "trouvé" appliqué au papier ID', paperId, '- Point et drapeau au centre');
+            }
         }
         
         // ========== RECRÉATION DES OBJETS ==========
@@ -3025,6 +3332,91 @@ if ($show_activation_form) {
         
         // Première vérification après 2 secondes
         setTimeout(checkRecentPapers, 2000);
+        
+        // ========== SYSTÈME DE NOTIFICATIONS PAPIERS DORÉS ==========
+        
+        // Tracker les notifications de papiers dorés déjà affichées
+        const shownGoldenPaperNotifications = new Set();
+        
+        function checkGoldenPaperFound() {
+            fetch('golden-paper-notification.php?day=' + <?php echo $currentGameDay; ?>)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success || !data.found) {
+                        return;
+                    }
+                    
+                    // Vérifier si c'est un nouveau papier doré trouvé
+                    const notificationKey = `${data.id_paper}_${data.id_player}_${data.created_at}`;
+                    
+                    if (!shownGoldenPaperNotifications.has(notificationKey)) {
+                        shownGoldenPaperNotifications.add(notificationKey);
+                        
+                        // Ne pas afficher si c'est le joueur actuel qui a trouvé le papier
+                        if (data.id_player !== <?php echo $_SESSION['user_id'] ?? 0; ?>) {
+                            showGoldenPaperFoundNotification(data);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Erreur récupération papier doré récent:', error);
+                });
+        }
+        
+        function showGoldenPaperFoundNotification(paper) {
+            const container = document.getElementById('notifications-container');
+            
+            // Créer l'élément de notification spéciale pour le papier doré
+            const notif = document.createElement('div');
+            notif.className = 'notification-item golden-paper-notification';
+            notif.style.setProperty('--notif-color', paper.team_color);
+            notif.style.borderLeftColor = paper.team_color;
+            notif.style.background = 'linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1))';
+            notif.style.border = '2px solid #FFD700';
+            notif.style.boxShadow = '0 6px 20px rgba(255, 215, 0, 0.3)';
+            
+            // Construire le contenu
+            let avatarContent = '🏆';
+            if (paper.team_img) {
+                avatarContent = `<img src="${paper.team_img}" alt="${paper.team_name}">`;
+            }
+            
+            notif.innerHTML = `
+                <div class="notification-avatar" style="--notif-color: ${paper.team_color}; background: linear-gradient(135deg, #FFD700, #FFA500);">
+                    ${avatarContent}
+                </div>
+                <div class="notification-content">
+                    <div class="notification-name">${paper.display_name}</div>
+                    <div class="notification-pole">${paper.pole_name}</div>
+                    <div class="notification-action" style="color: #FFD700; font-weight: bold;">🏆 vient de trouver le PAPIER DORÉ ! 🏆</div>
+                </div>
+            `;
+            
+            // Ajouter au conteneur
+            container.appendChild(notif);
+            
+            // Animation d'entrée spéciale
+            notif.style.transform = 'translateX(400px)';
+            setTimeout(() => {
+                notif.style.transform = 'translateX(0)';
+            }, 100);
+            
+            // Masquer et supprimer après 30 secondes (plus long pour le papier doré)
+            setTimeout(() => {
+                notif.classList.add('hiding');
+                setTimeout(() => {
+                    if (notif.parentNode) {
+                        notif.parentNode.removeChild(notif);
+                    }
+                }, 300);
+            }, 30000);
+        }
+        
+        // Vérifier les papiers dorés trouvés toutes les 3 secondes
+        setInterval(checkGoldenPaperFound, 3000);
+        
+        // Première vérification après 3 secondes
+        setTimeout(checkGoldenPaperFound, 3000);
         
         // ========== NOTIFICATIONS OBJETS RÉCENTS ==========
         

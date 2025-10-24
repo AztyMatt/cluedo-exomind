@@ -80,9 +80,11 @@ $simpleQuery = "SELECT u.id, u.firstname, u.lastname, u.has_activated, g.name as
                 FROM users u 
                 LEFT JOIN `groups` g ON u.group_id = g.id 
                 LEFT JOIN (
-                    SELECT id_player, COUNT(*) as total_papers 
-                    FROM papers_found_user 
-                    GROUP BY id_player
+                    SELECT pf.id_player, COUNT(*) as total_papers 
+                    FROM papers_found_user pf
+                    INNER JOIN papers p ON pf.id_paper = p.id
+                    WHERE p.paper_type = 0
+                    GROUP BY pf.id_player
                 ) papers_count ON u.id = papers_count.id_player
                 LEFT JOIN (
                     SELECT id_solved_user, COUNT(*) as total_items 

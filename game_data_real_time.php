@@ -67,8 +67,13 @@ try {
         $response['papers_total'] = 10;
     }
     
-    // Récupérer le nombre de papiers trouvés par ce joueur pour ce jour
-    $stmt = $dbConnection->prepare("SELECT COUNT(*) as count FROM `papers_found_user` WHERE id_player = ? AND id_day = ?");
+    // Récupérer le nombre de papiers trouvés par ce joueur pour ce jour (EXCLURE les papiers dorés)
+    $stmt = $dbConnection->prepare("
+        SELECT COUNT(*) as count 
+        FROM `papers_found_user` pf
+        INNER JOIN `papers` p ON pf.id_paper = p.id
+        WHERE pf.id_player = ? AND pf.id_day = ? AND p.paper_type = 0
+    ");
     $stmt->execute([$user['id'], $currentDay]);
     $myPapersStats = $stmt->fetch(PDO::FETCH_ASSOC);
     

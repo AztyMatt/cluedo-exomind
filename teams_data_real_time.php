@@ -139,10 +139,15 @@ try {
         $stmt->execute([$team['id']]);
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Pour chaque utilisateur, récupérer le nombre de papiers trouvés
+        // Pour chaque utilisateur, récupérer le nombre de papiers trouvés (EXCLURE les papiers dorés)
         foreach ($users as $userIndex => $user) {
-            // Récupérer le vrai nombre de papiers trouvés depuis papers_found_user
-            $stmt = $dbConnection->prepare("SELECT COUNT(*) as count FROM `papers_found_user` WHERE id_player = ? AND id_day = ?");
+            // Récupérer le vrai nombre de papiers trouvés depuis papers_found_user (UNIQUEMENT les papiers normaux)
+            $stmt = $dbConnection->prepare("
+                SELECT COUNT(*) as count 
+                FROM `papers_found_user` pf
+                INNER JOIN `papers` p ON pf.id_paper = p.id
+                WHERE pf.id_player = ? AND pf.id_day = ? AND p.paper_type = 0
+            ");
             $stmt->execute([$user['id'], $selectedDay]);
             $papersCount = $stmt->fetch(PDO::FETCH_ASSOC);
             
