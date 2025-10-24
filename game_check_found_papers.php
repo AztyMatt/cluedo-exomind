@@ -61,6 +61,7 @@ try {
         $formattedPapers[] = [
             'id_paper' => (int)$paper['id_paper'],
             'id_day' => (int)$paper['id_day'],
+            'found_day' => (int)$paper['id_day'], // Jour où le papier a été trouvé
             'found_by' => $paper['username'],
             'found_by_display' => ucfirst(strtolower($paper['firstname'])) . ' ' . strtoupper($paper['lastname']),
             'found_at' => $formattedDateTime,

@@ -2207,7 +2207,8 @@ if ($show_activation_form) {
                             
                             // Appliquer immédiatement le style "trouvé" au papier
                             if (result.found_by_display && result.found_at && result.team_color) {
-                                applyFoundStyle(paperId, result.found_by_display, result.found_at, result.team_color, result.team_img, result.team_pole, true, result.is_golden_paper);
+                                const foundDay = result.is_golden_paper ? <?php echo $currentGameDay; ?> : null;
+                                applyFoundStyle(paperId, result.found_by_display, result.found_at, result.team_color, result.team_img, result.team_pole, true, result.is_golden_paper, foundDay);
                             }
                             
                             // Vérifier si l'énigme a été débloquée (UNIQUEMENT pour les papiers normaux)
@@ -2396,7 +2397,8 @@ if ($show_activation_form) {
                 if (data.success && data.found_papers) {
                     data.found_papers.forEach(foundPaper => {
                         // Appliquer le style "trouvé" pour tous les papiers trouvés, peu importe le jour
-                        applyFoundStyle(foundPaper.id_paper, foundPaper.found_by_display, foundPaper.found_at, foundPaper.team_color, foundPaper.team_img, foundPaper.team_pole, false, foundPaper.is_golden_paper);
+                        const foundDay = foundPaper.is_golden_paper ? foundPaper.found_day : null;
+                        applyFoundStyle(foundPaper.id_paper, foundPaper.found_by_display, foundPaper.found_at, foundPaper.team_color, foundPaper.team_img, foundPaper.team_pole, false, foundPaper.is_golden_paper, foundDay);
                     });
 ('🏁 Drapeaux appliqués pour', data.found_papers.length, 'papiers trouvés sur tous les jours');
                 }
@@ -2433,13 +2435,14 @@ if ($show_activation_form) {
             
             if (isGoldenPaper) {
                 // Message spécial pour les papiers dorés
-                const currentDay = <?php echo $currentGameDay; ?>;
+                // Récupérer le jour où le papier doré a été trouvé depuis les données
+                const foundDay = window.goldenPaperFoundDay || <?php echo $currentGameDay; ?>;
                 htmlContent += `
                     <div style="font-size: 1.4rem; margin-bottom: 15px; color: #FFD700; font-weight: bold;">
                         ✨ Papier doré trouvé ✨
                     </div>
                     <div style="font-size: 1.1rem; margin-bottom: 15px; color: #FFD700; font-weight: bold;">
-                        Jour ${currentDay}
+                        Jour ${foundDay}
                     </div>
                     <div style="font-size: 1.2rem; margin-bottom: 15px;">
                         Trouvé par <strong>${foundBy}</strong>
@@ -2803,7 +2806,7 @@ if ($show_activation_form) {
         }
         
         // Appliquer le style "trouvé" à un papier
-        function applyFoundStyle(paperId, foundBy, foundAt, teamColor, teamImg = null, teamPole = null, animate = true, isGoldenPaper = false) {
+        function applyFoundStyle(paperId, foundBy, foundAt, teamColor, teamImg = null, teamPole = null, animate = true, isGoldenPaper = false, foundDay = null) {
             // Trouver le papier sur le canvas
             const papers = canvas.getObjects().filter(obj => obj.isPaper && obj.paperId === paperId);
             
@@ -2813,6 +2816,11 @@ if ($show_activation_form) {
             }
             
             const paper = papers[0];
+            
+            // Pour les papiers dorés, stocker le jour où il a été trouvé
+            if (isGoldenPaper && foundDay) {
+                window.goldenPaperFoundDay = foundDay;
+            }
             
             // Marquer comme trouvé pour éviter de re-styler (sauf si c'est le premier appel)
             if (paper.isFound && !paper.isProcessing) {

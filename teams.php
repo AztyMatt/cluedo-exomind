@@ -2847,15 +2847,32 @@ if ($dbConnection) {
         // Fonction pour obtenir l'image du personnage selon le nom de l'équipe
         function getCharacterImage(teamName) {
             const characterMap = {
+                'Colonnel Moutarde': 'assets/img/colonnel_moutarde.png',
                 'Colonel Moutarde': 'assets/img/colonnel_moutarde.png',
                 'Madame Leblanc': 'assets/img/madame_leblanc.png',
                 'Madame Pervenche': 'assets/img/madame_pervenche.png',
                 'Mademoiselle Rose': 'assets/img/mademoiselle_rose.png',
                 'Professeur Violet': 'assets/img/professeur_violet.png',
-                'Révérend Olive': 'assets/img/reverend_olive.png'
+                'Révérend Olive': 'assets/img/reverend_olive.png',
+                'Reverend Olive': 'assets/img/reverend_olive.png'
             };
             
-            return characterMap[teamName] || 'assets/img/logo.png'; // Image par défaut si pas trouvé
+            // Essayer d'abord avec le nom exact, puis avec des variations
+            if (characterMap[teamName]) {
+                return characterMap[teamName];
+            }
+            
+            // Essayer de trouver une correspondance partielle (insensible à la casse)
+            const lowerTeamName = teamName.toLowerCase();
+            for (const [key, value] of Object.entries(characterMap)) {
+                if (key.toLowerCase().includes(lowerTeamName) || lowerTeamName.includes(key.toLowerCase())) {
+                    return value;
+                }
+            }
+            
+            // Si aucune correspondance trouvée, utiliser l'image par défaut
+            console.warn(`Aucune image trouvée pour l'équipe: "${teamName}"`);
+            return 'assets/img/logo.png';
         }
 
         // Fonction pour afficher la popup du papier doré
@@ -2864,11 +2881,9 @@ if ($dbConnection) {
             const content = document.getElementById('goldenPaperContent');
             const daySpan = document.getElementById('goldenPaperPopupDay');
             
-            // Mettre à jour le numéro du jour dans le titre
-            daySpan.textContent = currentDay;
-            
             if (!window.goldenPaperInfo || !window.goldenPaperInfo.found) {
-                // Papier doré non trouvé
+                // Papier doré non trouvé - utiliser le jour actuel
+                daySpan.textContent = currentDay;
                 content.innerHTML = `
                     <div class="golden-paper-content">
                         <div class="golden-paper-status golden-paper-not-found">
@@ -2877,7 +2892,10 @@ if ($dbConnection) {
                     </div>
                 `;
             } else {
-                // Papier doré trouvé
+                // Papier doré trouvé - utiliser le jour où il a été trouvé
+                const foundDay = window.goldenPaperInfo.id_day || currentDay;
+                daySpan.textContent = foundDay;
+                
                 const datetime = new Date(window.goldenPaperInfo.datetime);
                 const formattedDate = datetime.toLocaleDateString('en-US');
                 const formattedTime = datetime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -2885,7 +2903,7 @@ if ($dbConnection) {
                 content.innerHTML = `
                     <div class="golden-paper-content">
                         <div class="golden-paper-status golden-paper-found">
-                            ✅ Le papier doré a été trouvé pour le jour ${currentDay}
+                            ✅ Le papier doré a été trouvé pour le jour ${foundDay}
                         </div>
                         <div class="golden-paper-character">
                             <div class="golden-paper-character-info" style="background-color: ${window.goldenPaperInfo.team_color || 'rgba(255, 255, 255, 0.1)'};">
