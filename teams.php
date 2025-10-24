@@ -559,7 +559,7 @@ if ($dbConnection) {
             position: fixed;
             top: 20px;
             left: 20px;
-            z-index: 1000;
+            z-index: 500;
             display: flex;
             flex-direction: column;
             gap: 2px;
@@ -625,7 +625,7 @@ if ($dbConnection) {
             height: 100%;
             background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(5px);
-            z-index: 1000;
+            z-index: 10000;
             justify-content: center;
             align-items: center;
             animation: fadeIn 0.3s ease;
@@ -659,8 +659,8 @@ if ($dbConnection) {
             background: linear-gradient(135deg, rgba(58, 58, 58, 0.95) 0%, rgba(30, 30, 30, 0.95) 100%);
             border-radius: 20px;
             padding: 40px;
-            max-width: 900px;
-            width: 90%;
+            max-width: 1000px;
+            width: 70%;
             position: relative;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             border: 2px solid rgba(255, 255, 255, 0.1);
@@ -700,10 +700,21 @@ if ($dbConnection) {
         }
 
         .modal-text {
-            font-size: 1.2rem;
-            line-height: 1.8;
+            font-size: 1rem;
+            line-height: 1.6;
             color: #eee;
             text-align: left;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .modal-text p {
+            margin-bottom: 20px;
+        }
+
+        .modal-text .full-width {
+            grid-column: 1 / -1;
         }
 
         .day-indicator {
@@ -2197,7 +2208,7 @@ if ($dbConnection) {
                 <button class="modal-close" id="closeModal">&times;</button>
                 <h2 class="modal-title">📖 Règles du jeu</h2>
                 <div class="modal-text">
-                    <p style="margin-bottom: 20px;">
+                    <p class="full-width" style="margin-bottom: 20px;">
                         Ce jeu du Cluedo vous est proposé par <b>Exomind</b> et <b>Tak</b>. Il y a au total <b>6 équipes</b>, chacune associée à un pôle d'Exomind et représentée par un personnage emblématique du Cluedo.
                     </p>
                     
@@ -2212,6 +2223,21 @@ if ($dbConnection) {
                     <p style="margin-bottom: 20px;">
                         <b>🔍 Comment jouer :</b><br>
                         Pour découvrir le mot du jour, chaque équipe doit d'abord reconstituer une énigme qui a été déchirée en petits papiers. Ces papiers sont cachés dans les bureaux d'Exomind. Une fois l'énigme reconstituée, elle vous donnera la clé pour trouver la réponse !
+                    </p>
+                    
+                    <p style="margin-bottom: 20px;">
+                        <b>🎯 Bonus - Objets à placer :</b><br>
+                        Sur l'ensemble des 3 jours, <b>3 objets différents</b> sont donnés à chaque équipe. Ces objets doivent être placés au bon endroit dans les bureaux d'Exomind. Chaque objet correctement placé rapporte <b>+500 points</b> à l'équipe qui l'a trouvé et placé !
+                    </p>
+                    
+                    <p style="margin-bottom: 20px;">
+                        <b>✨ Bonus - Papier doré :</b><br>
+                        Un seul et unique <b>papier doré</b> est placé chaque jour dans les bureaux. La première personne qui le découvre fait remporter <b>+1500 points</b> à son équipe ! Une fois le papier doré trouvé par une équipe, les autres équipes ne peuvent plus le trouver ce jour-là.
+                    </p>
+                    
+                    <p style="margin-bottom: 20px;">
+                        <b>🏅 Points individuels :</b><br>
+                        Les objets placés et les papiers dorés trouvés apportent également des <b>points individuels</b> aux joueurs qui les découvrent, en plus des points d'équipe !
                     </p>
                     
                     <p style="margin-bottom: 0;">
