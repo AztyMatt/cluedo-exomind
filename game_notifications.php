@@ -31,7 +31,7 @@ try {
     // Récupérer l'ID du joueur connecté depuis la session
     $currentPlayerId = $_SESSION['user_id'] ?? null;
     
-    // Récupérer tous les papiers trouvés pour ce jour (EXCLURE les papiers dorés)
+    // Récupérer tous les papiers trouvés pour ce jour (EXCLURE les papiers dorés ET le joueur connecté)
     $stmt = $dbConnection->prepare("
         SELECT 
             pfu.id,
@@ -53,12 +53,13 @@ try {
         JOIN `papers` p ON pfu.id_paper = p.id
         WHERE pfu.id_day = ?
         AND p.paper_type = 0
+        AND pfu.id_player != ?
         ORDER BY pfu.created_at DESC
     ");
-    $stmt->execute([$currentDay]);
+    $stmt->execute([$currentDay, $currentPlayerId]);
     $recentPapers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Formater les données (pour la modale - inclure tous les papiers)
+    // Formater les données (exclure le joueur connecté pour les notifications)
     $formattedPapers = [];
     foreach ($recentPapers as $paper) {
         $formattedPapers[] = [
@@ -81,9 +82,8 @@ try {
     $response['papers'] = $formattedPapers;
     
 } catch (PDOException $e) {
-    error_log("Erreur lors de la récupération des papiers récents: " . $e->getMessage());
+    error_log("Erreur lors de la récupération des notifications: " . $e->getMessage());
     $response['error'] = $e->getMessage();
 }
 
 echo json_encode($response);
-

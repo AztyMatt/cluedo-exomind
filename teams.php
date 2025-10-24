@@ -140,6 +140,102 @@ function calculateScore($timestampStart, $timestampEnd) {
     return max(0, $finalScore);
 }
 
+// Fonction pour calculer les points du papier doré pour une équipe
+function calculateGoldenPaperScore($dbConnection, $teamId, $day) {
+    if (!$dbConnection) {
+        return 0;
+    }
+    
+    try {
+        // Vérifier si cette équipe a trouvé le papier doré pour ce jour
+        $query = "
+            SELECT COUNT(*) as count
+            FROM papers_found_user pf
+            INNER JOIN users u ON pf.id_player = u.id
+            INNER JOIN papers p ON pf.id_paper = p.id
+            WHERE p.paper_type = 1 AND pf.id_day = ? AND u.group_id = ?
+        ";
+        
+        $stmt = $dbConnection->prepare($query);
+        $stmt->execute([$day, $teamId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Si l'équipe a trouvé le papier doré, ajouter 1500 points
+        return ($result && $result['count'] > 0) ? 1500 : 0;
+        
+    } catch (PDOException $e) {
+        error_log("Erreur lors du calcul des points du papier doré: " . $e->getMessage());
+        return 0;
+    }
+}
+
+// Fonction pour récupérer les informations des papiers dorés selon la logique demandée
+function getGoldenPaperInfo($dbConnection, $day) {
+    if (!$dbConnection) {
+        return null;
+    }
+    
+    try {
+        // Sélectionner tous les IDs des papiers dorés (trouvés ou pas) en tri ID ascendant
+        // La logique : paper_type = 1 correspond au papier doré
+        // Pour le jour 1 : premier ID trouvé avec paper_type = 1
+        // Pour le jour 2 : deuxième ID trouvé avec paper_type = 1  
+        // Pour le jour 3 : troisième ID trouvé avec paper_type = 1
+        
+        $query = "
+            SELECT 
+                pf.id,
+                pf.id_player,
+                pf.id_day,
+                pf.created_at as datetime,
+                u.firstname,
+                u.lastname,
+                g.name as team_name,
+                g.color as team_color
+            FROM papers_found_user pf
+            INNER JOIN users u ON pf.id_player = u.id
+            INNER JOIN `groups` g ON u.group_id = g.id
+            INNER JOIN papers p ON pf.id_paper = p.id
+            WHERE p.paper_type = 1 AND pf.id_day = ?
+            ORDER BY pf.id ASC
+            LIMIT 1
+        ";
+        
+        $stmt = $dbConnection->prepare($query);
+        $stmt->execute([$day]); // Chercher le papier doré trouvé pour le jour spécifique
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result) {
+            // Papier doré trouvé
+            return [
+                'found' => true,
+                'id' => $result['id'],
+                'id_player' => $result['id_player'],
+                'id_day' => $result['id_day'],
+                'datetime' => $result['datetime'],
+                'firstname' => $result['firstname'],
+                'lastname' => $result['lastname'],
+                'team_name' => $result['team_name'],
+                'team_color' => $result['team_color']
+            ];
+        } else {
+            // Papier doré non trouvé
+            return [
+                'found' => false,
+                'day' => $day
+            ];
+        }
+        
+    } catch (PDOException $e) {
+        error_log("Erreur lors de la récupération du papier doré: " . $e->getMessage());
+        return [
+            'found' => false,
+            'day' => $day,
+            'error' => 'Erreur lors de la récupération des données'
+        ];
+    }
+}
+
 // Vérifier si l'utilisateur est activé via le cookie
 $userActivated = false;
 $userTeam = null;
@@ -171,6 +267,9 @@ if ($activation_code_cookie && $dbConnection) {
 // Récupérer le jour sélectionné (par défaut jour 1)
 $selectedDay = isset($_GET['day']) ? (int)$_GET['day'] : 1;
 $selectedDay = max(1, min(3, $selectedDay)); // Limiter entre 1 et 3
+
+// Récupérer les informations du papier doré pour le jour sélectionné
+$goldenPaperInfo = getGoldenPaperInfo($dbConnection, $selectedDay);
 
 // Récupérer tous les groupes avec leurs utilisateurs depuis la base de données
 $teams = [];
@@ -262,8 +361,16 @@ if ($dbConnection) {
                 // Calculer la durée de résolution
                 $team['duration'] = formatDuration($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
                 
-                // Calculer le score basé sur la durée
-                $team['score'] = calculateScore($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
+                // Calculer le score basé sur la durée de l'énigme
+                $enigmaScore = calculateScore($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
+                
+                // Ajouter les points du papier doré
+                $goldenPaperScore = calculateGoldenPaperScore($dbConnection, $team['id'], $selectedDay);
+                
+                // Score total = score énigme + points papier doré
+                $team['score'] = $enigmaScore + $goldenPaperScore;
+                $team['enigma_score'] = $enigmaScore;
+                $team['golden_paper_score'] = $goldenPaperScore;
             } else {
                 // Valeur par défaut si pas d'énigme
                 $team['enigma_status'] = 0;
@@ -271,45 +378,50 @@ if ($dbConnection) {
                 $team['timestamp_start'] = null;
                 $team['timestamp_end'] = null;
                 $team['duration'] = null;
-                $team['score'] = 0;
+                
+                // Même sans énigme résolue, l'équipe peut avoir des points du papier doré
+                $goldenPaperScore = calculateGoldenPaperScore($dbConnection, $team['id'], $selectedDay);
+                $team['score'] = $goldenPaperScore;
+                $team['enigma_score'] = 0;
+                $team['golden_paper_score'] = $goldenPaperScore;
             }
             
             $teamsWithUsers[] = $team;
         }
         
         // Calculer le classement des équipes basé sur le score
-        $solvedTeams = [];
-        $unsolvedTeams = [];
+        $scoredTeams = [];
+        $unscoredTeams = [];
         
         foreach ($teamsWithUsers as $team) {
-            if ($team['enigma_status'] == 2 && $team['datetime_solved']) {
-                // Équipe qui a résolu l'énigme
-                $solvedTeams[] = $team;
+            if ($team['score'] > 0) {
+                // Équipe qui a des points (énigme résolue OU papier doré trouvé)
+                $scoredTeams[] = $team;
             } else {
-                // Équipe qui n'a pas résolu l'énigme
-                $unsolvedTeams[] = $team;
+                // Équipe qui n'a aucun point
+                $unscoredTeams[] = $team;
             }
         }
         
-        // Trier les équipes résolues par score décroissant (le plus haut score en premier)
-        usort($solvedTeams, function($a, $b) {
+        // Trier les équipes avec des points par score décroissant (le plus haut score en premier)
+        usort($scoredTeams, function($a, $b) {
             return $b['score'] - $a['score'];
         });
         
         // Assigner les rangs (1, 2, 3, 4, 5, 6)
         $rank = 1;
-        foreach ($solvedTeams as $index => $team) {
-            $solvedTeams[$index]['ranking'] = $rank;
+        foreach ($scoredTeams as $index => $team) {
+            $scoredTeams[$index]['ranking'] = $rank;
             $rank++;
         }
         
-        // Les équipes non résolues n'ont pas de rang
-        foreach ($unsolvedTeams as $index => $team) {
-            $unsolvedTeams[$index]['ranking'] = null;
+        // Les équipes sans points n'ont pas de rang
+        foreach ($unscoredTeams as $index => $team) {
+            $unscoredTeams[$index]['ranking'] = null;
         }
         
-        // Reconstituer la liste des équipes : résolues d'abord (par score), puis non résolues
-        $teams = array_merge($solvedTeams, $unsolvedTeams);
+        // Reconstituer la liste des équipes : avec points d'abord (par score), puis sans points
+        $teams = array_merge($scoredTeams, $unscoredTeams);
         
     } catch (PDOException $e) {
         error_log("Erreur lors de la récupération des équipes: " . $e->getMessage());
@@ -1570,6 +1682,28 @@ if ($dbConnection) {
             display: flex;
             flex-direction: column;
             gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        /* Style pour la scrollbar */
+        .papers-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .papers-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .papers-list::-webkit-scrollbar-thumb {
+            background: rgba(240, 147, 251, 0.6);
+            border-radius: 4px;
+        }
+
+        .papers-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(240, 147, 251, 0.8);
         }
 
         .paper-item {
@@ -1896,7 +2030,7 @@ if ($dbConnection) {
         <!-- Papier doré avec rotation verticale -->
         <div class="golden-paper" id="goldenPaperClickable">
             <div class="golden-paper-text">Papier doré</div>
-            <div class="golden-paper-counter">0/1</div>
+            <div class="golden-paper-counter" id="goldenPaperCounter">0/1</div>
         </div>
         
         <!-- Papier normal avec compteur dynamique -->
@@ -2327,15 +2461,9 @@ if ($dbConnection) {
                     document.body.appendChild(medal);
                 }
                 
-                // Afficher le chrono et les points si l'énigme est résolue
-                if (teamData && teamData.enigma_status == 2 && teamData.duration) {
+                // Afficher les points si l'énigme est résolue OU si il y a des points du papier doré
+                if (teamData && teamData.score > 0) {
                     const rect = card.getBoundingClientRect();
-                    
-                    // Créer l'encart chrono
-                    const chronoText = document.createElement('div');
-                    chronoText.className = 'chrono-text';
-                    chronoText.innerHTML = `⏱️ ${teamData.duration}`;
-                    chronoText.id = `chrono-${teamId}`;
                     
                     // Créer l'encart points
                     const pointsText = document.createElement('div');
@@ -2343,22 +2471,38 @@ if ($dbConnection) {
                     pointsText.innerHTML = `🏆 ${teamData.score} pts`;
                     pointsText.id = `points-${teamId}`;
                     
-                    // Ajouter au body d'abord pour calculer les largeurs
-                    document.body.appendChild(chronoText);
+                    // Ajouter au body
                     document.body.appendChild(pointsText);
                     
-                    const chronoWidth = chronoText.offsetWidth;
+                    // Positionner les points au centre de la carte
                     const pointsWidth = pointsText.offsetWidth;
-                    const totalWidth = chronoWidth + pointsWidth + 10; // 10px d'espacement
-                    const startX = rect.left + (rect.width / 2) - (totalWidth / 2);
-                    
-                    // Positionner le chrono à gauche
-                    chronoText.style.left = `${startX}px`;
-                    chronoText.style.top = `${rect.top - 40}px`;
-                    
-                    // Positionner les points à droite du chrono
-                    pointsText.style.left = `${startX + chronoWidth + 10}px`;
+                    const startX = rect.left + (rect.width / 2) - (pointsWidth / 2);
+                    pointsText.style.left = `${startX}px`;
                     pointsText.style.top = `${rect.top - 40}px`;
+                    
+                    // Afficher le chrono seulement si l'énigme est résolue
+                    if (teamData.enigma_status == 2 && teamData.duration) {
+                        // Créer l'encart chrono
+                        const chronoText = document.createElement('div');
+                        chronoText.className = 'chrono-text';
+                        chronoText.innerHTML = `⏱️ ${teamData.duration}`;
+                        chronoText.id = `chrono-${teamId}`;
+                        
+                        // Ajouter au body
+                        document.body.appendChild(chronoText);
+                        
+                        // Recalculer les positions pour centrer l'ensemble
+                        const chronoWidth = chronoText.offsetWidth;
+                        const totalWidth = chronoWidth + pointsWidth + 10; // 10px d'espacement
+                        const newStartX = rect.left + (rect.width / 2) - (totalWidth / 2);
+                        
+                        // Positionner le chrono à gauche
+                        chronoText.style.left = `${newStartX}px`;
+                        chronoText.style.top = `${rect.top - 40}px`;
+                        
+                        // Repositionner les points à droite du chrono
+                        pointsText.style.left = `${newStartX + chronoWidth + 10}px`;
+                    }
                 }
             });
         }
@@ -2423,6 +2567,25 @@ if ($dbConnection) {
                         }
                     });
                     
+                    // Mettre à jour les positions des points seuls (sans chrono)
+                    document.querySelectorAll('.ranking-text').forEach(points => {
+                        const teamId = points.id.replace('points-', '');
+                        const card = document.querySelector(`[data-team-id="${teamId}"]`);
+                        const chrono = document.getElementById(`chrono-${teamId}`);
+                        
+                        // Ne repositionner que si il n'y a pas de chrono (points seuls)
+                        if (card && !chrono) {
+                            const rect = card.getBoundingClientRect();
+                            
+                            // Centrer les points
+                            const pointsWidth = points.offsetWidth;
+                            const startX = rect.left + (rect.width / 2) - (pointsWidth / 2);
+                            
+                            points.style.left = `${startX}px`;
+                            points.style.top = `${rect.top - 40}px`;
+                        }
+                    });
+                    
                     isUpdating = false;
                 });
             }, 16); // ~60fps
@@ -2459,6 +2622,9 @@ if ($dbConnection) {
                     
                     // Positionner les médailles après la reconstruction
                     setTimeout(positionMedals, 100);
+                    
+                    // Mettre à jour les informations du papier doré pour le jour actuel
+                    fetchGoldenPaperInfo();
                 })
                 .catch(error => {
                     // Erreur silencieuse
@@ -2515,16 +2681,28 @@ if ($dbConnection) {
                 let html = '';
                 window.papersHistory.forEach(paper => {
                     const datetime = new Date(paper.datetime);
-                    const formattedDate = datetime.toLocaleDateString('fr-FR');
-                    const formattedTime = datetime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                    const formattedDate = datetime.toLocaleDateString('en-US');
+                    const formattedTime = datetime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                     
                     html += `
-                        <div class="paper-item" style="--team-color: ${paper.team_color || '#888'}">
-                            <div class="paper-user-info">
-                                <span class="paper-user-name">${formatUserName(paper.firstname, paper.lastname)}</span>
-                                <span class="paper-team-name">${paper.team_name}</span>
+                        <div class="paper-item" style="background: rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 15px; margin-bottom: 10px; border-left: 4px solid ${paper.team_color || '#666'};">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div style="font-weight: bold; color: #fff; font-size: 1.1rem;">
+                                    ${paper.display_name}
+                                </div>
+                                <div style="font-size: 0.9rem; color: #ccc;">
+                                    ${formattedDate} à ${formattedTime}
+                                </div>
                             </div>
-                            <div class="paper-datetime">📅 ${formattedDate} à ${formattedTime}</div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <img src="${paper.team_img || 'assets/img/logo.png'}" alt="${paper.team_name}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
+                                    <span style="color: #f093fb; font-weight: bold;">${paper.team_name}</span>
+                                </div>
+                                <div style="color: #FFD700; font-weight: bold;">
+                                    ${paper.pole_name}
+                                </div>
+                            </div>
                         </div>
                     `;
                 });
@@ -2542,16 +2720,18 @@ if ($dbConnection) {
         
         // Fonction pour récupérer les informations du papier doré
         function fetchGoldenPaperInfo() {
+            // Faire un appel AJAX pour récupérer les données du papier doré pour le jour actuel
             fetch(`get-golden-paper.php?day=${currentDay}`)
                 .then(response => response.json())
                 .then(data => {
                     window.goldenPaperInfo = data;
-                    
                     // Mettre à jour l'affichage du papier doré dans l'interface
                     updateGoldenPaperDisplay();
                 })
                 .catch(error => {
+                    console.error('Erreur lors de la récupération du papier doré:', error);
                     window.goldenPaperInfo = null;
+                    updateGoldenPaperDisplay();
                 });
         }
         
@@ -2593,8 +2773,8 @@ if ($dbConnection) {
             } else {
                 // Papier doré trouvé
                 const datetime = new Date(window.goldenPaperInfo.datetime);
-                const formattedDate = datetime.toLocaleDateString('fr-FR');
-                const formattedTime = datetime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                const formattedDate = datetime.toLocaleDateString('en-US');
+                const formattedTime = datetime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                 
                 content.innerHTML = `
                     <div class="golden-paper-content">
@@ -2668,8 +2848,8 @@ if ($dbConnection) {
                 let html = '';
                 window.objectsHistory.forEach(object => {
                     const datetime = new Date(object.datetime);
-                    const formattedDate = datetime.toLocaleDateString('fr-FR');
-                    const formattedTime = datetime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                    const formattedDate = datetime.toLocaleDateString('en-US');
+                    const formattedTime = datetime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                     
                     html += `
                         <div class="object-item" style="--team-color: ${object.team_color || '#888'}">
@@ -3007,8 +3187,7 @@ if ($dbConnection) {
         // Mettre à jour l'historique des papiers toutes les 30 secondes
         setInterval(fetchPapersHistory, 30000);
         
-        // Mettre à jour les infos du papier doré toutes les 30 secondes
-        setInterval(fetchGoldenPaperInfo, 30000);
+        // Les infos du papier doré sont maintenant chargées directement depuis PHP
         
         // Mettre à jour l'historique des objets toutes les 30 secondes
         setInterval(fetchObjectsHistory, 30000);

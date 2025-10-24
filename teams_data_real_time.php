@@ -108,6 +108,35 @@ function calculateScore($timestampStart, $timestampEnd) {
     return max(0, $finalScore);
 }
 
+// Fonction pour calculer les points du papier doré pour une équipe
+function calculateGoldenPaperScore($dbConnection, $teamId, $day) {
+    if (!$dbConnection) {
+        return 0;
+    }
+    
+    try {
+        // Vérifier si cette équipe a trouvé le papier doré pour ce jour
+        $query = "
+            SELECT COUNT(*) as count
+            FROM papers_found_user pf
+            INNER JOIN users u ON pf.id_player = u.id
+            INNER JOIN papers p ON pf.id_paper = p.id
+            WHERE p.paper_type = 1 AND pf.id_day = ? AND u.group_id = ?
+        ";
+        
+        $stmt = $dbConnection->prepare($query);
+        $stmt->execute([$day, $teamId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Si l'équipe a trouvé le papier doré, ajouter 1500 points
+        return ($result && $result['count'] > 0) ? 1500 : 0;
+        
+    } catch (PDOException $e) {
+        error_log("Erreur lors du calcul des points du papier doré: " . $e->getMessage());
+        return 0;
+    }
+}
+
 // Calculer le jour du jeu
 $gameDay = getGameDay($dbConnection);
 
@@ -208,8 +237,16 @@ try {
             // Calculer la durée de résolution
             $teams[$index]['duration'] = formatDuration($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
             
-            // Calculer le score basé sur la durée
-            $teams[$index]['score'] = calculateScore($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
+            // Calculer le score basé sur la durée de l'énigme
+            $enigmaScore = calculateScore($enigmaData['timestamp_start'], $enigmaData['timestamp_end']);
+            
+            // Ajouter les points du papier doré
+            $goldenPaperScore = calculateGoldenPaperScore($dbConnection, $team['id'], $selectedDay);
+            
+            // Score total = score énigme + points papier doré
+            $teams[$index]['score'] = $enigmaScore + $goldenPaperScore;
+            $teams[$index]['enigma_score'] = $enigmaScore;
+            $teams[$index]['golden_paper_score'] = $goldenPaperScore;
         } else {
             // Valeurs par défaut si pas de données pour ce jour
             $teams[$index]['enigma_status'] = 0;
@@ -217,43 +254,48 @@ try {
             $teams[$index]['timestamp_start'] = null;
             $teams[$index]['timestamp_end'] = null;
             $teams[$index]['duration'] = null;
-            $teams[$index]['score'] = 0;
+            
+            // Même sans énigme résolue, l'équipe peut avoir des points du papier doré
+            $goldenPaperScore = calculateGoldenPaperScore($dbConnection, $team['id'], $selectedDay);
+            $teams[$index]['score'] = $goldenPaperScore;
+            $teams[$index]['enigma_score'] = 0;
+            $teams[$index]['golden_paper_score'] = $goldenPaperScore;
         }
     }
     
     // Calculer le classement des équipes basé sur le score
-    $solvedTeams = [];
-    $unsolvedTeams = [];
+    $scoredTeams = [];
+    $unscoredTeams = [];
     
     foreach ($teams as $team) {
-        if ($team['enigma_status'] >= 2 && $team['datetime_solved']) {
-            // Équipe qui a résolu l'énigme (statut 2 ou plus)
-            $solvedTeams[] = $team;
+        if ($team['score'] > 0) {
+            // Équipe qui a des points (énigme résolue OU papier doré trouvé)
+            $scoredTeams[] = $team;
         } else {
-            // Équipe qui n'a pas résolu l'énigme
-            $unsolvedTeams[] = $team;
+            // Équipe qui n'a aucun point
+            $unscoredTeams[] = $team;
         }
     }
     
-    // Trier les équipes résolues par score décroissant (le plus haut score en premier)
-    usort($solvedTeams, function($a, $b) {
+    // Trier les équipes avec des points par score décroissant (le plus haut score en premier)
+    usort($scoredTeams, function($a, $b) {
         return $b['score'] - $a['score'];
     });
     
     // Assigner les rangs (1, 2, 3, 4, 5, 6)
     $rank = 1;
-    foreach ($solvedTeams as $index => $team) {
-        $solvedTeams[$index]['ranking'] = $rank;
+    foreach ($scoredTeams as $index => $team) {
+        $scoredTeams[$index]['ranking'] = $rank;
         $rank++;
     }
     
-    // Les équipes non résolues n'ont pas de rang
-    foreach ($unsolvedTeams as $index => $team) {
-        $unsolvedTeams[$index]['ranking'] = null;
+    // Les équipes sans points n'ont pas de rang
+    foreach ($unscoredTeams as $index => $team) {
+        $unscoredTeams[$index]['ranking'] = null;
     }
     
-    // Reconstituer la liste des équipes : résolues d'abord (par score), puis non résolues
-    $teams = array_merge($solvedTeams, $unsolvedTeams);
+    // Reconstituer la liste des équipes : avec points d'abord (par score), puis sans points
+    $teams = array_merge($scoredTeams, $unscoredTeams);
     
     // Vérifier et supprimer les doublons par ID
     $uniqueTeams = [];

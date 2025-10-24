@@ -119,8 +119,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $paperInfo = $stmt->fetch(PDO::FETCH_ASSOC);
         $isGoldenPaper = $paperInfo && $paperInfo['paper_type'] == 1;
         
-        // Insérer dans papers_found_user (ou ignorer si déjà trouvé)
-        $stmt = $dbConnection->prepare("INSERT IGNORE INTO `papers_found_user` (id_paper, id_player, id_day) VALUES (?, ?, ?)");
+        // Vérifier si le papier a déjà été trouvé par quelqu'un (papier déjà résolu)
+        $stmt = $dbConnection->prepare("SELECT COUNT(*) as count FROM `papers_found_user` WHERE id_paper = ? AND id_day = ?");
+        $stmt->execute([$paperId, $dayId]);
+        $paperAlreadyFound = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Si le papier a déjà été trouvé par quelqu'un, ne pas comptabiliser la découverte
+        if ($paperAlreadyFound && $paperAlreadyFound['count'] > 0) {
+            echo json_encode(['success' => false, 'message' => 'Papier déjà résolu - non comptabilisé']);
+            exit;
+        }
+        
+        // Insérer dans papers_found_user
+        $stmt = $dbConnection->prepare("INSERT INTO `papers_found_user` (id_paper, id_player, id_day) VALUES (?, ?, ?)");
         $stmt->execute([$paperId, $playerId, $dayId]);
         
         $inserted = $stmt->rowCount() > 0;
@@ -186,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $stmt->execute([$paperId, $playerId, $dayId]);
                 $paperFound = $stmt->fetch(PDO::FETCH_ASSOC);
                 
-                // Formater la date et l'heure avec "à" entre les deux
+                // Formater la date et l'heure
                 $datetime = $paperFound ? strtotime($paperFound['created_at']) : time();
                 $formattedDateTime = date('d/m/Y', $datetime) . ' à ' . date('H:i:s', $datetime);
                 
@@ -2743,19 +2754,19 @@ if ($show_activation_form) {
             });
             
             if (isGoldenPaper) {
-                // Pour les papiers dorés : créer une auréole dorée avec un drapeau doré
+                // Pour les papiers dorés : créer une auréole avec la couleur de l'équipe et un drapeau avec la couleur de l'équipe
                 
-                // Créer l'auréole dorée (cercle externe avec effet de halo)
+                // Créer l'auréole externe avec la couleur de l'équipe
                 const outerHalo = new fabric.Circle({
                     radius: 60,
                     fill: 'transparent',
-                    stroke: '#FFD700',
+                    stroke: teamColor || '#888',
                     strokeWidth: 8,
                     originX: 'center',
                     originY: 'center',
                     opacity: 0.8,
                     shadow: new fabric.Shadow({
-                        color: '#FFD700',
+                        color: teamColor || '#888',
                         blur: 20,
                         offsetX: 0,
                         offsetY: 0
@@ -2765,35 +2776,35 @@ if ($show_activation_form) {
                 const innerHalo = new fabric.Circle({
                     radius: 45,
                     fill: 'transparent',
-                    stroke: '#FFA500',
+                    stroke: teamColor || '#888',
                     strokeWidth: 4,
                     originX: 'center',
                     originY: 'center',
                     opacity: 0.9,
                     shadow: new fabric.Shadow({
-                        color: '#FFA500',
+                        color: teamColor || '#888',
                         blur: 15,
                         offsetX: 0,
                         offsetY: 0
                     })
                 });
                 
-                // Créer le drapeau doré avec rond plus grand
+                // Créer le drapeau avec la couleur de l'équipe
                 const flagBg = new fabric.Circle({
                     radius: 45,
-                    fill: '#FFD700',
+                    fill: teamColor || '#888',
                     originX: 'center',
                     originY: 'center',
                     shadow: new fabric.Shadow({
-                        color: 'rgba(255, 215, 0, 0.8)',
+                        color: teamColor ? `${teamColor}80` : 'rgba(136, 136, 136, 0.8)',
                         blur: 15,
                         offsetX: 0,
                         offsetY: 4
                     })
                 });
                 
-                const flagEmoji = new fabric.Text('🟨', {
-                    fontSize: 50,
+                const flagEmoji = new fabric.Text('🏆', {
+                    fontSize: 40,
                     originX: 'center',
                     originY: 'center',
                     left: 0,
@@ -3161,36 +3172,78 @@ if ($show_activation_form) {
         
         // ========== SYSTÈME DE NOTIFICATIONS PAPIERS RÉCENTS ==========
         
+        
         // Tracker les notifications déjà affichées (pour ne pas répéter)
         const shownNotifications = new Set();
         
         function checkRecentPapers() {
-            fetch('game_recent_papers.php?day=' + <?php echo $currentGameDay; ?>)
-                .then(response => response.json())
+            console.log('🔍 Vérification des papiers récents...');
+            fetch('game_notifications.php?day=' + <?php echo $currentGameDay; ?>)
+                .then(response => {
+                    console.log('🔍 Réponse HTTP:', response.status, response.statusText);
+                    return response.json();
+                })
                 .then(data => {
-                    if (!data.success || !data.recent_papers) {
+                    console.log('📊 Données notifications reçues:', data);
+                    
+                    if (!data.success || !data.papers) {
+                        console.log('❌ Pas de données valides:', data);
                         return;
                     }
                     
-                    // Filtrer les papiers trouvés il y a moins de 60 secondes
-                    const recentPapers = data.recent_papers.filter(paper => paper.seconds_ago < 60);
+                    // Ne pas filtrer par temps - afficher tous les papiers non encore vus
+                    const recentPapers = data.papers.filter(paper => {
+                        const paperDate = new Date(paper.datetime);
+                        const now = new Date();
+                        const secondsAgo = (now - paperDate) / 1000;
+                        console.log(`📄 Papier ${paper.id} (type: ${paper.paper_type}) trouvé il y a ${secondsAgo.toFixed(1)} secondes par ${paper.display_name}`);
+                        return true; // Afficher tous les papiers, pas de filtre temporel
+                    });
                     
-                    // Afficher les nouvelles notifications
+                    console.log(`🔔 ${recentPapers.length} papiers récents trouvés`);
+                    console.log(`🔔 Papiers récents:`, recentPapers);
+                    
+                    // Afficher les nouvelles notifications (UNIQUEMENT les papiers normaux)
                     recentPapers.forEach(paper => {
+                        console.log(`🔍 Traitement du papier ${paper.id} (type: ${paper.paper_type})`);
+                        
+                        // Ne traiter QUE les papiers normaux (paper_type = 0)
+                        if (paper.paper_type !== 0) {
+                            console.log(`⏭️ Papier doré ignoré par checkRecentPapers (géré par checkGoldenPaperFound)`);
+                            return;
+                        }
+                        
+                        console.log(`🔍 Papier normal détecté, vérification si déjà affiché...`);
+                        console.log(`🔍 Notifications déjà affichées:`, Array.from(shownNotifications));
+                        
                         // Ne pas afficher si déjà montré
                         if (!shownNotifications.has(paper.id)) {
+                            console.log(`🔔 Nouvelle notification pour ${paper.display_name} - AJOUT AU SET`);
                             shownNotifications.add(paper.id);
+                            
+                            // Papier classique - utiliser la notification normale
+                            console.log(`🔔 Appel de showNotification() pour ${paper.display_name}`);
                             showNotification(paper);
+                        } else {
+                            console.log(`⏭️ Notification déjà affichée pour ${paper.display_name} (ID: ${paper.id})`);
                         }
                     });
                 })
                 .catch(error => {
-                    console.error('❌ Erreur récupération papiers récents:', error);
+                    console.error('❌ Erreur récupération notifications:', error);
                 });
         }
         
         function showNotification(paper) {
+            console.log(`🎯 showNotification() appelée pour ${paper.display_name}`);
             const container = document.getElementById('notifications-container');
+            
+            if (!container) {
+                console.error('❌ Conteneur notifications non trouvé !');
+                return;
+            }
+            
+            console.log(`🎯 Conteneur trouvé, création de la notification...`);
             
             // Créer l'élément de notification
             const notif = document.createElement('div');
@@ -3219,6 +3272,9 @@ if ($show_activation_form) {
             container.appendChild(notif);
             
             console.log('🔔 Notification affichée pour', paper.display_name);
+            console.log('🔔 Notification ajoutée au DOM, élément:', notif);
+            console.log('🔔 Conteneur notifications:', container);
+            console.log('🔔 Conteneur contient maintenant', container.children.length, 'notifications');
             
             // Masquer et supprimer après 20 secondes
             setTimeout(() => {
@@ -3333,16 +3389,38 @@ if ($show_activation_form) {
         // Première vérification après 2 secondes
         setTimeout(checkRecentPapers, 2000);
         
+        console.log('✅ Système de notifications papiers normaux activé');
+        
+        // Bouton de test pour vider les notifications déjà affichées (à supprimer en production)
+        window.clearNotifications = function() {
+            shownNotifications.clear();
+            console.log('🧹 Notifications déjà affichées vidées');
+        };
+        
+        window.clearGoldenNotifications = function() {
+            shownGoldenPaperNotifications.clear();
+            console.log('🧹 Notifications papiers dorés déjà affichées vidées');
+        };
+        
+        console.log('🧪 Fonctions de test disponibles : clearNotifications() et clearGoldenNotifications()');
+        
         // ========== SYSTÈME DE NOTIFICATIONS PAPIERS DORÉS ==========
         
         // Tracker les notifications de papiers dorés déjà affichées
         const shownGoldenPaperNotifications = new Set();
         
         function checkGoldenPaperFound() {
+            console.log('🏆 Vérification des papiers dorés...');
             fetch('golden-paper-notification.php?day=' + <?php echo $currentGameDay; ?>)
-                .then(response => response.json())
+                .then(response => {
+                    console.log('🏆 Réponse HTTP:', response.status, response.statusText);
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('🏆 Données papier doré reçues:', data);
+                    
                     if (!data.success || !data.found) {
+                        console.log('🏆 Pas de papier doré trouvé récemment');
                         return;
                     }
                     
@@ -3352,15 +3430,42 @@ if ($show_activation_form) {
                     if (!shownGoldenPaperNotifications.has(notificationKey)) {
                         shownGoldenPaperNotifications.add(notificationKey);
                         
-                        // Ne pas afficher si c'est le joueur actuel qui a trouvé le papier
-                        if (data.id_player !== <?php echo $_SESSION['user_id'] ?? 0; ?>) {
-                            showGoldenPaperFoundNotification(data);
-                        }
+                        // Afficher la notification (le joueur actuel est déjà exclu côté serveur)
+                        showGoldenPaperFoundNotification(data);
                     }
                 })
                 .catch(error => {
                     console.error('❌ Erreur récupération papier doré récent:', error);
                 });
+        }
+        
+        // Fonction pour formater l'heure de la notification
+        function formatNotificationTime(createdAt) {
+            const date = new Date(createdAt);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffMinutes < 1) {
+                return 'À l\'instant';
+            } else if (diffMinutes < 60) {
+                return `Il y a ${diffMinutes} min`;
+            } else if (diffHours < 24) {
+                return `Il y a ${diffHours}h`;
+            } else if (diffDays < 7) {
+                return `Il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+            } else {
+                // Pour les dates plus anciennes, afficher la date complète
+                return date.toLocaleDateString('en-US', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
         }
         
         function showGoldenPaperFoundNotification(paper) {
@@ -3369,11 +3474,12 @@ if ($show_activation_form) {
             // Créer l'élément de notification spéciale pour le papier doré
             const notif = document.createElement('div');
             notif.className = 'notification-item golden-paper-notification';
+            notif.setAttribute('data-notification-id', `golden_${paper.id_paper}_${paper.id_player}_${paper.created_at}`);
             notif.style.setProperty('--notif-color', paper.team_color);
             notif.style.borderLeftColor = paper.team_color;
-            notif.style.background = 'linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1))';
-            notif.style.border = '2px solid #FFD700';
-            notif.style.boxShadow = '0 6px 20px rgba(255, 215, 0, 0.3)';
+            notif.style.background = `linear-gradient(135deg, ${paper.team_color}20, ${paper.team_color}40)`;
+            notif.style.border = `2px solid ${paper.team_color}`;
+            notif.style.boxShadow = `0 6px 20px ${paper.team_color}50`;
             
             // Construire le contenu
             let avatarContent = '🏆';
@@ -3382,13 +3488,14 @@ if ($show_activation_form) {
             }
             
             notif.innerHTML = `
-                <div class="notification-avatar" style="--notif-color: ${paper.team_color}; background: linear-gradient(135deg, #FFD700, #FFA500);">
+                <div class="notification-avatar" style="--notif-color: ${paper.team_color}; background: linear-gradient(135deg, ${paper.team_color}, rgba(255,255,255,0.2)); border: 2px solid ${paper.team_color};">
                     ${avatarContent}
                 </div>
                 <div class="notification-content">
                     <div class="notification-name">${paper.display_name}</div>
                     <div class="notification-pole">${paper.pole_name}</div>
-                    <div class="notification-action" style="color: #FFD700; font-weight: bold;">🏆 vient de trouver le PAPIER DORÉ ! 🏆</div>
+                    <div class="notification-action" style="color: ${paper.team_color}; font-weight: bold;">🎉 a trouvé le papier doré ! 🎉 (JOUR ${paper.id_day})</div>
+                    <div class="notification-time" style="color: #ccc; font-size: 0.9rem; margin-top: 5px;">${formatNotificationTime(paper.created_at)}</div>
                 </div>
             `;
             
@@ -3401,19 +3508,67 @@ if ($show_activation_form) {
                 notif.style.transform = 'translateX(0)';
             }, 100);
             
-            // Masquer et supprimer après 30 secondes (plus long pour le papier doré)
-            setTimeout(() => {
-                notif.classList.add('hiding');
-                setTimeout(() => {
-                    if (notif.parentNode) {
-                        notif.parentNode.removeChild(notif);
-                    }
-                }, 300);
-            }, 30000);
+            // Stocker la notification dans le localStorage pour la persistance
+            const notificationData = {
+                id: `golden_${paper.id_paper}_${paper.id_player}_${paper.created_at}`,
+                paper: paper,
+                timestamp: Date.now()
+            };
+            
+            // Récupérer les notifications existantes
+            const existingNotifications = JSON.parse(localStorage.getItem('goldenPaperNotifications') || '[]');
+            
+            // Vérifier si cette notification n'existe pas déjà
+            const exists = existingNotifications.some(notif => notif.id === notificationData.id);
+            if (!exists) {
+                existingNotifications.push(notificationData);
+                localStorage.setItem('goldenPaperNotifications', JSON.stringify(existingNotifications));
+            }
+            
+            // Notification persistante pour les papiers dorés (ne pas supprimer automatiquement)
+        }
+        
+        // Fonction pour restaurer les notifications persistantes au chargement de la page
+        function restorePersistentNotifications() {
+            const savedNotifications = JSON.parse(localStorage.getItem('goldenPaperNotifications') || '[]');
+            
+            savedNotifications.forEach(notificationData => {
+                // Vérifier si la notification n'existe pas déjà dans le DOM
+                const notificationId = `golden_${notificationData.paper.id_paper}_${notificationData.paper.id_player}_${notificationData.paper.created_at}`;
+                const existingNotification = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                if (!existingNotification) {
+                    showGoldenPaperFoundNotification(notificationData.paper);
+                }
+            });
         }
         
         // Vérifier les papiers dorés trouvés toutes les 3 secondes
         setInterval(checkGoldenPaperFound, 3000);
+        
+        console.log('✅ Système de notifications papiers dorés activé');
+        
+        // Fonction pour mettre à jour l'heure des notifications persistantes
+        function updateNotificationTimes() {
+            const notifications = document.querySelectorAll('.golden-paper-notification .notification-time');
+            notifications.forEach(timeElement => {
+                const notification = timeElement.closest('.golden-paper-notification');
+                const notificationId = notification.getAttribute('data-notification-id');
+                const savedNotifications = JSON.parse(localStorage.getItem('goldenPaperNotifications') || '[]');
+                const notificationData = savedNotifications.find(notif => `golden_${notif.paper.id_paper}_${notif.paper.id_player}_${notif.paper.created_at}` === notificationId);
+                
+                if (notificationData) {
+                    timeElement.textContent = formatNotificationTime(notificationData.paper.created_at);
+                }
+            });
+        }
+        
+        // Restaurer les notifications persistantes au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(restorePersistentNotifications, 1000); // Délai pour s'assurer que le DOM est prêt
+            
+            // Mettre à jour l'heure des notifications toutes les minutes
+            setInterval(updateNotificationTimes, 60000);
+        });
         
         // Première vérification après 3 secondes
         setTimeout(checkGoldenPaperFound, 3000);

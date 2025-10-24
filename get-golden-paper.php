@@ -16,30 +16,29 @@ $day = max(1, min(3, $day)); // Limiter entre 1 et 3
 try {
     // Requête pour récupérer le papier doré du jour spécifique
     // La logique : paper_type = 1 correspond au papier doré
-    // Pour le jour 1 : premier ID trouvé avec paper_type = 1
-    // Pour le jour 2 : deuxième ID trouvé avec paper_type = 1  
-    // Pour le jour 3 : troisième ID trouvé avec paper_type = 1
+    // Chercher le papier doré trouvé pour le jour spécifique
     
     $query = "
         SELECT 
             pf.id,
             pf.id_player,
             pf.id_day,
-            pf.datetime,
+            pf.created_at as datetime,
             u.firstname,
             u.lastname,
             g.name as team_name,
             g.color as team_color
         FROM papers_found_user pf
         INNER JOIN users u ON pf.id_player = u.id
-        INNER JOIN groups g ON u.group_id = g.id
-        WHERE pf.paper_type = 1
+        INNER JOIN `groups` g ON u.group_id = g.id
+        INNER JOIN papers p ON pf.id_paper = p.id
+        WHERE p.paper_type = 1 AND pf.id_day = ?
         ORDER BY pf.id ASC
-        LIMIT 1 OFFSET ?
+        LIMIT 1
     ";
     
     $stmt = $dbConnection->prepare($query);
-    $stmt->execute([$day - 1]); // OFFSET 0 pour jour 1, 1 pour jour 2, 2 pour jour 3
+    $stmt->execute([$day]); // Chercher le papier doré trouvé pour le jour spécifique
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if ($result) {

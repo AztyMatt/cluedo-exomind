@@ -1,4 +1,12 @@
 <?php
+// Démarrer la session pour accéder à l'ID du joueur
+session_start([
+    'cookie_lifetime' => 86400 * 7,
+    'cookie_secure' => false,
+    'cookie_httponly' => true,
+    'cookie_samesite' => 'Strict'
+]);
+
 // Connexion à la base de données
 require_once __DIR__ . '/db-connection.php';
 $dbConnection = getDBConnection();
@@ -13,8 +21,12 @@ if (!$dbConnection) {
 $day = isset($_GET['day']) ? (int)$_GET['day'] : 1;
 $day = max(1, min(3, $day)); // Limiter entre 1 et 3
 
+// Récupérer l'ID du joueur connecté depuis la session
+$currentPlayerId = $_SESSION['user_id'] ?? null;
+
 try {
     // Requête pour récupérer le papier doré trouvé récemment (dans les dernières 60 secondes)
+    // EXCLURE le joueur connecté pour éviter les auto-notifications
     $query = "
         SELECT 
             pf.id,
@@ -36,13 +48,13 @@ try {
         INNER JOIN papers p ON pf.id_paper = p.id
         WHERE p.paper_type = 1 
         AND pf.id_day = ?
-        AND pf.created_at >= DATE_SUB(NOW(), INTERVAL 60 SECOND)
+        AND pf.id_player != ?
         ORDER BY pf.created_at DESC
         LIMIT 1
     ";
     
     $stmt = $dbConnection->prepare($query);
-    $stmt->execute([$day]);
+    $stmt->execute([$day, $currentPlayerId]);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if ($result) {
