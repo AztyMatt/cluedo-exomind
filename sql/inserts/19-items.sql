@@ -1,7 +1,7 @@
 SET NAMES utf8mb4;
 
 INSERT INTO `items` (`id`, `group_id`, `path`, `title`, `subtitle`, `solved_title`, `solved`, `id_solved_user`, `datetime_solved`, `id_mask`, `created_at`, `updated_at`) VALUES
-(1, 1, '/assets/img/items/1.png', 'Clé USB', 'Où la brancher ?', NULL, 1, 1, '2025-10-23 13:51:33', 312, '2025-10-23 10:02:59', '2025-10-23 13:51:33'),
+(1, 1, '/assets/img/items/1.png', 'Clé USB', 'Où la brancher ?', NULL, 0, NULL, NULL, 312, '2025-10-23 10:02:59', '2025-10-23 11:49:31'),
 (2, 1, '/assets/img/items/2.png', 'Ciseaux', 'Qui a perdu ces ciseaux?', NULL, 0, NULL, NULL, 302, '2025-10-23 10:02:59', '2025-10-23 11:47:51'),
 (3, 1, '/assets/img/items/3.png', 'Burger', 'Où placer ce burger Mc Do peu ragoûtant?', NULL, 0, NULL, NULL, 314, '2025-10-23 10:02:59', '2025-10-23 11:50:42'),
 (4, 2, '/assets/img/items/4.png', 'Bloc Minecraft', 'Un amateur de Minecraft?', NULL, 0, NULL, NULL, 297, '2025-10-23 10:02:59', '2025-10-23 11:43:13'),
