@@ -558,8 +558,8 @@
 <body>
     <!-- Boutons de classement fixes en haut à gauche -->
     <div class="ranking-buttons-fixed">
-        <a href="ranking.php" class="game-button btn-ranking btn-ranking-top">🏆 Classement Équipes</a>
-        <a href="ranking-individual.php" class="game-button btn-individual btn-ranking-bottom">👤 Classement Individuel</a>
+        <a href="ranking" class="game-button btn-ranking btn-ranking-top">🏆 Classement Équipes</a>
+        <a href="ranking-individual" class="game-button btn-individual btn-ranking-bottom">👤 Classement Individuel</a>
     </div>
 
     <div class="container">

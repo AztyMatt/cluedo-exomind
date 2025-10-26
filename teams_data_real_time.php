@@ -217,6 +217,7 @@ try {
         }
         
         // Récupérer le statut de l'énigme depuis la table enigmes avec les timestamps de durée
+        // IMPORTANT: Ne JAMAIS récupérer la solution dans les appels AJAX
         $stmt = $dbConnection->prepare("
             SELECT e.status, e.datetime_solved, 
                    esd.timestamp_start, esd.timestamp_end

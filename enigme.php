@@ -586,7 +586,7 @@ $currentDay = $dayLabels[$selectedDay];
             <div class="error-container">
                 <h2>Accès refusé</h2>
                 <p><?= $error_message ?></p>
-                <a href="game.php" class="back-btn">← Retour au jeu</a>
+                <a href="game" class="back-btn">← Retour au jeu</a>
             </div>
         <?php else: ?>
             <!-- ========== AFFICHAGE DE L'ÉNIGME ========== -->
@@ -688,7 +688,7 @@ $currentDay = $dayLabels[$selectedDay];
                 <?php endif; ?>
 
                 <div style="text-align: center; margin-top: 20px;">
-                    <a href="game.php" class="back-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <a href="game" class="back-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                         ← Retour au jeu
                     </a>
                 </div>

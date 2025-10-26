@@ -4,6 +4,8 @@ RewriteEngine On
 RewriteRule ^teams/?$ teams.php [L,QSA]
 RewriteRule ^game/?$ game.php [L,QSA]
 RewriteRule ^enigme/?$ enigme.php [L,QSA]
+RewriteRule ^ranking/?$ ranking.php [L,QSA]
+RewriteRule ^ranking-individual/?$ ranking-individual.php [L,QSA]
 RewriteRule ^admin/date/?$ admin/date.php [L,QSA]
 
 # Servir les fichiers AJAX/data

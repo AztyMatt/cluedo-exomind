@@ -12,6 +12,39 @@ if (!$dbConnection) {
 // Calculer le jour du jeu le plus tôt possible pour l'utiliser partout
 $gameDay = getGameDay($dbConnection);
 
+// API pour récupérer les solutions (uniquement si jour passé)
+if (isset($_GET['get_solutions'])) {
+    $day = (int)$_GET['get_solutions'];
+    
+    // Vérifier que le jour demandé est bien passé (strictement inférieur au jour actuel)
+    if ($day >= $gameDay) {
+        // Jour actuel ou futur : ne PAS envoyer la solution
+        echo '';
+        exit;
+    }
+    
+    // Récupérer toutes les solutions uniques pour ce jour
+    $stmt = $dbConnection->prepare("
+        SELECT DISTINCT e.enigm_solution 
+        FROM `enigmes` e 
+        WHERE e.id_day = ?
+    ");
+    $stmt->execute([$day]);
+    $solutions = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    if (!empty($solutions)) {
+        echo '<div style="margin-top: 8px; padding: 6px 10px; background: rgba(76, 175, 80, 0.3); border: 1px solid rgba(76, 175, 80, 0.5); border-radius: 6px; text-align: center;">';
+        echo '<div style="font-size: 0.7rem; font-family: \'Courier New\', monospace;">';
+        echo '<span style="color: #4CAF50;">Mot du jour :</span> <span style="color: #2d5016; font-weight: bold; text-transform: uppercase;">' . htmlspecialchars(strtoupper($solutions[0])) . '</span>';
+        echo '</div>';
+        echo '</div>';
+    } else {
+        // Aucune solution trouvée
+        echo '';
+    }
+    exit;
+}
+
 // Fonction pour calculer le jour du jeu basé sur la date courante
 function getGameDay($dbConnection) {
     if (!$dbConnection) {
@@ -47,6 +80,14 @@ function getGameDay($dbConnection) {
         
         // Calculer le jour : 27/10 = jour 1, 28/10 = jour 2, 29/10 = jour 3
         $gameDay = $daysDiff + 1;
+        
+        // Date limite : 30 octobre 2025 = Fin du jeu
+        $endDate = new DateTime('2025-10-30');
+        
+        // Si la date courante est >= 30/10/2025, retourner jour 4 (fin de jeu)
+        if ($currentDate >= $endDate) {
+            return 4;
+        }
         
         // Limiter à jour 3 maximum, sinon retourner jour 1
         if ($gameDay > 3) {
@@ -263,8 +304,8 @@ if ($activation_code_cookie && $dbConnection) {
     }
 }
 
-// Récupérer le jour sélectionné (par défaut jour 1)
-$selectedDay = isset($_GET['day']) ? (int)$_GET['day'] : 1;
+// Récupérer le jour sélectionné (par défaut jour actuel du système)
+$selectedDay = isset($_GET['day']) ? (int)$_GET['day'] : $gameDay;
 $selectedDay = max(1, min(3, $selectedDay)); // Limiter entre 1 et 3
 
 // Récupérer les informations du papier doré pour le jour sélectionné
@@ -342,7 +383,7 @@ if ($dbConnection) {
             
             // Récupérer le statut de l'énigme depuis la table enigmes avec les timestamps de durée
             $stmt = $dbConnection->prepare("
-                SELECT e.status, e.datetime_solved, e.enigm_solution, 
+                SELECT e.status, e.datetime_solved, 
                        esd.timestamp_start, esd.timestamp_end
                 FROM `enigmes` e 
                 LEFT JOIN `enigm_solutions_durations` esd ON e.id = esd.id_enigm 
@@ -717,6 +758,37 @@ if ($dbConnection) {
             grid-column: 1 / -1;
         }
 
+        .day-label {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-top: 12px;
+            margin-bottom: 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .day-label.current {
+            background: rgba(76, 175, 80, 0.15);
+            border: 1px solid rgba(76, 175, 80, 0.4);
+            color: #4CAF50;
+        }
+
+        .day-label.past {
+            background: rgba(244, 67, 54, 0.15);
+            border: 1px solid rgba(244, 67, 54, 0.4);
+            color: #f44336;
+        }
+
+        .day-label.future {
+            background: rgba(255, 152, 0, 0.15);
+            border: 1px solid rgba(255, 152, 0, 0.4);
+            color: #ff9800;
+        }
+
         .day-indicator {
             position: fixed;
             top: 20px;
@@ -729,7 +801,7 @@ if ($dbConnection) {
             border: 2px solid rgba(150, 150, 150, 0.5);
             backdrop-filter: blur(10px);
             text-align: center;
-            width: 200px;
+            width: 240px;
             box-sizing: border-box;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -1518,7 +1590,7 @@ if ($dbConnection) {
         .papers-container {
             position: fixed;
             top: 20px;
-            right: 250px;
+            right: 280px;
             background: rgba(128, 128, 128, 0.2);
             border-radius: 15px;
             padding: 15px;
@@ -1621,7 +1693,7 @@ if ($dbConnection) {
         .objects-container {
             position: fixed;
             top: 20px;
-            right: 430px;
+            right: 460px;
             background: rgba(128, 128, 128, 0.2);
             border-radius: 15px;
             padding: 10px;
@@ -2077,11 +2149,48 @@ if ($dbConnection) {
         2 => ['number' => 'Jour 2', 'objective' => '🔧 Objet du hackeur'],
         3 => ['number' => 'Jour 3', 'objective' => '🎭 Hackeur']
     ];
-    $currentDay = $dayLabels[$gameDay];
+    // Afficher le jour sélectionné dans le sélecteur
+    $currentDay = $dayLabels[$selectedDay];
+    
+    // Déterminer le texte et la classe du label selon la relation entre le jour sélectionné et le jour actuel
+    $dayLabelText = '';
+    $dayLabelClass = '';
+    if ($selectedDay < $gameDay) {
+        $dayLabelText = '⚠️ Jour passé';
+        $dayLabelClass = 'past';
+    } elseif ($selectedDay > $gameDay) {
+        $dayLabelText = '⌛ Jour à venir';
+        $dayLabelClass = 'future';
+    } else {
+        $dayLabelText = '📅 Jour actuel';
+        $dayLabelClass = 'current';
+    }
     ?>
     <div class="day-indicator" id="dayIndicator">
         <div class="day-number"><?= $currentDay['number'] ?> <span class="day-arrow">▼</span></div>
         <div class="day-objective"><?= $currentDay['objective'] ?></div>
+        <div class="day-label <?= $dayLabelClass ?>" style="display: block;"><?= $dayLabelText ?></div>
+        
+        <?php if ($selectedDay < $gameDay): ?>
+            <?php
+            // Récupérer la solution unique pour ce jour passé
+            $stmt = $dbConnection->prepare("
+                SELECT DISTINCT e.enigm_solution 
+                FROM `enigmes` e 
+                WHERE e.id_day = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$selectedDay]);
+            $solution = $stmt->fetchColumn();
+            ?>
+            <?php if ($solution): ?>
+                <div style="margin-top: 8px; padding: 6px 10px; background: rgba(76, 175, 80, 0.3); border: 1px solid rgba(76, 175, 80, 0.5); border-radius: 6px; text-align: center;">
+                    <div style="font-size: 0.7rem; font-family: 'Courier New', monospace;">
+                        <span style="color: #4CAF50;">Mot du jour :</span> <span style="color: #2d5016; font-weight: bold; text-transform: uppercase;"><?= htmlspecialchars(strtoupper($solution)) ?></span>
+                    </div>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
         
         <div class="day-dropdown" id="dayDropdown">
             <div class="day-option <?= $gameDay == 1 ? 'active' : '' ?>" data-day="1">
@@ -2101,7 +2210,11 @@ if ($dbConnection) {
 
     <!-- Informations utilisateur connecté (uniquement si activé) -->
     <?php if ($userActivated && $userTeam): ?>
-        <div class="header" style="top: 130px; right: 20px;">
+        <?php
+        // Calculer la position du header en fonction du jour sélectionné
+        $headerTop = $selectedDay < $gameDay ? 180 : 155; // Descendre si jour passé
+        ?>
+        <div class="header" style="top: <?= $headerTop ?>px; right: 20px;">
             <div class="user-info">
                 <div class="user-avatar">
                     <?php if (!empty($userTeam['team_img']) && file_exists($userTeam['team_img'])): ?>
@@ -2184,8 +2297,8 @@ if ($dbConnection) {
 
     <!-- Boutons de classement fixes en haut à gauche -->
     <div class="ranking-buttons-fixed">
-        <a href="ranking.php" class="game-button btn-ranking btn-ranking-top">🏆 Classement Équipes</a>
-        <a href="ranking-individual.php" class="game-button btn-individual btn-ranking-bottom">👤 Classement Individuel</a>
+        <a href="ranking" class="game-button btn-ranking btn-ranking-top">🏆 Classement Équipes</a>
+        <a href="ranking-individual" class="game-button btn-individual btn-ranking-bottom">👤 Classement Individuel</a>
     </div>
 
     <!-- Indicateur de mise à jour en temps réel -->
@@ -2199,7 +2312,7 @@ if ($dbConnection) {
 
         <div class="buttons-container">
             <button id="rulesBtn" class="game-button btn-rules">📋 Règles du jeu</button>
-            <a href="game.php" class="game-button btn-play">🔍 JOUER</a>
+            <a href="game" class="game-button btn-play">🔍 JOUER</a>
         </div>
 
         <!-- Modale des règles -->
@@ -2528,6 +2641,65 @@ if ($dbConnection) {
                 mainDayNumber.innerHTML = dayNumber + ' <span class="day-arrow">▼</span>';
                 mainDayObjective.textContent = dayObjective;
                 
+                // Afficher ou masquer le label "Jour actuel" selon le jour sélectionné
+                const dayLabel = dayIndicator.querySelector('.day-label');
+                const selectedDay = parseInt(option.dataset.day);
+                const currentSystemDay = <?= $gameDay ?>;
+                if (dayLabel) {
+                    // Déterminer le texte et la classe selon la relation avec le jour actuel
+                    let labelText = '';
+                    let labelClass = '';
+                    if (selectedDay < currentSystemDay) {
+                        labelText = '⚠️ Jour passé';
+                        labelClass = 'past';
+                    } else if (selectedDay > currentSystemDay) {
+                        labelText = '⌛ Jour à venir';
+                        labelClass = 'future';
+                    } else {
+                        labelText = '📅 Jour actuel';
+                        labelClass = 'current';
+                    }
+                    
+                    // Mettre à jour le texte et la classe
+                    dayLabel.textContent = labelText;
+                    dayLabel.className = 'day-label ' + labelClass;
+                    dayLabel.style.display = 'block';
+                    
+                    // Afficher/masquer les solutions si jour passé
+                    const existingSolution = dayIndicator.querySelector('[style*="margin-top: 8px"]');
+                    if (existingSolution && existingSolution.querySelector('span[style*="color: #4CAF50"]')) {
+                        existingSolution.remove();
+                    }
+                    
+                    if (selectedDay < currentSystemDay) {
+                        // Fetch les solutions pour ce jour passé
+                        fetch(`teams.php?get_solutions=${selectedDay}`)
+                            .then(response => response.text())
+                            .then(html => {
+                                if (html.trim()) {
+                                    const tempDiv = document.createElement('div');
+                                    tempDiv.innerHTML = html;
+                                    const solutionDiv = tempDiv.querySelector('div');
+                                    if (solutionDiv) {
+                                        dayLabel.insertAdjacentElement('afterend', solutionDiv);
+                                    }
+                                    // Ajuster la position du header si présent
+                                    const userHeader = document.querySelector('.header[style*="right: 20px"]');
+                                    if (userHeader) {
+                                        userHeader.style.top = '180px';
+                                    }
+                                }
+                            })
+                            .catch(err => console.error('Erreur récupération solutions:', err));
+                    } else {
+                        // Ajuster la position du header si présent
+                        const userHeader = document.querySelector('.header[style*="right: 20px"]');
+                        if (userHeader) {
+                            userHeader.style.top = '155px';
+                        }
+                    }
+                }
+                
                 // Fermer le menu
                 dayIndicator.classList.remove('active');
                 dayDropdown.classList.remove('active');
@@ -2586,7 +2758,8 @@ if ($dbConnection) {
                     // Créer l'encart points
                     const pointsText = document.createElement('div');
                     pointsText.className = 'ranking-text';
-                    pointsText.innerHTML = `🏆 ${teamData.score_display || Math.ceil(teamData.score)} pts`;
+                    const firstPlaceEmoji = (teamData.ranking === 1) ? '🏆 ' : '';
+                    pointsText.innerHTML = `${firstPlaceEmoji}${teamData.score_display || Math.ceil(teamData.score)} pts`;
                     pointsText.id = `points-${teamId}`;
                     
                     // Ajouter au body

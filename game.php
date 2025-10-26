@@ -42,6 +42,14 @@ function getGameDay($dbConnection) {
         // Calculer le jour : 27/10 = jour 1, 28/10 = jour 2, 29/10 = jour 3
         $gameDay = $daysDiff + 1;
         
+        // Date limite : 30 octobre 2025 = Fin du jeu
+        $endDate = new DateTime('2025-10-30');
+        
+        // Si la date courante est >= 30/10/2025, retourner jour 4 (fin de jeu)
+        if ($currentDate >= $endDate) {
+            return 4;
+        }
+        
         // Limiter à jour 3 maximum, sinon retourner jour 1
         if ($gameDay > 3) {
             return 1;
@@ -1667,7 +1675,34 @@ if ($show_activation_form) {
 </head>
 <body>
     <div class="container">
-        <?php if ($show_activation_form): ?>
+        <?php if ($currentGameDay >= 4): ?>
+            <!-- ========== FIN DU JEU ========== -->
+            <div style="display: flex; justify-content: center; align-items: center; min-height: 80vh;">
+                <div style="background: rgba(42, 42, 42, 0.95); border-radius: 20px; padding: 50px; max-width: 800px; text-align: center; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); border: 3px solid rgba(255, 255, 255, 0.1);">
+                    <h1 style="font-size: 3rem; color: #fff; margin-bottom: 30px; text-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);">
+                        🎉 Merci d'avoir participé à cet événement Cluedo
+                    </h1>
+                    
+                    <p style="font-size: 1.5rem; color: #ccc; margin-bottom: 30px; line-height: 1.8;">
+                        Il n'est plus possible de jouer. Les trois journées sont terminées et closes.
+                    </p>
+                    
+                    <p style="font-size: 1.2rem; color: #888; margin-bottom: 50px;">
+                        Veuillez retrouver le classement général par équipe et individuel en cliquant sur les boutons ci-dessous :
+                    </p>
+                    
+                    <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+                        <a href="ranking" style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; transition: transform 0.3s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+                            🏆 Classement par équipe
+                        </a>
+                        
+                        <a href="ranking-individual" style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; transition: transform 0.3s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+                            👤 Classement individuel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        <?php elseif ($show_activation_form): ?>
             <!-- ========== FORMULAIRE D'ACTIVATION ========== -->
             <div class="game-content" style="max-width: 600px; margin: 100px auto;">
                 <h1 class="game-title">🔐 Activation de votre compte</h1>
