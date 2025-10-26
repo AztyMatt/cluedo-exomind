@@ -1524,6 +1524,23 @@ if ($dbConnection) {
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }
 
+        /* Styles pour l'encart papier doré (positionné en JS) */
+        .gold-paper-text {
+            position: fixed;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #FFD700;
+            z-index: 1000;
+            pointer-events: none;
+            background: rgba(255, 215, 0, 0.2);
+            padding: 4px 10px;
+            border-radius: 5px;
+            backdrop-filter: blur(5px);
+            border: 1.5px solid rgba(255, 215, 0, 0.5);
+            box-shadow: 0 2px 6px rgba(255, 215, 0, 0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+        }
+
         @keyframes medalGlow {
             0% {
                 box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
@@ -2726,7 +2743,7 @@ if ($dbConnection) {
         // Fonction pour positionner les médailles par-dessus les cartes
         function positionMedals() {
             // Supprimer toutes les médailles et textes existants
-            document.querySelectorAll('.ranking-medal, .ranking-text, .chrono-text').forEach(element => element.remove());
+            document.querySelectorAll('.ranking-medal, .ranking-text, .chrono-text, .gold-paper-text').forEach(element => element.remove());
             
             // Parcourir toutes les cartes d'équipe
             document.querySelectorAll('.team-card').forEach(card => {
@@ -2749,6 +2766,26 @@ if ($dbConnection) {
                     
                     // Ajouter la médaille au body
                     document.body.appendChild(medal);
+                }
+                
+                // Afficher l'encart du papier doré si trouvé (en dessous des points)
+                if (teamData && teamData.golden_paper_score > 0) {
+                    const rect = card.getBoundingClientRect();
+                    
+                    // Créer l'encart papier doré
+                    const goldPaperText = document.createElement('div');
+                    goldPaperText.className = 'gold-paper-text';
+                    goldPaperText.innerHTML = '🟨 Papier doré trouvé';
+                    goldPaperText.id = `gold-paper-${teamId}`;
+                    
+                    // Ajouter au body
+                    document.body.appendChild(goldPaperText);
+                    
+                    // Positionner le papier doré en dessous des points
+                    const goldPaperWidth = goldPaperText.offsetWidth;
+                    const startX = rect.left + (rect.width / 2) - (goldPaperWidth / 2);
+                    goldPaperText.style.left = `${startX}px`;
+                    goldPaperText.style.top = `${rect.top - 10}px`;
                 }
                 
                 // Afficher les points si l'énigme est résolue OU si il y a des points du papier doré
@@ -2793,6 +2830,15 @@ if ($dbConnection) {
                         
                         // Repositionner les points à droite du chrono
                         pointsText.style.left = `${newStartX + chronoWidth + 10}px`;
+                    }
+                    
+                    // Positionner le papier doré en dessous des points (s'il existe)
+                    if (teamData.golden_paper_score > 0) {
+                        const goldPaper = document.getElementById(`gold-paper-${teamId}`);
+                        if (goldPaper) {
+                            goldPaper.style.left = pointsText.style.left;
+                            goldPaper.style.top = `${rect.top + 2}px`;
+                        }
                     }
                 }
             });
@@ -2877,6 +2923,21 @@ if ($dbConnection) {
                         }
                     });
                     
+                    // Mettre à jour les positions des encarts papier doré
+                    document.querySelectorAll('.gold-paper-text').forEach(goldPaper => {
+                        const teamId = goldPaper.id.replace('gold-paper-', '');
+                        const card = document.querySelector(`[data-team-id="${teamId}"]`);
+                        const points = document.getElementById(`points-${teamId}`);
+                        
+                        if (card && points) {
+                            const rect = card.getBoundingClientRect();
+                            
+                            // Aligner l'encart papier doré avec les points (même X) et en dessous
+                            goldPaper.style.left = points.style.left;
+                            goldPaper.style.top = `${rect.top + 2}px`;
+                        }
+                    });
+                    
                     isUpdating = false;
                 });
             }, 16); // ~60fps
@@ -2897,7 +2958,7 @@ if ($dbConnection) {
                     }
                     
                     // Supprimer toutes les médailles et textes existants avant de recréer
-                    document.querySelectorAll('.ranking-medal, .ranking-text, .chrono-text').forEach(element => element.remove());
+                    document.querySelectorAll('.ranking-medal, .ranking-text, .chrono-text, .gold-paper-text').forEach(element => element.remove());
                     
                     // Sauvegarder les données pour les médailles
                     window.currentTeamsData = data.teams;
