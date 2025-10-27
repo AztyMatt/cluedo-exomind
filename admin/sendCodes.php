@@ -43,7 +43,7 @@ use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
 try {
-    $stmt = $dbConnection->prepare("SELECT id, firstname, lastname, email, activation_code FROM users ORDER BY id");
+    $stmt = $dbConnection->prepare("SELECT id, firstname, lastname, email, activation_code FROM users WHERE has_sent_activation_code = 0 ORDER BY id ASC");
     $stmt->execute();
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
@@ -165,6 +165,10 @@ try {
             
             $mail->send();
 
+            // Mettre à jour le flag has_sent_activation_code à true
+            $updateStmt = $dbConnection->prepare("UPDATE users SET has_sent_activation_code = 1 WHERE id = :id");
+            $updateStmt->execute([':id' => $user['id']]);
+
             $results[] = [
                 'email' => $to_email,
                 'name' => "$firstname $lastname",
@@ -175,6 +179,11 @@ try {
             $index++;
             
             error_log("✅ Email envoyé à $firstname $lastname ($to_email)");
+            
+            // Echo après chaque mail envoyé
+            echo "✅ Email envoyé avec succès à $firstname $lastname ($to_email)\n";
+            flush();
+            ob_flush();
             
         } catch (Exception $e) {
             $results[] = [
